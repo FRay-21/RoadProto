@@ -18,6 +18,7 @@
 #include "ui/ribbon/RibbonModel.h"
 
 #include <algorithm>
+#include <chrono>
 #include <cmath>
 #include <filesystem>
 #include <fstream>
@@ -921,6 +922,21 @@ void profileDmxFileRejectsNonFiniteRows()
     CHECK(std::fabs(parsed.samples[1].station - 20.0) < 1e-9);
 }
 
+void profileDmxFileSkipsStationHeader()
+{
+    using namespace roadproto::domain::profile;
+
+    const auto parsed = ProfileDmxFile::parseText(
+        L"ZH H\n"
+        L"0.00000000 21.25100000\n"
+        L"10.00000000 22.25100000\n");
+
+    CHECK(parsed.succeeded);
+    CHECK(parsed.samples.size() == 2);
+    CHECK(parsed.invalidLineCount == 0);
+    CHECK(std::fabs(parsed.samples[0].elevation - 21.251) < 1e-9);
+}
+
 void profileDmxFileParsesTextWithLeadingBom()
 {
     using namespace roadproto::domain::profile;
@@ -957,7 +973,8 @@ void profileDmxFileReadsTempFile()
 {
     using namespace roadproto::domain::profile;
 
-    const auto path = std::filesystem::temp_directory_path() / L"roadproto_profile_read_test.dmx";
+    const auto uniqueSuffix = std::to_wstring(std::chrono::steady_clock::now().time_since_epoch().count());
+    const auto path = std::filesystem::temp_directory_path() / (L"roadproto_profile_read_test_" + uniqueSuffix + L".dmx");
     {
         std::ofstream stream(path, std::ios::binary | std::ios::trunc);
         stream << "\xEF\xBB\xBF";
@@ -994,6 +1011,50 @@ void profileGradeGraphLayoutMapsStationAndElevation()
     CHECK(std::fabs(layout.baseElevation - 20.0) < 1e-9);
     CHECK(std::fabs(ProfileGradeGraphLayout::mapX(layout, 115.0) - 15.0) < 1e-9);
     CHECK(std::fabs(ProfileGradeGraphLayout::mapY(graph, layout, 23.5) - 35.0) < 1e-9);
+}
+
+void profileGradeGraphLayoutRejectsNonFiniteProperties()
+{
+    using namespace roadproto::domain::profile;
+
+    ProfileGradeGraphData nanGridGraph;
+    nanGridGraph.properties.gridSpacing = std::numeric_limits<double>::quiet_NaN();
+    nanGridGraph.groundSamples = {
+        ProfileGroundSample{100.0, 23.5},
+        ProfileGroundSample{120.0, 36.0},
+    };
+
+    const auto nanGridLayout = ProfileGradeGraphLayout::calculate(nanGridGraph);
+    CHECK(!nanGridLayout.succeeded);
+    CHECK(!nanGridLayout.errorMessage.empty());
+
+    ProfileGradeGraphData infScaleGraph;
+    infScaleGraph.properties.verticalScale = std::numeric_limits<double>::infinity();
+    infScaleGraph.groundSamples = {
+        ProfileGroundSample{100.0, 23.5},
+        ProfileGroundSample{120.0, 36.0},
+    };
+
+    const auto infScaleLayout = ProfileGradeGraphLayout::calculate(infScaleGraph);
+    CHECK(!infScaleLayout.succeeded);
+    CHECK(!infScaleLayout.errorMessage.empty());
+}
+
+void profileGradeGraphLayoutUsesGridIntervalForFlatProfileHeight()
+{
+    using namespace roadproto::domain::profile;
+
+    ProfileGradeGraphData graph;
+    graph.properties.gridSpacing = 10.0;
+    graph.properties.verticalScale = 10.0;
+    graph.groundSamples = {
+        ProfileGroundSample{100.0, 20.0},
+        ProfileGroundSample{120.0, 20.0},
+    };
+
+    const auto layout = ProfileGradeGraphLayout::calculate(graph);
+    CHECK(layout.succeeded);
+    CHECK(std::fabs(layout.graphHeight - 100.0) < 1e-9);
 }
 
 void profileGradeGraphLayoutRejectsNonFiniteGeometry()
@@ -1107,10 +1168,13 @@ int main()
     profileDmxFileParsesStationsAndKeepsDuplicates();
     profileDmxFileRejectsTooFewValidSamples();
     profileDmxFileRejectsNonFiniteRows();
+    profileDmxFileSkipsStationHeader();
     profileDmxFileParsesTextWithLeadingBom();
     profileDmxFileParsesTextWithLeadingUtf8BomBytes();
     profileDmxFileReadsTempFile();
     profileGradeGraphLayoutMapsStationAndElevation();
+    profileGradeGraphLayoutRejectsNonFiniteProperties();
+    profileGradeGraphLayoutUsesGridIntervalForFlatProfileHeight();
     profileGradeGraphLayoutRejectsNonFiniteGeometry();
     profileGradeGraphLayoutRejectsNonFiniteSamples();
     profileGradeGraphDataDefaultsToDmxFileSource();

@@ -28,6 +28,11 @@ ProfileGradeGraphLayoutResult ProfileGradeGraphLayout::calculate(const ProfileGr
         }
     }
 
+    if (!std::isfinite(graph.properties.gridSpacing) || !std::isfinite(graph.properties.verticalScale)) {
+        result.errorMessage = L"Profile grade graph layout properties must use finite grid spacing and vertical scale.";
+        return result;
+    }
+
     result.minStation = graph.groundSamples.front().station;
     result.maxStation = graph.groundSamples.front().station;
     result.minElevation = graph.groundSamples.front().elevation;
@@ -44,7 +49,8 @@ ProfileGradeGraphLayoutResult ProfileGradeGraphLayout::calculate(const ProfileGr
     const auto verticalScale = positiveOrDefault(graph.properties.verticalScale, 10.0);
     result.baseElevation = std::floor(result.minElevation / gridSpacing) * gridSpacing;
     result.graphWidth = result.maxStation - result.minStation;
-    result.graphHeight = (result.maxElevation - result.baseElevation) * verticalScale;
+    const auto elevationSpanForHeight = std::max(gridSpacing, result.maxElevation - result.baseElevation);
+    result.graphHeight = elevationSpanForHeight * verticalScale;
     if (!std::isfinite(result.graphWidth) || !std::isfinite(result.graphHeight)) {
         result.errorMessage = L"Profile grade graph layout dimensions must be finite.";
         return result;

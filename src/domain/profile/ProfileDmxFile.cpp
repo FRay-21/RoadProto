@@ -45,6 +45,30 @@ bool isCommentLine(const std::wstring& line)
     return line.size() >= 2 && line[0] == L'/' && line[1] == L'/';
 }
 
+wchar_t toAsciiUpper(wchar_t ch)
+{
+    if (ch >= L'a' && ch <= L'z') {
+        return static_cast<wchar_t>(ch - (L'a' - L'A'));
+    }
+    return ch;
+}
+
+bool equalsAsciiIgnoreCase(const std::wstring& value, const wchar_t* expected)
+{
+    std::size_t index = 0;
+    for (; expected[index] != L'\0'; ++index) {
+        if (index >= value.size() || toAsciiUpper(value[index]) != expected[index]) {
+            return false;
+        }
+    }
+    return index == value.size();
+}
+
+bool isDmxHeader(const std::wstring& stationToken, const std::wstring& elevationToken)
+{
+    return equalsAsciiIgnoreCase(stationToken, L"ZH") && equalsAsciiIgnoreCase(elevationToken, L"H");
+}
+
 double parseDoubleStrict(const std::wstring& text)
 {
     if (text.empty()) {
@@ -110,6 +134,10 @@ ProfileDmxParseResult ProfileDmxFile::parseText(const std::wstring& content)
         std::wstring extraToken;
         if (!(fields >> stationToken >> elevationToken) || (fields >> extraToken)) {
             ++result.invalidLineCount;
+            continue;
+        }
+
+        if (isDmxHeader(stationToken, elevationToken)) {
             continue;
         }
 

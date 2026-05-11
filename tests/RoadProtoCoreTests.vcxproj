@@ -60,6 +60,8 @@
     <ClCompile Include="..\src\domain\alignment\HorizontalAlignmentBuilder.cpp" />
     <ClCompile Include="..\src\domain\alignment\IcdAlignmentFile.cpp" />
     <ClCompile Include="..\src\domain\alignment\StationFormatter.cpp" />
+    <ClCompile Include="..\src\domain\profile\ProfileDmxFile.cpp" />
+    <ClCompile Include="..\src\domain\profile\ProfileGradeGraphLayout.cpp" />
     <ClCompile Include="..\src\domain\relation\EntityRelationManager.cpp" />
     <ClCompile Include="..\src\domain\terrain\TerrainMeshFile.cpp" />
     <ClCompile Include="..\src\domain\terrain\TerrainPointNormalizer.cpp" />

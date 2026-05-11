@@ -7,6 +7,8 @@
 #include "domain/alignment/HorizontalAlignmentBuilder.h"
 #include "domain/alignment/IcdAlignmentFile.h"
 #include "domain/alignment/StationFormatter.h"
+#include "domain/profile/ProfileDmxFile.h"
+#include "domain/profile/ProfileGradeGraphLayout.h"
 #include "domain/relation/EntityRelationManager.h"
 #include "domain/terrain/TerrainPointNormalizer.h"
 #include "domain/terrain/TerrainMeshFile.h"
@@ -864,6 +866,64 @@ void alignmentGripEditServiceMovesSharedControlAndPiGripOnce()
     CHECK(std::fabs(alignment.controlPoints[1].y - 40.0) < 1e-9);
 }
 
+void profileDmxFileParsesStationsAndKeepsDuplicates()
+{
+    using namespace roadproto::domain::profile;
+
+    const auto parsed = ProfileDmxFile::parseText(
+        L"  // comment\n"
+        L"0.00000000 21.25100000\n"
+        L"2.70000000 19.95400000\n"
+        L"2.70000000 19.93400000\n"
+        L"37123.456_2 36.12000000\n"
+        L"bad line\n");
+
+    CHECK(parsed.succeeded);
+    CHECK(parsed.samples.size() == 4);
+    CHECK(parsed.invalidLineCount == 1);
+    CHECK(std::fabs(parsed.samples[1].station - 2.7) < 1e-9);
+    CHECK(std::fabs(parsed.samples[2].station - 2.7) < 1e-9);
+    CHECK(std::fabs(parsed.samples[1].elevation - 19.954) < 1e-9);
+    CHECK(std::fabs(parsed.samples[2].elevation - 19.934) < 1e-9);
+    CHECK(parsed.samples[3].rawStationText == L"37123.456_2");
+    CHECK(parsed.samples[3].breakChainIndex == 2);
+}
+
+void profileDmxFileRejectsTooFewValidSamples()
+{
+    using namespace roadproto::domain::profile;
+
+    const auto parsed = ProfileDmxFile::parseText(
+        L"0.00000000 21.25100000\n"
+        L"bad line\n");
+
+    CHECK(!parsed.succeeded);
+    CHECK(parsed.samples.size() == 1);
+    CHECK(parsed.invalidLineCount == 1);
+    CHECK(!parsed.errorMessage.empty());
+}
+
+void profileGradeGraphLayoutMapsStationAndElevation()
+{
+    using namespace roadproto::domain::profile;
+
+    ProfileGradeGraphData graph;
+    graph.properties.gridSpacing = 10.0;
+    graph.properties.verticalScale = 10.0;
+    graph.groundSamples = {
+        ProfileGroundSample{100.0, 23.5},
+        ProfileGroundSample{120.0, 36.0},
+    };
+
+    const auto layout = ProfileGradeGraphLayout::calculate(graph);
+    CHECK(layout.succeeded);
+    CHECK(std::fabs(layout.minStation - 100.0) < 1e-9);
+    CHECK(std::fabs(layout.maxStation - 120.0) < 1e-9);
+    CHECK(std::fabs(layout.baseElevation - 20.0) < 1e-9);
+    CHECK(std::fabs(ProfileGradeGraphLayout::mapX(layout, 115.0) - 15.0) < 1e-9);
+    CHECK(std::fabs(ProfileGradeGraphLayout::mapY(graph, layout, 23.5) - 35.0) < 1e-9);
+}
+
 void alignmentCommandMetadataUsesExpectedNames()
 {
     roadproto::core::CommandRegistry commands;
@@ -914,6 +974,9 @@ int main()
     icdAlignmentFileMapsEngineeringCoordinatesToCadCoordinates();
     alignmentGripEditServiceRebuildsDraggedPiPreview();
     alignmentGripEditServiceMovesSharedControlAndPiGripOnce();
+    profileDmxFileParsesStationsAndKeepsDuplicates();
+    profileDmxFileRejectsTooFewValidSamples();
+    profileGradeGraphLayoutMapsStationAndElevation();
     alignmentCommandMetadataUsesExpectedNames();
 
     if (g_failures != 0) {

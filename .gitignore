@@ -47,6 +47,7 @@ project.nuget.cache
 *.nuget.dgspec.json
 
 # Logs and temporary files
+.worktrees/
 *.log
 *.tmp
 *.temp

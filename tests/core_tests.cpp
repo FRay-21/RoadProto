@@ -1,3 +1,4 @@
+#include "application/profile/ProfileGradeGraphCreateService.h"
 #include "application/terrain/TerrainUpdateSampleService.h"
 #include "core/command/CommandRegistry.h"
 #include "core/module/ModuleRegistry.h"
@@ -1288,6 +1289,104 @@ void profileGradeGraphLayoutMapYRejectsUnsupportedGraphVerticalScale()
     CHECK(!std::isfinite(ProfileGradeGraphLayout::mapY(graph, layout, 23.5)));
 }
 
+void profileGradeGraphCreateServiceBuildsDefaultGraphData()
+{
+    using namespace roadproto::application::profile;
+    using namespace roadproto::domain::profile;
+
+    ProfileGradeGraphCreateInput input;
+    input.sourceType = ProfileGroundSourceType::DmxFile;
+    input.roadName = L"K1";
+    input.roadCenterlineHandle = L"ABC";
+    input.terrainTinHandle = L"TIN42";
+    input.dmxFilePath = L"C:\\temp\\k1.dmx";
+    input.groundSamples = {
+        ProfileGroundSample{100.0, 23.5},
+        ProfileGroundSample{120.0, 36.0},
+    };
+
+    const ProfileGradeGraphCreateService service;
+    const auto result = service.build(input);
+
+    CHECK(result.succeeded);
+    CHECK(result.errorMessage.empty());
+    CHECK(result.graph.sourceType == ProfileGroundSourceType::DmxFile);
+    CHECK(result.graph.roadCenterlineHandle == L"ABC");
+    CHECK(result.graph.terrainTinHandle == L"TIN42");
+    CHECK(result.graph.dmxFilePath == L"C:\\temp\\k1.dmx");
+    CHECK(result.graph.groundSamples.size() == 2);
+    CHECK(std::fabs(result.graph.groundSamples[0].station - 100.0) < 1e-9);
+    CHECK(std::fabs(result.graph.groundSamples[1].elevation - 36.0) < 1e-9);
+    CHECK(result.graph.properties.graphName == L"K1\u62c9\u5761\u56fe");
+    CHECK(result.graph.properties.groundLineColorIndex == 4);
+    CHECK(std::fabs(result.graph.properties.groundLineWidth - 1.0) < 1e-9);
+    CHECK(std::fabs(result.graph.properties.groundLinePrecision - 10.0) < 1e-9);
+    CHECK(std::fabs(result.graph.properties.verticalScale - 10.0) < 1e-9);
+    CHECK(std::fabs(result.graph.properties.gridSpacing - 10.0) < 1e-9);
+}
+
+void profileGradeGraphCreateServiceUsesDefaultRoadName()
+{
+    using namespace roadproto::application::profile;
+    using namespace roadproto::domain::profile;
+
+    ProfileGradeGraphCreateInput input;
+    input.groundSamples = {
+        ProfileGroundSample{100.0, 23.5},
+        ProfileGroundSample{120.0, 36.0},
+    };
+
+    const ProfileGradeGraphCreateService service;
+    const auto result = service.build(input);
+
+    CHECK(result.succeeded);
+    CHECK(result.graph.properties.graphName == L"\u9053\u8def\u62c9\u5761\u56fe");
+}
+
+void profileGradeGraphCreateServiceRejectsTooFewSamples()
+{
+    using namespace roadproto::application::profile;
+    using namespace roadproto::domain::profile;
+
+    ProfileGradeGraphCreateInput input;
+    input.groundSamples = {
+        ProfileGroundSample{100.0, 23.5},
+    };
+
+    const ProfileGradeGraphCreateService service;
+    const auto result = service.build(input);
+
+    CHECK(!result.succeeded);
+    CHECK(!result.errorMessage.empty());
+}
+
+void profileGradeGraphCreateServiceRejectsInvalidLayoutSamples()
+{
+    using namespace roadproto::application::profile;
+    using namespace roadproto::domain::profile;
+
+    ProfileGradeGraphCreateInput sameStationInput;
+    sameStationInput.groundSamples = {
+        ProfileGroundSample{100.0, 23.5},
+        ProfileGroundSample{100.0, 36.0},
+    };
+
+    const ProfileGradeGraphCreateService service;
+    const auto sameStationResult = service.build(sameStationInput);
+    CHECK(!sameStationResult.succeeded);
+    CHECK(!sameStationResult.errorMessage.empty());
+
+    ProfileGradeGraphCreateInput nonFiniteInput;
+    nonFiniteInput.groundSamples = {
+        ProfileGroundSample{100.0, 23.5},
+        ProfileGroundSample{std::numeric_limits<double>::quiet_NaN(), 36.0},
+    };
+
+    const auto nonFiniteResult = service.build(nonFiniteInput);
+    CHECK(!nonFiniteResult.succeeded);
+    CHECK(!nonFiniteResult.errorMessage.empty());
+}
+
 void alignmentCommandMetadataUsesExpectedNames()
 {
     roadproto::core::CommandRegistry commands;
@@ -1361,6 +1460,10 @@ int main()
     profileGradeGraphPropertiesDefaultGroundLinePrecision();
     profileGradeGraphLayoutMapYUsesDefaultVerticalScale();
     profileGradeGraphLayoutMapYRejectsUnsupportedGraphVerticalScale();
+    profileGradeGraphCreateServiceBuildsDefaultGraphData();
+    profileGradeGraphCreateServiceUsesDefaultRoadName();
+    profileGradeGraphCreateServiceRejectsTooFewSamples();
+    profileGradeGraphCreateServiceRejectsInvalidLayoutSamples();
     alignmentCommandMetadataUsesExpectedNames();
 
     if (g_failures != 0) {

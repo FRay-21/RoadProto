@@ -21,6 +21,7 @@ artifacts\x64\Debug\RoadProtoCoreTests.exe
 - TIN 三角形查找与重心插值高程查询。
 - RMesh `.rmesh` 地形数模文件的写入、读取、Unicode 元数据回读和非法文件拒绝。
 - 回旋线公式、道路主点切线长、旧切线长保护、单交点五单元构建、多交点连续平曲线链构建、桩号格式化和无效平曲线参数拒绝。
+- 纵断面拉坡图领域规则：DMX 文件读取、断链桩号兼容、重复桩号保留、布局范围、纵向比例校验和创建服务默认属性。
 
 V0.1.6 继续保留 `TerrainMeshFile` 领域层测试，用于保证 `DN_TERRAIN_TIN_EXPORT` / `DN_TERRAIN_TIN_IMPORT` 依赖的跨 DWG 数模文件数据不会在读写中丢失。
 
@@ -44,3 +45,20 @@ AutoCAD 图形界面需要手工验证 `RD_ALIGN_CENTERLINE_CREATE`、`RD_ALIGN_
 - 夹点拖动起终点、交点、直缓点、缓圆点、圆曲线中点、圆缓点和缓直点时，道路中线应跟随鼠标连续预览；释放后五单元平曲线基本样式保持稳定。
 - `RD_ALIGN_CENTERLINE_EXPORT_ICD` 可将选中道路中线导出为 `.icd`。
 - `RD_ALIGN_CENTERLINE_IMPORT_ICD` 可导入包含 `1/2/3/4/5/6` 单元的 `.icd` 并生成道路中线实体；ICD 起点工程坐标应正确转换为 CAD 坐标，含 `5/6` 的导入实体应显示、保存、重开和再次导出正常。
+
+## V0.1.9 纵断面拉坡图验证范围
+
+核心测试覆盖 `ProfileDmxFile` 的 `.dmx` 注释跳过、桩号/高程读取、断链写法兼容、重复桩号保留和非法输入拒绝。
+
+核心测试覆盖 `ProfileGradeGraphLayout` 的桩号 X 方向 1:1 映射、纵向比例 1/10/100 映射、网格范围计算、非有限数值拒绝、无效网格间距拒绝和全样本桩号跨度为 0 时拒绝。
+
+核心测试覆盖 `ProfileGradeGraphCreateService` 的默认图名、默认属性、来源信息保存和无效样本拒绝。
+
+AutoCAD 图形界面需要手工验证 `RD_PROFILE_GRADE_GRAPH_CREATE`、`RD_PROFILE_GRADE_GRAPH_EDIT_HANDLE`、`RD_PROFILE_APPLY_DIALOG_FILE` 和 `DnProfileGradeGraphEntity`：
+
+- 选择有关联数模的道路中线后，可沿中线采样并创建纵断面拉坡图。
+- 道路中线没有可用数模时，可选择 `.dmx` 文件并创建纵断面拉坡图。
+- 创建后图中显示拉坡图名称、表头、网格线和青绿色地面线折线。
+- 双击拉坡图可打开 WPF 属性窗口，修改颜色、线宽、精度、纵向比例和网格间距后刷新实体。
+- DMX 来源实体点击“更新地面线”会重新读取保存的 DMX 文件路径；数模来源实体该按钮置灰。
+- 保存 DWG 后重开并 `REGEN`，拉坡图实体和属性保持正常。

@@ -36,6 +36,10 @@
 | 桩号格式化 | V0.1.7 原型，支持 `K0+000`、`K0+100` 等道路桩号文本 | `src/domain/alignment/StationFormatter.*` |
 | 道路中线自定义实体 | V0.1.8 原型，支持 DWG 持久化、分元素着色、引线桩号、特征点标注、参数标注和参数夹点动态预览，特征点不额外绘制小十字 | `src/cad_adapter/objectarx/alignment/DnRoadCenterlineEntity.*` |
 | 道路中线 WPF 参数窗口 | V0.1.8 原型，通过请求/响应文件 Bridge 编辑道路属性、数模关联、桩号间距和平曲线参数 | `src/ui/wpf/RoadProto.Terrain.UI/AlignmentCenterlineWindow.xaml` |
+| DMX 纵地面线文件读取 | V0.1.9 原型，支持 `.dmx` 桩号/高程读取、注释跳过、断链写法兼容、重复桩号保留和非法行拒绝 | `src/domain/profile/ProfileDmxFile.*` |
+| 纵断面拉坡图布局映射 | V0.1.9 原型，支持桩号 X 方向 1:1、纵向比例 1/10/100、网格范围和地面线图面坐标计算 | `src/domain/profile/ProfileGradeGraphLayout.*` |
+| 纵断面拉坡图自定义实体 | V0.1.9 原型，支持标题、表头、网格线、地面线折线、DWG 持久化、几何范围和变换 | `src/cad_adapter/objectarx/profile/DnProfileGradeGraphEntity.*` |
+| 纵断面拉坡图 WPF 属性 Bridge | V0.1.9 原型，通过请求/响应文件编辑显示属性，并支持 DMX 来源重新读取地面线 | `src/cad_adapter/objectarx/profile/ProfileGradeGraphDialogBridge.*` |
 
 ## 模块专用能力
 
@@ -45,6 +49,7 @@
 | 地形构网流程服务 | V0.1.6 原型 | `src/application/terrain/TerrainTinCreateService.*` |
 | 平交口模块注册 | V0.1 示例 | `src/modules/intersection/IntersectionModule.*` |
 | 平面设计模块注册 | V0.1.8 原型，注册平面布线、编辑平曲线参数、ICD 导入导出、双击 handle 编辑命令和 WPF 回写内部命令，并按功能文档分配业务文档路径 | `src/modules/alignment/AlignmentModule.*` |
+| 纵断面设计模块注册 | V0.1.9 原型，注册纵断面拉坡图创建、双击 handle 编辑、WPF 回写内部命令和 Ribbon 面板 | `src/modules/profile/ProfileModule.*` |
 
 ## 临时原型能力
 
@@ -62,3 +67,12 @@
 - `AlignmentDialogBridge` 是原型阶段 UI 解耦能力，通过请求/响应文件在 WPF 与 C++ ObjectARX 之间传递道路属性、数模 handle、桩号间距和多组平曲线参数。
 - 后续控制点实时预览、隐藏正式实体、防止旧实体短直线残留、处理 `Enter`/右键结束点取等行为属于 ObjectARX Adapter 层能力，不进入 WPF 业务逻辑。
 - 数模关联当前沉淀为 handle 关联能力；WPF 不直接读取自定义实体类型，后续高程查询由 C++ Adapter/Service 接管。
+
+## V0.1.9 纵断面拉坡图复用边界
+
+- `ProfileDmxFile` 是 DMX 纵地面线读取能力，可复用于后续纵断面地面线、竖曲线设计底图和数据导入。
+- `ProfileGradeGraphLayout` 是拉坡图图面映射能力，固定 X 方向桩号 1:1，Y 方向按纵向比例映射。
+- `ProfileGradeGraphCreateService` 负责把已准备好的道路信息和地面线样本组装为拉坡图数据，不依赖 ObjectARX。
+- `DnProfileGradeGraphEntity` 是 CAD 持久化和显示能力，负责标题、表头、网格线和地面线折线表达。
+- `ProfileGradeGraphDialogBridge` 是原型阶段 UI 解耦能力，通过请求/响应文件在 WPF 与 C++ ObjectARX 之间传递属性和 DMX 更新请求。
+- 数模来源的地面线当前在创建命令中按精度采样，属性窗口修改精度时可按保存 handle 重新采样；路线移动或数模更新后的自动重建需后续接入统一实体关系管理机制。

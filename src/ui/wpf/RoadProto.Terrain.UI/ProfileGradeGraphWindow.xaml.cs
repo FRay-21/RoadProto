@@ -8,6 +8,8 @@ namespace RoadProto.Terrain.UI;
 
 public partial class ProfileGradeGraphWindow : Window
 {
+    private const double MaxGroundLineWidth = 2.11;
+
     private static readonly List<ColorOption> GroundLineColors =
     [
         new("红色 / ACI 1", 1),
@@ -132,6 +134,12 @@ public partial class ProfileGradeGraphWindow : Window
             || !IsFinite(groundLineWidth) || !IsFinite(groundLinePrecision) || !IsFinite(gridSpacing))
         {
             ErrorTextBlock.Text = "线宽、精度和网格线间距必须大于 0。";
+            return false;
+        }
+
+        if (groundLineWidth > MaxGroundLineWidth)
+        {
+            ErrorTextBlock.Text = "地面线宽度不能超过 2.11mm。";
             return false;
         }
 

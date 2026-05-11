@@ -22,6 +22,7 @@
 #include <string>
 #include <utility>
 #include <vector>
+#include <algorithm>
 #include <cmath>
 #endif
 
@@ -32,6 +33,8 @@ namespace {
 
 using roadproto::application::profile::ProfileGradeGraphCreateInput;
 using roadproto::application::profile::ProfileGradeGraphCreateService;
+using roadproto::domain::alignment::AlignmentPoint2d;
+using roadproto::domain::alignment::AlignmentSamplePoint;
 using roadproto::domain::alignment::HorizontalAlignment;
 using roadproto::domain::alignment::RoadCenterlineProperties;
 using roadproto::domain::profile::ProfileDmxFile;
@@ -40,6 +43,11 @@ using roadproto::domain::profile::ProfileGradeGraphLayout;
 using roadproto::domain::profile::ProfileGradeGraphProperties;
 using roadproto::domain::profile::ProfileGroundSample;
 using roadproto::domain::profile::ProfileGroundSourceType;
+
+constexpr double kDefaultGroundLinePrecision = 10.0;
+constexpr double kStationEpsilon = 1e-8;
+constexpr double kMaxGroundLineWidth = 2.11;
+constexpr std::size_t kMaxTerrainProfileSamples = 50000;
 
 bool appendEntityToModelSpace(AcDbEntity* entity, AcDbObjectId& entityId)
 {
@@ -162,9 +170,148 @@ bool readRoadCenterline(
     return true;
 }
 
+bool isFinitePoint(const AlignmentPoint2d& point)
+{
+    return std::isfinite(point.x) && std::isfinite(point.y);
+}
+
+std::vector<AlignmentSamplePoint> collectAlignmentPathSamples(const HorizontalAlignment& alignment)
+{
+    std::vector<AlignmentSamplePoint> rawSamples;
+    for (const auto& element : alignment.elements) {
+        for (const auto& sample : element.samples) {
+            if (std::isfinite(sample.station) && isFinitePoint(sample.point)) {
+                rawSamples.push_back(sample);
+            }
+        }
+    }
+
+    std::sort(rawSamples.begin(), rawSamples.end(), [](const auto& left, const auto& right) {
+        return left.station < right.station;
+    });
+
+    std::vector<AlignmentSamplePoint> samples;
+    samples.reserve(rawSamples.size());
+    for (const auto& sample : rawSamples) {
+        if (samples.empty() || sample.station > samples.back().station + kStationEpsilon) {
+            samples.push_back(sample);
+        } else if (std::fabs(sample.station - samples.back().station) <= kStationEpsilon) {
+            samples.back() = sample;
+        }
+    }
+    return samples;
+}
+
+AlignmentPoint2d interpolateAlignmentPoint(
+    const std::vector<AlignmentSamplePoint>& samples,
+    double station)
+{
+    if (samples.empty()) {
+        return {};
+    }
+    if (station <= samples.front().station) {
+        return samples.front().point;
+    }
+    if (station >= samples.back().station) {
+        return samples.back().point;
+    }
+
+    for (std::size_t i = 1; i < samples.size(); ++i) {
+        const auto& previous = samples[i - 1];
+        const auto& next = samples[i];
+        if (station <= next.station + kStationEpsilon) {
+            const auto stationSpan = next.station - previous.station;
+            if (stationSpan <= kStationEpsilon) {
+                return next.point;
+            }
+
+            const auto t = std::clamp((station - previous.station) / stationSpan, 0.0, 1.0);
+            return AlignmentPoint2d{
+                previous.point.x + (next.point.x - previous.point.x) * t,
+                previous.point.y + (next.point.y - previous.point.y) * t};
+        }
+    }
+
+    return samples.back().point;
+}
+
+bool sampleTerrainAlongAlignment(
+    const HorizontalAlignment& alignment,
+    DnTerrainTinEntity* terrain,
+    double precision,
+    std::vector<ProfileGroundSample>& samples,
+    std::wstring& errorMessage)
+{
+    samples.clear();
+    if (terrain == nullptr) {
+        errorMessage = L"地形数模对象无效。";
+        return false;
+    }
+    if (!std::isfinite(precision) || precision <= 0.0) {
+        errorMessage = L"地面线精度必须大于 0。";
+        return false;
+    }
+
+    const auto pathSamples = collectAlignmentPathSamples(alignment);
+    if (pathSamples.size() < 2) {
+        errorMessage = L"道路中线没有足够的采样点。";
+        return false;
+    }
+
+    const auto startStation = pathSamples.front().station;
+    const auto endStation = pathSamples.back().station;
+    const auto stationSpan = endStation - startStation;
+    if (!std::isfinite(stationSpan) || stationSpan <= kStationEpsilon) {
+        errorMessage = L"道路中线桩号范围无效。";
+        return false;
+    }
+
+    const auto estimatedIntervals = stationSpan / precision;
+    if (!std::isfinite(estimatedIntervals)
+        || estimatedIntervals + 2.0 > static_cast<double>(kMaxTerrainProfileSamples)) {
+        errorMessage = L"地面线精度过小，采样点数量过多。";
+        return false;
+    }
+    const auto intervalCount = static_cast<std::size_t>(std::floor(estimatedIntervals));
+
+    auto appendSampleAt = [&](double station) {
+        const auto point = interpolateAlignmentPoint(pathSamples, station);
+        double elevation = 0.0;
+        if (!terrain->SampleElevation(point.x, point.y, elevation)) {
+            return;
+        }
+
+        ProfileGroundSample sample;
+        sample.station = station;
+        sample.elevation = elevation;
+        samples.push_back(std::move(sample));
+    };
+
+    double lastAttemptedStation = startStation;
+    for (std::size_t i = 0; i <= intervalCount; ++i) {
+        const auto station = startStation + static_cast<double>(i) * precision;
+        if (station > endStation - kStationEpsilon) {
+            break;
+        }
+        appendSampleAt(station);
+        lastAttemptedStation = station;
+    }
+    if (endStation - lastAttemptedStation > kStationEpsilon) {
+        appendSampleAt(endStation);
+    }
+
+    if (samples.size() < 2) {
+        samples.clear();
+        errorMessage = L"地形数模在道路中线经过位置未取得足够高程点。";
+        return false;
+    }
+    return true;
+}
+
 bool collectTerrainTinSamples(
     const HorizontalAlignment& alignment,
     const RoadCenterlineProperties& properties,
+    double precision,
     std::vector<ProfileGroundSample>& samples,
     std::wstring& terrainTinHandle)
 {
@@ -182,30 +329,57 @@ bool collectTerrainTinSamples(
         return false;
     }
 
-    samples.clear();
-    for (const auto& element : alignment.elements) {
-        for (const auto& samplePoint : element.samples) {
-            double elevation = 0.0;
-            if (!terrain->SampleElevation(samplePoint.point.x, samplePoint.point.y, elevation)) {
-                continue;
-            }
-
-            ProfileGroundSample sample;
-            sample.station = samplePoint.station;
-            sample.elevation = elevation;
-            samples.push_back(std::move(sample));
-        }
+    std::wstring errorMessage;
+    const auto sampled = sampleTerrainAlongAlignment(alignment, terrain, precision, samples, errorMessage);
+    if (sampled) {
+        terrainTinHandle = entityHandleText(terrain);
     }
-
-    terrainTinHandle = entityHandleText(terrain);
     terrain->close();
-    if (samples.size() < 2) {
+    if (!sampled) {
         samples.clear();
         terrainTinHandle.clear();
         return false;
     }
 
     return true;
+}
+
+bool collectTerrainTinSamplesFromHandles(
+    const std::wstring& roadCenterlineHandle,
+    const std::wstring& terrainTinHandle,
+    double precision,
+    std::vector<ProfileGroundSample>& samples,
+    std::wstring& errorMessage)
+{
+    AcDbObjectId centerlineId;
+    if (!resolveObjectIdFromHandle(roadCenterlineHandle, centerlineId)) {
+        errorMessage = L"未找到道路中线 handle 对应对象。";
+        return false;
+    }
+
+    HorizontalAlignment alignment;
+    RoadCenterlineProperties properties;
+    std::wstring ignoredCenterlineHandle;
+    if (!readRoadCenterline(centerlineId, alignment, properties, ignoredCenterlineHandle)) {
+        errorMessage = L"无法打开道路中线实体。";
+        return false;
+    }
+
+    AcDbObjectId terrainId;
+    if (!resolveObjectIdFromHandle(terrainTinHandle, terrainId)) {
+        errorMessage = L"未找到地形数模 handle 对应对象。";
+        return false;
+    }
+
+    DnTerrainTinEntity* terrain = nullptr;
+    if (acdbOpenObject(terrain, terrainId, AcDb::kForRead) != Acad::eOk || terrain == nullptr) {
+        errorMessage = L"无法打开地形数模实体。";
+        return false;
+    }
+
+    const auto sampled = sampleTerrainAlongAlignment(alignment, terrain, precision, samples, errorMessage);
+    terrain->close();
+    return sampled;
 }
 
 bool promptDmxFilePath(std::wstring& path, roadproto::cad_adapter::IEditor& editor)
@@ -277,8 +451,10 @@ bool validateGraphProperties(const ProfileGradeGraphProperties& properties, std:
         errorMessage = L"地面线颜色 ACI index 必须在 1 到 255 之间。";
         return false;
     }
-    if (!std::isfinite(properties.groundLineWidth) || properties.groundLineWidth <= 0.0) {
-        errorMessage = L"地面线宽度必须大于 0。";
+    if (!std::isfinite(properties.groundLineWidth)
+        || properties.groundLineWidth <= 0.0
+        || properties.groundLineWidth > kMaxGroundLineWidth) {
+        errorMessage = L"地面线宽度必须大于 0 且不超过 2.11mm。";
         return false;
     }
     if (!std::isfinite(properties.groundLinePrecision) || properties.groundLinePrecision <= 0.0) {
@@ -367,7 +543,12 @@ void runProfileGradeGraphCreateCommand()
     std::wstring terrainTinHandle;
     std::wstring dmxFilePath;
     std::vector<ProfileGroundSample> groundSamples;
-    if (collectTerrainTinSamples(alignment, centerlineProperties, groundSamples, terrainTinHandle)) {
+    if (collectTerrainTinSamples(
+            alignment,
+            centerlineProperties,
+            kDefaultGroundLinePrecision,
+            groundSamples,
+            terrainTinHandle)) {
         sourceType = ProfileGroundSourceType::TerrainTin;
     } else if (!loadDmxSamples(dmxFilePath, groundSamples, editor)) {
         return;
@@ -483,6 +664,7 @@ void runProfileApplyDialogFileCommand()
     }
 
     auto candidate = entity->graphData();
+    const auto previousPrecision = candidate.properties.groundLinePrecision;
     candidate.properties.graphName = response.graphName.empty()
         ? (candidate.properties.graphName.empty() ? L"拉坡图" : candidate.properties.graphName)
         : response.graphName;
@@ -510,6 +692,22 @@ void runProfileApplyDialogFileCommand()
         } else {
             editor.writeWarning(L"数模来源的拉坡图暂不支持从属性窗口更新地面线。");
         }
+    }
+
+    if (candidate.sourceType == ProfileGroundSourceType::TerrainTin
+        && std::fabs(candidate.properties.groundLinePrecision - previousPrecision) > kStationEpsilon) {
+        std::vector<ProfileGroundSample> resampledSamples;
+        if (!collectTerrainTinSamplesFromHandles(
+                candidate.roadCenterlineHandle,
+                candidate.terrainTinHandle,
+                candidate.properties.groundLinePrecision,
+                resampledSamples,
+                errorMessage)) {
+            entity->close();
+            editor.writeError(L"按新精度重新采样地面线失败: " + errorMessage);
+            return;
+        }
+        candidate.groundSamples = std::move(resampledSamples);
     }
 
     if (!validateGraphData(candidate, errorMessage)) {

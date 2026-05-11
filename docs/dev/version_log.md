@@ -363,6 +363,48 @@
 - WPF Bridge 当前采用临时请求/响应文件，后续可替换为更正式的进程内 Bridge。
 - 道路等级第一版仅保存属性，不驱动规范参数推荐；数模关联仅保存 handle，暂不执行纵断面取高。
 
+## v0.1.9
+
+- 日期：2026-05-11
+- ARX 文件：`RoadProto_v0.1.9_20260511_ProfileGradeGraph.arx`
+- 托管 Ribbon 插件：`RoadProto.Terrain.UI.dll`
+- 阶段：纵断面拉坡图原型
+- 是否可作为稳定测试版本：是。核心测试、ARX Debug/Release 构建和托管 Ribbon Debug/Release 构建已验证；完整 AutoCAD 图形界面的 Ribbon 点击、文件对话框、双击 WPF 弹窗、数模取高和 DWG 保存重开仍需人工点验。
+
+### 新增内容
+
+- 新增 `PROFILE` 纵断面设计模块，注册 `RD_PROFILE_GRADE_GRAPH_CREATE`、`RD_PROFILE_GRADE_GRAPH_EDIT_HANDLE` 和 `RD_PROFILE_APPLY_DIALOG_FILE`。
+- 新增 `ProfileDmxFile`，支持 `.dmx` 纵地面线文件读取、注释跳过、断链写法兼容、重复桩号保留和非法输入拒绝。
+- 新增 `ProfileGradeGraphModel`、`ProfileGradeGraphLayout` 和 `ProfileGradeGraphCreateService`，沉淀拉坡图数据模型、默认属性、纵向比例、网格范围和图面坐标映射。
+- 新增 `DnProfileGradeGraphEntity` 自定义实体，支持标题、表头、网格线、高程/桩号标注、地面线折线、DWG 持久化、几何范围和变换。
+- 新增 `RD_PROFILE_GRADE_GRAPH_CREATE` 流程：选择道路中线，优先使用关联数模采样高程；无可用数模时选择 `.dmx` 文件；点取插入点后创建纵断面拉坡图实体。
+- 新增 WPF 纵断面拉坡图属性窗口，支持修改名称、地面线颜色、线宽、精度、纵向比例和网格间距。
+- 新增 DMX 来源“更新地面线”能力，实体保存 DMX 文件路径并可在属性窗口中重新读取；数模来源更新按钮置灰。
+- 托管 Ribbon 新增 `纵断面设计` 面板和 `纵断面拉坡图` 按钮，并监听 `DNPROFILEGRADEGRAPHENTITY` 双击事件转发到 handle 编辑命令。
+
+### 修改内容
+
+- 更新 README 当前版本、命令说明、Ribbon 说明、加载示例和测试覆盖说明。
+- 更新纵断面设计模块文档、纵断面拉坡图创建业务文档、属性编辑业务文档、复用能力目录和测试说明。
+- 更新构建版本信息为 `v0.1.9_20260511_ProfileGradeGraph`。
+- 数模来源地面线改为按“地面线精度”沿道路中线重新取样；属性窗口修改精度后会按保存的道路中线和数模 handle 重新采样。
+- 地面线宽度校验与 AutoCAD lineweight 显示范围对齐，WPF 与 C++ 均限制为 `(0, 2.11]mm`。
+
+### 构建验证
+
+- 核心测试：`RoadProtoCoreTests.vcxproj` Debug 构建通过，`RoadProtoCoreTests.exe` 输出 `All RoadProto core tests passed.`。
+- Debug ARX：`artifacts/x64/Debug/RoadProto_v0.1.9_20260511_ProfileGradeGraph.arx` 构建通过，0 警告，0 错误。
+- Debug 托管 Ribbon：`artifacts/managed/Debug/net48/RoadProto.Terrain.UI.dll` 构建通过，0 警告，0 错误。
+- Release ARX：`artifacts/x64/Release/RoadProto_v0.1.9_20260511_ProfileGradeGraph.arx` 构建通过，0 警告，0 错误。
+- Release 托管 Ribbon：`artifacts/managed/Release/net48/RoadProto.Terrain.UI.dll` 构建通过，0 警告，0 错误。
+
+### 已知问题
+
+- 数模来源的更新按钮已置灰，路线移动或数模更新后的自动重建尚未接入统一实体关系管理机制。
+- `.dmx` 断链号当前只用于兼容读取，布局计算仍使用桩号数值部分。
+- WPF Bridge 当前采用临时请求/响应文件，后续可替换为更正式的进程内 Bridge。
+- Core Console 无法覆盖完整鼠标双击、文件对话框和 WPF 弹窗；这些路径需要在 AutoCAD 图形界面中人工验证。
+
 ## 记录模板
 
 ```markdown

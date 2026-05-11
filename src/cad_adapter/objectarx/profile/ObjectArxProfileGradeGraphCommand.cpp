@@ -7,8 +7,10 @@
 #include "cad_adapter/objectarx/ObjectArxSelectionSetGuard.h"
 #include "cad_adapter/objectarx/alignment/DnRoadCenterlineEntity.h"
 #include "cad_adapter/objectarx/profile/DnProfileGradeGraphEntity.h"
+#include "cad_adapter/objectarx/profile/ProfileGradeGraphDialogBridge.h"
 #include "cad_adapter/objectarx/terrain/DnTerrainTinEntity.h"
 #include "domain/profile/ProfileDmxFile.h"
+#include "domain/profile/ProfileGradeGraphLayout.h"
 
 #include "aced.h"
 #include "adscodes.h"
@@ -20,6 +22,7 @@
 #include <string>
 #include <utility>
 #include <vector>
+#include <cmath>
 #endif
 
 namespace roadproto::cad_adapter::objectarx::profile {
@@ -32,6 +35,9 @@ using roadproto::application::profile::ProfileGradeGraphCreateService;
 using roadproto::domain::alignment::HorizontalAlignment;
 using roadproto::domain::alignment::RoadCenterlineProperties;
 using roadproto::domain::profile::ProfileDmxFile;
+using roadproto::domain::profile::ProfileGradeGraphData;
+using roadproto::domain::profile::ProfileGradeGraphLayout;
+using roadproto::domain::profile::ProfileGradeGraphProperties;
 using roadproto::domain::profile::ProfileGroundSample;
 using roadproto::domain::profile::ProfileGroundSourceType;
 
@@ -260,6 +266,84 @@ std::wstring sourceTypeText(ProfileGroundSourceType sourceType)
         : L"DMX 文件";
 }
 
+bool isSupportedVerticalScale(double value)
+{
+    return value == 1.0 || value == 10.0 || value == 100.0;
+}
+
+bool validateGraphProperties(const ProfileGradeGraphProperties& properties, std::wstring& errorMessage)
+{
+    if (properties.groundLineColorIndex < 1 || properties.groundLineColorIndex > 255) {
+        errorMessage = L"地面线颜色 ACI index 必须在 1 到 255 之间。";
+        return false;
+    }
+    if (!std::isfinite(properties.groundLineWidth) || properties.groundLineWidth <= 0.0) {
+        errorMessage = L"地面线宽度必须大于 0。";
+        return false;
+    }
+    if (!std::isfinite(properties.groundLinePrecision) || properties.groundLinePrecision <= 0.0) {
+        errorMessage = L"地面线精度必须大于 0。";
+        return false;
+    }
+    if (!std::isfinite(properties.gridSpacing) || properties.gridSpacing <= 0.0) {
+        errorMessage = L"网格线间距必须大于 0。";
+        return false;
+    }
+    if (!std::isfinite(properties.verticalScale) || !isSupportedVerticalScale(properties.verticalScale)) {
+        errorMessage = L"纵向比例只支持 1:1、1:10 或 1:100。";
+        return false;
+    }
+    return true;
+}
+
+bool validateGraphData(const ProfileGradeGraphData& graph, std::wstring& errorMessage)
+{
+    if (!validateGraphProperties(graph.properties, errorMessage)) {
+        return false;
+    }
+
+    const auto layout = ProfileGradeGraphLayout::calculate(graph);
+    if (!layout.succeeded) {
+        errorMessage = layout.errorMessage.empty() ? L"纵断面拉坡图布局无效。" : layout.errorMessage;
+        return false;
+    }
+    return true;
+}
+
+bool queueDialogForProfileGradeGraph(AcDbObjectId entityId)
+{
+    auto& editor = app::ApplicationContext::instance().editor();
+
+    DnProfileGradeGraphEntity* entity = nullptr;
+    if (acdbOpenObject(entity, entityId, AcDb::kForRead) != Acad::eOk || entity == nullptr) {
+        editor.writeError(L"无法打开纵断面拉坡图实体。");
+        return false;
+    }
+
+    const auto graph = entity->graphData();
+    ProfileGradeGraphDialogRequest request;
+    request.handle = entityHandleText(entity);
+    request.roadCenterlineHandle = graph.roadCenterlineHandle;
+    request.terrainTinHandle = graph.terrainTinHandle;
+    request.graphName = graph.properties.graphName.empty() ? L"拉坡图" : graph.properties.graphName;
+    request.sourceType = graph.sourceType;
+    request.dmxFilePath = graph.dmxFilePath;
+    request.groundLineColorIndex = graph.properties.groundLineColorIndex;
+    request.groundLineWidth = graph.properties.groundLineWidth;
+    request.groundLinePrecision = graph.properties.groundLinePrecision;
+    request.verticalScale = graph.properties.verticalScale;
+    request.gridSpacing = graph.properties.gridSpacing;
+    request.sampleCount = graph.groundSamples.size();
+    entity->close();
+
+    std::wstring errorMessage;
+    if (!queueProfileGradeGraphWpfDialog(request, errorMessage)) {
+        editor.writeError(L"打开纵断面拉坡图 WPF 属性窗口失败: " + errorMessage);
+        return false;
+    }
+    return true;
+}
+
 void runProfileGradeGraphCreateCommand()
 {
     auto& editor = app::ApplicationContext::instance().editor();
@@ -340,14 +424,107 @@ void runProfileGradeGraphCreateCommand()
 
 void runProfileGradeGraphEditHandleCommand()
 {
-    app::ApplicationContext::instance().editor().writeMessage(
-        L"RD_PROFILE_GRADE_GRAPH_EDIT_HANDLE: 属性编辑入口将在后续任务实现。");
+    auto& editor = app::ApplicationContext::instance().editor();
+    ACHAR handleBuffer[64] = {};
+    if (acedGetString(Adesk::kFalse, L"\n纵断面拉坡图 handle: ", handleBuffer) != RTNORM) {
+        return;
+    }
+
+    AcDbObjectId entityId;
+    if (!resolveObjectIdFromHandle(handleBuffer, entityId)) {
+        editor.writeWarning(L"未找到 handle 对应的纵断面拉坡图实体。");
+        return;
+    }
+
+    DnProfileGradeGraphEntity* entity = nullptr;
+    if (acdbOpenObject(entity, entityId, AcDb::kForRead) != Acad::eOk || entity == nullptr) {
+        editor.writeError(L"无法打开纵断面拉坡图实体。");
+        return;
+    }
+    const auto isProfileGraph = entity->isKindOf(DnProfileGradeGraphEntity::desc());
+    entity->close();
+    if (!isProfileGraph) {
+        editor.writeWarning(L"handle 对应对象不是纵断面拉坡图实体。");
+        return;
+    }
+
+    queueDialogForProfileGradeGraph(entityId);
 }
 
 void runProfileApplyDialogFileCommand()
 {
-    app::ApplicationContext::instance().editor().writeMessage(
-        L"RD_PROFILE_APPLY_DIALOG_FILE: WPF 对话框回写入口将在后续任务实现。");
+    auto& editor = app::ApplicationContext::instance().editor();
+    ACHAR pathBuffer[1024] = {};
+    if (acedGetString(Adesk::kTrue, L"\nRoadProto profile grade graph dialog response file: ", pathBuffer) != RTNORM) {
+        return;
+    }
+
+    ProfileGradeGraphDialogResponse response;
+    std::wstring errorMessage;
+    if (!readProfileGradeGraphDialogResponse(pathBuffer, response, errorMessage)) {
+        editor.writeError(L"读取纵断面拉坡图对话框结果失败: " + errorMessage);
+        return;
+    }
+
+    if (!response.accepted) {
+        return;
+    }
+
+    AcDbObjectId entityId;
+    if (!resolveObjectIdFromHandle(response.handle, entityId)) {
+        editor.writeWarning(L"未找到对话框结果对应的纵断面拉坡图实体。");
+        return;
+    }
+
+    DnProfileGradeGraphEntity* entity = nullptr;
+    if (acdbOpenObject(entity, entityId, AcDb::kForWrite) != Acad::eOk || entity == nullptr) {
+        editor.writeError(L"无法打开纵断面拉坡图实体。");
+        return;
+    }
+
+    auto candidate = entity->graphData();
+    candidate.properties.graphName = response.graphName.empty()
+        ? (candidate.properties.graphName.empty() ? L"拉坡图" : candidate.properties.graphName)
+        : response.graphName;
+    candidate.properties.groundLineColorIndex = response.groundLineColorIndex;
+    candidate.properties.groundLineWidth = response.groundLineWidth;
+    candidate.properties.groundLinePrecision = response.groundLinePrecision;
+    candidate.properties.verticalScale = response.verticalScale;
+    candidate.properties.gridSpacing = response.gridSpacing;
+
+    if (response.updateGroundLineRequested) {
+        if (candidate.sourceType == ProfileGroundSourceType::DmxFile) {
+            if (candidate.dmxFilePath.empty()) {
+                entity->close();
+                editor.writeError(L"当前拉坡图没有保存 DMX 文件路径，无法更新地面线。");
+                return;
+            }
+
+            const auto parsed = ProfileDmxFile::read(candidate.dmxFilePath);
+            if (!parsed.succeeded) {
+                entity->close();
+                editor.writeError(parsed.errorMessage.empty() ? L"DMX 文件解析失败，地面线未更新。" : parsed.errorMessage);
+                return;
+            }
+            candidate.groundSamples = parsed.samples;
+        } else {
+            editor.writeWarning(L"数模来源的拉坡图暂不支持从属性窗口更新地面线。");
+        }
+    }
+
+    if (!validateGraphData(candidate, errorMessage)) {
+        entity->close();
+        editor.writeError(L"纵断面拉坡图参数无效: " + errorMessage);
+        return;
+    }
+
+    entity->setGraphData(candidate);
+    entity->recordGraphicsModified(true);
+    entity->close();
+    acedUpdateDisplay();
+    editor.writeMessage(response.updateGroundLineRequested
+        ? L"纵断面拉坡图属性和地面线已更新。"
+        : L"纵断面拉坡图属性已更新。");
 }
 
 #else

@@ -1111,22 +1111,31 @@ void profileGradeGraphLayoutRejectsUnsupportedVerticalScale()
     CHECK(!layout.errorMessage.empty());
 }
 
-void profileGradeGraphLayoutFallsBackForFiniteNonPositiveProperties()
+void profileGradeGraphLayoutRejectsNonPositiveGridSpacing()
 {
     using namespace roadproto::domain::profile;
 
-    ProfileGradeGraphData graph;
-    graph.properties.gridSpacing = 0.0;
-    graph.properties.verticalScale = 10.0;
-    graph.groundSamples = {
+    ProfileGradeGraphData zeroGridGraph;
+    zeroGridGraph.properties.gridSpacing = 0.0;
+    zeroGridGraph.groundSamples = {
         ProfileGroundSample{100.0, 23.5},
         ProfileGroundSample{120.0, 36.0},
     };
 
-    const auto layout = ProfileGradeGraphLayout::calculate(graph);
-    CHECK(layout.succeeded);
-    CHECK(std::fabs(layout.baseElevation - 20.0) < 1e-9);
-    CHECK(std::fabs(layout.graphHeight - 160.0) < 1e-9);
+    const auto zeroGridLayout = ProfileGradeGraphLayout::calculate(zeroGridGraph);
+    CHECK(!zeroGridLayout.succeeded);
+    CHECK(!zeroGridLayout.errorMessage.empty());
+
+    ProfileGradeGraphData negativeGridGraph;
+    negativeGridGraph.properties.gridSpacing = -1.0;
+    negativeGridGraph.groundSamples = {
+        ProfileGroundSample{100.0, 23.5},
+        ProfileGroundSample{120.0, 36.0},
+    };
+
+    const auto negativeGridLayout = ProfileGradeGraphLayout::calculate(negativeGridGraph);
+    CHECK(!negativeGridLayout.succeeded);
+    CHECK(!negativeGridLayout.errorMessage.empty());
 }
 
 void profileGradeGraphLayoutRejectsNonPositiveVerticalScale()
@@ -1342,7 +1351,7 @@ int main()
     profileGradeGraphLayoutMappedPointsPreserveInputOrderAndDuplicateStations();
     profileGradeGraphLayoutRejectsZeroStationSpan();
     profileGradeGraphLayoutRejectsUnsupportedVerticalScale();
-    profileGradeGraphLayoutFallsBackForFiniteNonPositiveProperties();
+    profileGradeGraphLayoutRejectsNonPositiveGridSpacing();
     profileGradeGraphLayoutRejectsNonPositiveVerticalScale();
     profileGradeGraphLayoutRejectsNonFiniteProperties();
     profileGradeGraphLayoutUsesGridIntervalForFlatProfileHeight();

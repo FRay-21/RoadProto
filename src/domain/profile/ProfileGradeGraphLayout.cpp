@@ -7,11 +7,6 @@
 namespace roadproto::domain::profile {
 namespace {
 
-double positiveOrDefault(double value, double fallback)
-{
-    return value > 0.0 ? value : fallback;
-}
-
 bool isSupportedVerticalScale(double value)
 {
     return value == 1.0 || value == 10.0 || value == 100.0;
@@ -39,6 +34,11 @@ ProfileGradeGraphLayoutResult ProfileGradeGraphLayout::calculate(const ProfileGr
         return result;
     }
 
+    if (graph.properties.gridSpacing <= 0.0) {
+        result.errorMessage = L"Profile grade graph grid spacing must be greater than zero.";
+        return result;
+    }
+
     result.minStation = graph.groundSamples.front().station;
     result.maxStation = graph.groundSamples.front().station;
     result.minElevation = graph.groundSamples.front().elevation;
@@ -51,7 +51,7 @@ ProfileGradeGraphLayoutResult ProfileGradeGraphLayout::calculate(const ProfileGr
         result.maxElevation = std::max(result.maxElevation, sample.elevation);
     }
 
-    const auto gridSpacing = positiveOrDefault(graph.properties.gridSpacing, 10.0);
+    const auto gridSpacing = graph.properties.gridSpacing;
     const auto verticalScale = graph.properties.verticalScale;
     if (!isSupportedVerticalScale(verticalScale)) {
         result.errorMessage = L"Profile grade graph vertical scale must be 1.0, 10.0, or 100.0.";

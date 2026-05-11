@@ -43,6 +43,7 @@ public sealed class AlignmentDialogCommands
             var dialogResult = window.ShowDialog();
             var response = window.Response ?? new AlignmentDialogResponse
             {
+                Action = AlignmentDialogAction.None,
                 Accepted = dialogResult == true,
                 Mode = request.Mode,
                 Handle = request.Handle,

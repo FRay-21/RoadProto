@@ -53,6 +53,7 @@ public static class AlignmentDialogFile
         var currentParameters = CurveParameterAt(curveParameters, response.CurveIndex);
         var lines = new List<string>
         {
+            Write("action", ActionText(response.Action)),
             Write("accepted", response.Accepted),
             Write("mode", ModeText(response.Mode)),
             Write("handle", response.Handle),
@@ -196,6 +197,13 @@ public static class AlignmentDialogFile
             AlignmentDialogMode.Properties => "properties",
             AlignmentDialogMode.Curve => "curve",
             _ => "full",
+        };
+
+    private static string ActionText(AlignmentDialogAction action)
+        => action switch
+        {
+            AlignmentDialogAction.PickTerrain => "pickTerrain",
+            _ => "none",
         };
 
     private static string Escape(string value)

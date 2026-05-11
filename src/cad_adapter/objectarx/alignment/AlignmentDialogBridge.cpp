@@ -101,6 +101,14 @@ AlignmentDialogMode parseMode(const std::wstring& value)
     return AlignmentDialogMode::Full;
 }
 
+AlignmentDialogAction parseAction(const std::wstring& value)
+{
+    if (value == L"pickTerrain") {
+        return AlignmentDialogAction::PickTerrain;
+    }
+    return AlignmentDialogAction::None;
+}
+
 std::string escapeValue(const std::wstring& value)
 {
     const auto utf8 = wideToUtf8(value);
@@ -363,6 +371,7 @@ bool readAlignmentDialogResponse(
     test.close();
 
     const auto values = readKeyValueFile(responsePath);
+    response.action = parseAction(valueOrDefault(values, L"action", L"none"));
     response.accepted = boolValue(values, L"accepted", false);
     response.mode = parseMode(valueOrDefault(values, L"mode", L"full"));
     response.handle = valueOrDefault(values, L"handle");

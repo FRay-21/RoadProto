@@ -9,6 +9,12 @@ public enum AlignmentDialogMode
     Full,
 }
 
+public enum AlignmentDialogAction
+{
+    None,
+    PickTerrain,
+}
+
 public sealed class AlignmentDialogRequest
 {
     public AlignmentDialogMode Mode { get; set; } = AlignmentDialogMode.Full;
@@ -31,6 +37,7 @@ public sealed class AlignmentDialogRequest
 
 public sealed class AlignmentDialogResponse
 {
+    public AlignmentDialogAction Action { get; set; } = AlignmentDialogAction.None;
     public bool Accepted { get; set; }
     public AlignmentDialogMode Mode { get; set; } = AlignmentDialogMode.Full;
     public string Handle { get; set; } = string.Empty;

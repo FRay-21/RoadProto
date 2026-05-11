@@ -389,6 +389,7 @@
 - 更新构建版本信息为 `v0.1.9_20260511_ProfileGradeGraph`。
 - 数模来源地面线改为按“地面线精度”沿道路中线重新取样；属性窗口修改精度后会按保存的道路中线和数模 handle 重新采样。
 - 地面线宽度校验与 AutoCAD lineweight 显示范围对齐，WPF 与 C++ 均限制为 `(0, 2.11]mm`。
+- 修正道路中线 WPF 属性窗口“选择数模”流程：WPF 不再直接调用 AutoCAD `Editor.GetEntity`，改为写出 `PickTerrain` 动作并关闭窗口，由 C++ ObjectARX Adapter 执行数模选择、类型校验、清空隐含选择集，再重新打开 WPF 窗口，避免在 WPF 模态窗口内重入 CAD Editor 导致崩溃。
 
 ### 构建验证
 

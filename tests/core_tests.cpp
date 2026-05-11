@@ -1011,6 +1011,31 @@ void profileGradeGraphLayoutRejectsNonFiniteGeometry()
     CHECK(!layout.errorMessage.empty());
 }
 
+void profileGradeGraphLayoutRejectsNonFiniteSamples()
+{
+    using namespace roadproto::domain::profile;
+
+    ProfileGradeGraphData nanStationGraph;
+    nanStationGraph.groundSamples = {
+        ProfileGroundSample{100.0, 23.5},
+        ProfileGroundSample{std::numeric_limits<double>::quiet_NaN(), 36.0},
+    };
+
+    const auto nanStationLayout = ProfileGradeGraphLayout::calculate(nanStationGraph);
+    CHECK(!nanStationLayout.succeeded);
+    CHECK(!nanStationLayout.errorMessage.empty());
+
+    ProfileGradeGraphData nanElevationGraph;
+    nanElevationGraph.groundSamples = {
+        ProfileGroundSample{100.0, 23.5},
+        ProfileGroundSample{120.0, std::numeric_limits<double>::quiet_NaN()},
+    };
+
+    const auto nanElevationLayout = ProfileGradeGraphLayout::calculate(nanElevationGraph);
+    CHECK(!nanElevationLayout.succeeded);
+    CHECK(!nanElevationLayout.errorMessage.empty());
+}
+
 void profileGradeGraphDataDefaultsToDmxFileSource()
 {
     using namespace roadproto::domain::profile;
@@ -1087,6 +1112,7 @@ int main()
     profileDmxFileReadsTempFile();
     profileGradeGraphLayoutMapsStationAndElevation();
     profileGradeGraphLayoutRejectsNonFiniteGeometry();
+    profileGradeGraphLayoutRejectsNonFiniteSamples();
     profileGradeGraphDataDefaultsToDmxFileSource();
     profileGradeGraphLayoutMapYUsesDefaultVerticalScale();
     alignmentCommandMetadataUsesExpectedNames();

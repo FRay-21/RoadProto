@@ -21,6 +21,13 @@ ProfileGradeGraphLayoutResult ProfileGradeGraphLayout::calculate(const ProfileGr
         return result;
     }
 
+    for (const auto& sample : graph.groundSamples) {
+        if (!std::isfinite(sample.station) || !std::isfinite(sample.elevation)) {
+            result.errorMessage = L"Profile grade graph samples must use finite station and elevation values.";
+            return result;
+        }
+    }
+
     result.minStation = graph.groundSamples.front().station;
     result.maxStation = graph.groundSamples.front().station;
     result.minElevation = graph.groundSamples.front().elevation;

@@ -16,6 +16,7 @@
 #include "domain/terrain/TerrainSurfaceQuery.h"
 #include "domain/terrain/TerrainTextElevationParser.h"
 #include "domain/terrain/TerrainTinBuilder.h"
+#include "modules/profile/ProfileModule.h"
 #include "ui/ribbon/RibbonModel.h"
 
 #include <algorithm>
@@ -105,6 +106,45 @@ void moduleRegistryRegistersCommandsAndRibbonPanels()
     modules.registerRibbon(ribbon);
     CHECK(ribbon.tab().panels.size() == 1);
     CHECK(ribbon.tab().panels.front().moduleCode == L"TEST");
+}
+
+void profileModuleRegistersCommandsAndRibbonPanel()
+{
+    roadproto::core::CommandRegistry commands;
+    roadproto::ui::RibbonModel ribbon;
+
+    auto module = roadproto::modules::profile::createProfileModule();
+    module.registerCommands(commands);
+    module.registerRibbon(ribbon);
+
+    const auto createCommand = commands.find(L"RD_PROFILE_GRADE_GRAPH_CREATE");
+    CHECK(createCommand.has_value());
+    CHECK(createCommand->moduleCode == L"PROFILE");
+    CHECK(createCommand->displayName == L"\u7eb5\u65ad\u9762\u62c9\u5761\u56fe");
+    CHECK(createCommand->businessDocPath == L"docs/business/profile/\u7eb5\u65ad\u9762\u62c9\u5761\u56fe_\u521b\u5efa.md");
+    CHECK(createCommand->ribbonAttachable);
+    CHECK(createCommand->isPrototype);
+    CHECK(createCommand->reusable);
+
+    const auto editHandleCommand = commands.find(L"RD_PROFILE_GRADE_GRAPH_EDIT_HANDLE");
+    CHECK(editHandleCommand.has_value());
+    CHECK(editHandleCommand->moduleCode == L"PROFILE");
+    CHECK(editHandleCommand->displayName == L"\u6309 handle \u7f16\u8f91\u7eb5\u65ad\u9762\u62c9\u5761\u56fe");
+    CHECK(editHandleCommand->businessDocPath == L"docs/business/profile/\u7eb5\u65ad\u9762\u62c9\u5761\u56fe_\u5c5e\u6027\u7f16\u8f91.md");
+    CHECK(!editHandleCommand->ribbonAttachable);
+    CHECK(!editHandleCommand->reusable);
+
+    const auto applyDialogFileCommand = commands.find(L"RD_PROFILE_APPLY_DIALOG_FILE");
+    CHECK(applyDialogFileCommand.has_value());
+    CHECK(applyDialogFileCommand->moduleCode == L"PROFILE");
+    CHECK(applyDialogFileCommand->displayName == L"\u5e94\u7528\u7eb5\u65ad\u9762\u62c9\u5761\u56fe\u5bf9\u8bdd\u6846\u7ed3\u679c");
+    CHECK(applyDialogFileCommand->businessDocPath == L"docs/business/profile/\u7eb5\u65ad\u9762\u62c9\u5761\u56fe_\u5c5e\u6027\u7f16\u8f91.md");
+    CHECK(!applyDialogFileCommand->ribbonAttachable);
+    CHECK(!applyDialogFileCommand->reusable);
+
+    CHECK(ribbon.tab().panels.size() == 1);
+    CHECK(ribbon.tab().panels.front().moduleCode == L"PROFILE");
+    CHECK(ribbon.tab().panels.front().title == L"\u7eb5\u65ad\u9762\u8bbe\u8ba1");
 }
 
 void relationManagerMarksDependentsForRebuild()
@@ -1414,6 +1454,7 @@ int main()
 {
     commandRegistryStoresMetadataAndRejectsDuplicates();
     moduleRegistryRegistersCommandsAndRibbonPanels();
+    profileModuleRegistersCommandsAndRibbonPanel();
     relationManagerMarksDependentsForRebuild();
     terrainSampleServiceCreatesRelationUpdateScenario();
     terrainTextElevationParserRecognizesSupportedForms();

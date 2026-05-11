@@ -4,6 +4,7 @@
 #include "core/version/VersionInfo.h"
 #include "modules/alignment/AlignmentModule.h"
 #include "modules/intersection/IntersectionModule.h"
+#include "modules/profile/ProfileModule.h"
 #include "modules/terrain/TerrainModule.h"
 #include "ui/ribbon/RibbonRegistrationService.h"
 
@@ -15,6 +16,7 @@ void registerBuiltInModules(core::ModuleRegistry& moduleRegistry)
 {
     moduleRegistry.registerModule(modules::terrain::createTerrainModule());
     moduleRegistry.registerModule(modules::alignment::createAlignmentModule());
+    moduleRegistry.registerModule(modules::profile::createProfileModule());
     moduleRegistry.registerModule(modules::intersection::createIntersectionModule());
 }
 

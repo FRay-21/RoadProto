@@ -85,6 +85,7 @@
     <ClCompile Include="..\modules\alignment\AlignmentModule.cpp" />
     <ClCompile Include="..\modules\terrain\TerrainModule.cpp" />
     <ClCompile Include="..\modules\intersection\IntersectionModule.cpp" />
+    <ClCompile Include="..\modules\profile\ProfileModule.cpp" />
     <ClCompile Include="..\ui\ribbon\RibbonModel.cpp" />
     <ClCompile Include="..\ui\ribbon\RibbonRegistrationService.cpp" />
     <ClCompile Include="..\cad_adapter\objectarx\ObjectArxCommandRegistrar.cpp" />
@@ -93,6 +94,7 @@
     <ClCompile Include="..\cad_adapter\objectarx\alignment\AlignmentDialogBridge.cpp" />
     <ClCompile Include="..\cad_adapter\objectarx\alignment\DnRoadCenterlineEntity.cpp" />
     <ClCompile Include="..\cad_adapter\objectarx\alignment\ObjectArxAlignmentCommand.cpp" />
+    <ClCompile Include="..\cad_adapter\objectarx\profile\ObjectArxProfileGradeGraphCommand.cpp" />
     <ClCompile Include="..\cad_adapter\objectarx\terrain\DnTerrainTinEntity.cpp" />
     <ClCompile Include="..\cad_adapter\objectarx\terrain\ObjectArxTerrainTinCommand.cpp" />
     <ClCompile Include="..\cad_adapter\objectarx\terrain\TerrainTinCreateDialog.cpp" />

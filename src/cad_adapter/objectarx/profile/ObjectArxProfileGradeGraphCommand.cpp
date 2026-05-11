@@ -24,6 +24,7 @@
 #include <vector>
 #include <algorithm>
 #include <cmath>
+#include <cwctype>
 #endif
 
 namespace roadproto::cad_adapter::objectarx::profile {
@@ -48,6 +49,26 @@ constexpr double kDefaultGroundLinePrecision = 10.0;
 constexpr double kStationEpsilon = 1e-8;
 constexpr double kMaxGroundLineWidth = 2.11;
 constexpr std::size_t kMaxTerrainProfileSamples = 50000;
+
+std::wstring trimDialogCommandPath(std::wstring path)
+{
+    while (!path.empty() && std::iswspace(path.front()) != 0) {
+        path.erase(path.begin());
+    }
+    while (!path.empty() && std::iswspace(path.back()) != 0) {
+        path.pop_back();
+    }
+
+    if (path.size() >= 2) {
+        const auto first = path.front();
+        const auto last = path.back();
+        if ((first == L'"' && last == L'"') || (first == L'\'' && last == L'\'')) {
+            path = path.substr(1, path.size() - 2);
+        }
+    }
+
+    return path;
+}
 
 bool appendEntityToModelSpace(AcDbEntity* entity, AcDbObjectId& entityId)
 {
@@ -642,7 +663,8 @@ void runProfileApplyDialogFileCommand()
 
     ProfileGradeGraphDialogResponse response;
     std::wstring errorMessage;
-    if (!readProfileGradeGraphDialogResponse(pathBuffer, response, errorMessage)) {
+    const auto responsePath = trimDialogCommandPath(pathBuffer);
+    if (!readProfileGradeGraphDialogResponse(responsePath, response, errorMessage)) {
         editor.writeError(L"读取纵断面拉坡图对话框结果失败: " + errorMessage);
         return;
     }

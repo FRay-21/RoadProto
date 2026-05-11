@@ -391,6 +391,7 @@
 - 地面线宽度校验与 AutoCAD lineweight 显示范围对齐，WPF 与 C++ 均限制为 `(0, 2.11]mm`。
 - 修正道路中线 WPF 属性窗口“选择数模”流程：WPF 不再直接调用 AutoCAD `Editor.GetEntity`，改为写出 `PickTerrain` 动作并关闭窗口，由 C++ ObjectARX Adapter 执行数模选择、类型校验、清空隐含选择集，再重新打开 WPF 窗口，避免在 WPF 模态窗口内重入 CAD Editor 导致崩溃。
 - 修正 WPF Bridge request 路径传递：`RD_ALIGN_SHOW_WPF_DIALOG` 和 `RD_PROFILE_SHOW_WPF_DIALOG` 不再通过命令行 `GetString` 读取 request 文件路径，改为读取 C++ 写出的 pending 文件，避免后续 `RD_*_APPLY_DIALOG_FILE` 命令被误读为 request 路径并报“路径中具有非法字符”。
+- 修正 WPF Bridge response 路径解析：`RD_ALIGN_APPLY_DIALOG_FILE` 和 `RD_PROFILE_APPLY_DIALOG_FILE` 在 C++ 端会去除命令参数首尾空白与包裹引号，避免临时响应文件路径被当作含引号文件名而读取失败。
 
 ### 构建验证
 

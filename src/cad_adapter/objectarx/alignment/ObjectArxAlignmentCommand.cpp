@@ -35,6 +35,26 @@ using domain::alignment::IcdAlignmentFile;
 
 AcDbObjectId g_entityHiddenDuringAlignmentPreview;
 
+std::wstring trimDialogCommandPath(std::wstring path)
+{
+    while (!path.empty() && std::iswspace(path.front()) != 0) {
+        path.erase(path.begin());
+    }
+    while (!path.empty() && std::iswspace(path.back()) != 0) {
+        path.pop_back();
+    }
+
+    if (path.size() >= 2) {
+        const auto first = path.front();
+        const auto last = path.back();
+        if ((first == L'"' && last == L'"') || (first == L'\'' && last == L'\'')) {
+            path = path.substr(1, path.size() - 2);
+        }
+    }
+
+    return path;
+}
+
 bool appendEntityToModelSpace(AcDbEntity* entity, AcDbObjectId& entityId)
 {
     AcDbDatabase* database = acdbHostApplicationServices()->workingDatabase();
@@ -773,7 +793,8 @@ void runAlignmentApplyDialogFileCommand()
 
     AlignmentDialogResponse response;
     std::wstring errorMessage;
-    if (!readAlignmentDialogResponse(pathBuffer, response, errorMessage)) {
+    const auto responsePath = trimDialogCommandPath(pathBuffer);
+    if (!readAlignmentDialogResponse(responsePath, response, errorMessage)) {
         editor.writeError(L"读取道路中线对话框结果失败: " + errorMessage);
         return;
     }

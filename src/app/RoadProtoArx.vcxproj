@@ -95,6 +95,7 @@
     <ClCompile Include="..\cad_adapter\objectarx\alignment\AlignmentDialogBridge.cpp" />
     <ClCompile Include="..\cad_adapter\objectarx\alignment\DnRoadCenterlineEntity.cpp" />
     <ClCompile Include="..\cad_adapter\objectarx\alignment\ObjectArxAlignmentCommand.cpp" />
+    <ClCompile Include="..\cad_adapter\objectarx\profile\DnProfileGradeGraphEntity.cpp" />
     <ClCompile Include="..\cad_adapter\objectarx\profile\ObjectArxProfileGradeGraphCommand.cpp" />
     <ClCompile Include="..\cad_adapter\objectarx\terrain\DnTerrainTinEntity.cpp" />
     <ClCompile Include="..\cad_adapter\objectarx\terrain\ObjectArxTerrainTinCommand.cpp" />

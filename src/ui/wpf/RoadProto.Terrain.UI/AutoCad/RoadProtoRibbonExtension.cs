@@ -29,6 +29,8 @@ public sealed class RoadProtoRibbonExtension : IExtensionApplication
     private const string AlignmentCurveEditButtonId = "ROADPROTO_RD_ALIGN_CURVE_PARAM_EDIT";
     private const string AlignmentExportIcdButtonId = "ROADPROTO_RD_ALIGN_CENTERLINE_EXPORT_ICD";
     private const string AlignmentImportIcdButtonId = "ROADPROTO_RD_ALIGN_CENTERLINE_IMPORT_ICD";
+    private const string ProfilePanelId = "ROADPROTO_PROFILE_PANEL";
+    private const string ProfileGradeGraphButtonId = "ROADPROTO_RD_PROFILE_GRADE_GRAPH_CREATE";
     private const string TerrainTinDxfName = "DNTERRAINTINENTITY";
     private const string RoadCenterlineDxfName = "DNROADCENTERLINEENTITY";
     private const string ProfileGradeGraphDxfName = "DNPROFILEGRADEGRAPHENTITY";
@@ -180,6 +182,27 @@ public sealed class RoadProtoRibbonExtension : IExtensionApplication
                 "导入中线 ICD",
                 "从 .icd 文件导入道路中线实体",
                 "RD_ALIGN_CENTERLINE_IMPORT_ICD "));
+        }
+
+        var profilePanel = tab.Panels.FirstOrDefault(item => item.Source.Id == ProfilePanelId);
+        if (profilePanel == null)
+        {
+            var source = new RibbonPanelSource
+            {
+                Id = ProfilePanelId,
+                Title = "纵断面设计",
+            };
+            profilePanel = new RibbonPanel { Source = source };
+            tab.Panels.Add(profilePanel);
+        }
+
+        if (!profilePanel.Source.Items.OfType<RibbonButton>().Any(item => item.Id == ProfileGradeGraphButtonId))
+        {
+            profilePanel.Source.Items.Add(CreateProfileCommandButton(
+                ProfileGradeGraphButtonId,
+                "纵断面拉坡图",
+                "选择道路中线并创建纵断面拉坡图",
+                "RD_PROFILE_GRADE_GRAPH_CREATE "));
         }
 
         tab.IsActive = true;
@@ -473,6 +496,25 @@ public sealed class RoadProtoRibbonExtension : IExtensionApplication
         };
     }
 
+    private static RibbonButton CreateProfileCommandButton(string id, string text, string toolTip, string command)
+    {
+        var icon = CreateProfileIcon();
+        return new RibbonButton
+        {
+            Id = id,
+            Text = text,
+            ShowText = true,
+            ShowImage = true,
+            Image = icon,
+            LargeImage = icon,
+            Size = RibbonItemSize.Standard,
+            Orientation = Orientation.Horizontal,
+            ToolTip = toolTip,
+            CommandParameter = command,
+            CommandHandler = new SendCommandHandler(),
+        };
+    }
+
     private static ImageSource CreateTerrainIcon()
     {
         var drawingGroup = new DrawingGroup();
@@ -511,6 +553,33 @@ public sealed class RoadProtoRibbonExtension : IExtensionApplication
             new SolidColorBrush(Color.FromRgb(250, 216, 61)),
             null,
             Geometry.Parse("M 7,16 L 10,18 L 7,20 Z M 14,4 L 17,6 L 14,8 Z")));
+        drawingGroup.Freeze();
+        return new DrawingImage(drawingGroup);
+    }
+
+    private static ImageSource CreateProfileIcon()
+    {
+        var drawingGroup = new DrawingGroup();
+        var gridPen = new Pen(new SolidColorBrush(Color.FromRgb(160, 168, 181)), 0.7);
+        var groundPen = new Pen(new SolidColorBrush(Color.FromRgb(52, 174, 91)), 1.4);
+        var gradePen = new Pen(new SolidColorBrush(Color.FromRgb(245, 112, 48)), 1.8);
+
+        drawingGroup.Children.Add(new GeometryDrawing(
+            null,
+            gridPen,
+            Geometry.Parse("M 4,5 L 4,21 M 10,5 L 10,21 M 16,5 L 16,21 M 22,5 L 22,21 M 2,9 L 23,9 M 2,15 L 23,15 M 2,21 L 23,21")));
+        drawingGroup.Children.Add(new GeometryDrawing(
+            null,
+            groundPen,
+            Geometry.Parse("M 2,14 C 5,11 8,16 11,13 S 17,8 22,12")));
+        drawingGroup.Children.Add(new GeometryDrawing(
+            null,
+            gradePen,
+            Geometry.Parse("M 3,19 L 9,16 L 14,17 L 21,7")));
+        drawingGroup.Children.Add(new GeometryDrawing(
+            new SolidColorBrush(Color.FromRgb(28, 115, 220)),
+            null,
+            Geometry.Parse("M 8,15 L 10,16 L 8,17 Z M 13,16 L 15,17 L 13,18 Z M 20,6 L 22,7 L 20,8 Z")));
         drawingGroup.Freeze();
         return new DrawingImage(drawingGroup);
     }

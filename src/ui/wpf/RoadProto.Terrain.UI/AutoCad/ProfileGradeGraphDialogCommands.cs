@@ -1,4 +1,6 @@
-using Autodesk.AutoCAD.EditorInput;
+using System.Diagnostics;
+using System.IO;
+using System.Text;
 using Autodesk.AutoCAD.Runtime;
 using RoadProto.Terrain.UI.Bridge;
 using CoreApplication = Autodesk.AutoCAD.ApplicationServices.Core.Application;
@@ -9,6 +11,9 @@ namespace RoadProto.Terrain.UI.AutoCad;
 
 public sealed class ProfileGradeGraphDialogCommands
 {
+    private static string PendingRequestPath
+        => Path.Combine(Path.GetTempPath(), $"RoadProtoProfileGradeGraphDialog_{Process.GetCurrentProcess().Id}.pending");
+
     [CommandMethod("RD_PROFILE_SHOW_WPF_DIALOG", CommandFlags.Session)]
     public void ShowProfileGradeGraphDialog()
     {
@@ -19,19 +24,22 @@ public sealed class ProfileGradeGraphDialogCommands
             return;
         }
 
-        var prompt = new PromptStringOptions("\nRoadProto profile grade graph dialog request file: ")
+        if (!File.Exists(PendingRequestPath))
         {
-            AllowSpaces = true,
-        };
-        var pathResult = editor.GetString(prompt);
-        if (pathResult.Status != PromptStatus.OK || string.IsNullOrWhiteSpace(pathResult.StringResult))
-        {
+            editor.WriteMessage("\nRoadProto profile grade graph dialog pending request path is missing.");
             return;
         }
 
         try
         {
-            var requestPath = pathResult.StringResult.Trim().Trim('"');
+            var requestPath = File.ReadAllText(PendingRequestPath, Encoding.UTF8).Trim().Trim('"');
+            File.Delete(PendingRequestPath);
+            if (string.IsNullOrWhiteSpace(requestPath))
+            {
+                editor.WriteMessage("\nRoadProto profile grade graph dialog request path is empty.");
+                return;
+            }
+
             var request = ProfileGradeGraphDialogFile.ReadRequest(requestPath);
             if (string.IsNullOrWhiteSpace(request.ResponsePath))
             {

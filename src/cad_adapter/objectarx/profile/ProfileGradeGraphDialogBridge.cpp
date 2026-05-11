@@ -4,7 +4,6 @@
 
 #include <Windows.h>
 
-#include <algorithm>
 #include <chrono>
 #include <cctype>
 #include <cstdlib>
@@ -122,10 +121,26 @@ std::wstring tempFilePath(const wchar_t* suffix)
     return (std::filesystem::path(tempPath) / name.str()).wstring();
 }
 
-std::wstring toCommandPath(std::wstring path)
+std::wstring pendingRequestPath()
 {
-    std::replace(path.begin(), path.end(), L'\\', L'/');
-    return path;
+    wchar_t tempPath[MAX_PATH] = {};
+    GetTempPathW(MAX_PATH, tempPath);
+
+    std::wstringstream name;
+    name << L"RoadProtoProfileGradeGraphDialog_" << GetCurrentProcessId() << L".pending";
+    return (std::filesystem::path(tempPath) / name.str()).wstring();
+}
+
+bool writePendingRequestPath(const std::wstring& requestPath, std::wstring& errorMessage)
+{
+    std::ofstream stream(std::filesystem::path(pendingRequestPath()), std::ios::binary);
+    if (!stream) {
+        errorMessage = L"Cannot write profile grade graph dialog pending request path.";
+        return false;
+    }
+
+    stream << wideToUtf8(requestPath);
+    return true;
 }
 
 void writeKeyValue(std::ostream& stream, const std::wstring& key, const std::wstring& value)
@@ -260,6 +275,9 @@ bool queueProfileGradeGraphWpfDialog(
     if (!writeRequestFile(request, requestPath, responsePath, errorMessage)) {
         return false;
     }
+    if (!writePendingRequestPath(requestPath, errorMessage)) {
+        return false;
+    }
 
     auto* document = acDocManager == nullptr ? nullptr : acDocManager->curDocument();
     if (document == nullptr) {
@@ -267,8 +285,7 @@ bool queueProfileGradeGraphWpfDialog(
         return false;
     }
 
-    const auto commandPath = toCommandPath(requestPath);
-    const std::wstring command = L"RD_PROFILE_SHOW_WPF_DIALOG \"" + commandPath + L"\"\n\n";
+    const std::wstring command = L"RD_PROFILE_SHOW_WPF_DIALOG\n";
     acDocManager->sendStringToExecute(document, command.c_str(), true, false, false);
     return true;
 }

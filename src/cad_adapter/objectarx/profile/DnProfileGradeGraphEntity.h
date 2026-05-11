@@ -31,6 +31,8 @@ protected:
 private:
     roadproto::domain::profile::ProfileGradeGraphData graphData_;
     AcGePoint3d insertionPoint_;
+    AcGeVector3d xAxis_;
+    AcGeVector3d yAxis_;
 };
 
 namespace roadproto::cad_adapter::objectarx {

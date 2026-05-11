@@ -38,6 +38,11 @@ ProfileGradeGraphLayoutResult ProfileGradeGraphLayout::calculate(const ProfileGr
     result.baseElevation = std::floor(result.minElevation / gridSpacing) * gridSpacing;
     result.graphWidth = result.maxStation - result.minStation;
     result.graphHeight = (result.maxElevation - result.baseElevation) * verticalScale;
+    if (!std::isfinite(result.graphWidth) || !std::isfinite(result.graphHeight)) {
+        result.errorMessage = L"Profile grade graph layout dimensions must be finite.";
+        return result;
+    }
+
     result.succeeded = true;
     return result;
 }

@@ -1,6 +1,7 @@
 #include "domain/profile/ProfileDmxFile.h"
 
 #include <algorithm>
+#include <cmath>
 #include <cwctype>
 #include <filesystem>
 #include <fstream>
@@ -12,16 +13,28 @@ namespace {
 
 std::wstring widenAscii(const std::string& value)
 {
-    return std::wstring(value.begin(), value.end());
+    std::wstring result;
+    result.reserve(value.size());
+    for (const unsigned char ch : value) {
+        result.push_back(static_cast<wchar_t>(ch));
+    }
+    return result;
 }
 
 bool isSpace(wchar_t ch)
 {
-    return std::iswspace(static_cast<std::wint_t>(ch)) != 0;
+    return ch == static_cast<wchar_t>(0xFEFF) || std::iswspace(static_cast<std::wint_t>(ch)) != 0;
 }
 
 std::wstring trim(std::wstring value)
 {
+    if (value.size() >= 3
+        && value[0] == static_cast<wchar_t>(0x00EF)
+        && value[1] == static_cast<wchar_t>(0x00BB)
+        && value[2] == static_cast<wchar_t>(0x00BF)) {
+        value.erase(0, 3);
+    }
+
     value.erase(value.begin(), std::find_if(value.begin(), value.end(), [](wchar_t ch) { return !isSpace(ch); }));
     value.erase(std::find_if(value.rbegin(), value.rend(), [](wchar_t ch) { return !isSpace(ch); }).base(), value.end());
     return value;
@@ -40,7 +53,7 @@ double parseDoubleStrict(const std::wstring& text)
 
     std::size_t parsed = 0;
     const auto value = std::stod(text, &parsed);
-    if (parsed != text.size()) {
+    if (parsed != text.size() || !std::isfinite(value)) {
         throw std::runtime_error("invalid number");
     }
     return value;

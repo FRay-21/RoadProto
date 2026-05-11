@@ -22,7 +22,7 @@ class ProfileGradeGraphLayout final {
 public:
     static ProfileGradeGraphLayoutResult calculate(const ProfileGradeGraphData& graph);
     static double mapX(const ProfileGradeGraphLayoutResult& layout, double station);
-    static double mapY(const ProfileGradeGraphLayoutResult& layout, double elevation, double verticalScale);
+    static double mapY(const ProfileGradeGraphLayoutResult& layout, double elevation, double verticalScale = 10.0);
     static double mapY(const ProfileGradeGraphData& graph, const ProfileGradeGraphLayoutResult& layout, double elevation);
 };
 

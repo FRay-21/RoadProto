@@ -22,6 +22,7 @@
 #include <filesystem>
 #include <fstream>
 #include <iostream>
+#include <limits>
 #include <string>
 
 namespace {
@@ -903,6 +904,77 @@ void profileDmxFileRejectsTooFewValidSamples()
     CHECK(!parsed.errorMessage.empty());
 }
 
+void profileDmxFileRejectsNonFiniteRows()
+{
+    using namespace roadproto::domain::profile;
+
+    const auto parsed = ProfileDmxFile::parseText(
+        L"0.00000000 21.25100000\n"
+        L"nan 22.00000000\n"
+        L"10.00000000 inf\n"
+        L"20.00000000 23.25100000\n");
+
+    CHECK(parsed.succeeded);
+    CHECK(parsed.samples.size() == 2);
+    CHECK(parsed.invalidLineCount == 2);
+    CHECK(std::fabs(parsed.samples[0].station - 0.0) < 1e-9);
+    CHECK(std::fabs(parsed.samples[1].station - 20.0) < 1e-9);
+}
+
+void profileDmxFileParsesTextWithLeadingBom()
+{
+    using namespace roadproto::domain::profile;
+
+    const auto parsed = ProfileDmxFile::parseText(
+        L"\ufeff0.00000000 21.25100000\n"
+        L"10.00000000 22.25100000\n");
+
+    CHECK(parsed.succeeded);
+    CHECK(parsed.samples.size() == 2);
+    CHECK(parsed.invalidLineCount == 0);
+    CHECK(std::fabs(parsed.samples.front().station - 0.0) < 1e-9);
+}
+
+void profileDmxFileParsesTextWithLeadingUtf8BomBytes()
+{
+    using namespace roadproto::domain::profile;
+
+    std::wstring content;
+    content.push_back(static_cast<wchar_t>(0x00EF));
+    content.push_back(static_cast<wchar_t>(0x00BB));
+    content.push_back(static_cast<wchar_t>(0x00BF));
+    content += L"0.00000000 21.25100000\n10.00000000 22.25100000\n";
+
+    const auto parsed = ProfileDmxFile::parseText(content);
+
+    CHECK(parsed.succeeded);
+    CHECK(parsed.samples.size() == 2);
+    CHECK(parsed.invalidLineCount == 0);
+    CHECK(std::fabs(parsed.samples.front().station - 0.0) < 1e-9);
+}
+
+void profileDmxFileReadsTempFile()
+{
+    using namespace roadproto::domain::profile;
+
+    const auto path = std::filesystem::temp_directory_path() / L"roadproto_profile_read_test.dmx";
+    {
+        std::ofstream stream(path, std::ios::binary | std::ios::trunc);
+        stream << "\xEF\xBB\xBF";
+        stream << "// comment\n";
+        stream << "0.00000000 21.25100000\n";
+        stream << "10.00000000 22.25100000\n";
+    }
+
+    const auto parsed = ProfileDmxFile::read(path.wstring());
+    CHECK(parsed.succeeded);
+    CHECK(parsed.samples.size() == 2);
+    CHECK(parsed.invalidLineCount == 0);
+    CHECK(std::fabs(parsed.samples[1].station - 10.0) < 1e-9);
+
+    std::filesystem::remove(path);
+}
+
 void profileGradeGraphLayoutMapsStationAndElevation()
 {
     using namespace roadproto::domain::profile;
@@ -922,6 +994,39 @@ void profileGradeGraphLayoutMapsStationAndElevation()
     CHECK(std::fabs(layout.baseElevation - 20.0) < 1e-9);
     CHECK(std::fabs(ProfileGradeGraphLayout::mapX(layout, 115.0) - 15.0) < 1e-9);
     CHECK(std::fabs(ProfileGradeGraphLayout::mapY(graph, layout, 23.5) - 35.0) < 1e-9);
+}
+
+void profileGradeGraphLayoutRejectsNonFiniteGeometry()
+{
+    using namespace roadproto::domain::profile;
+
+    ProfileGradeGraphData graph;
+    graph.groundSamples = {
+        ProfileGroundSample{100.0, 23.5},
+        ProfileGroundSample{std::numeric_limits<double>::infinity(), 36.0},
+    };
+
+    const auto layout = ProfileGradeGraphLayout::calculate(graph);
+    CHECK(!layout.succeeded);
+    CHECK(!layout.errorMessage.empty());
+}
+
+void profileGradeGraphDataDefaultsToDmxFileSource()
+{
+    using namespace roadproto::domain::profile;
+
+    ProfileGradeGraphData graph;
+    CHECK(graph.sourceType == ProfileGroundSourceType::DmxFile);
+}
+
+void profileGradeGraphLayoutMapYUsesDefaultVerticalScale()
+{
+    using namespace roadproto::domain::profile;
+
+    ProfileGradeGraphLayoutResult layout;
+    layout.baseElevation = 20.0;
+
+    CHECK(std::fabs(ProfileGradeGraphLayout::mapY(layout, 23.5) - 35.0) < 1e-9);
 }
 
 void alignmentCommandMetadataUsesExpectedNames()
@@ -976,7 +1081,14 @@ int main()
     alignmentGripEditServiceMovesSharedControlAndPiGripOnce();
     profileDmxFileParsesStationsAndKeepsDuplicates();
     profileDmxFileRejectsTooFewValidSamples();
+    profileDmxFileRejectsNonFiniteRows();
+    profileDmxFileParsesTextWithLeadingBom();
+    profileDmxFileParsesTextWithLeadingUtf8BomBytes();
+    profileDmxFileReadsTempFile();
     profileGradeGraphLayoutMapsStationAndElevation();
+    profileGradeGraphLayoutRejectsNonFiniteGeometry();
+    profileGradeGraphDataDefaultsToDmxFileSource();
+    profileGradeGraphLayoutMapYUsesDefaultVerticalScale();
     alignmentCommandMetadataUsesExpectedNames();
 
     if (g_failures != 0) {

@@ -27,7 +27,7 @@ struct ProfileGradeGraphProperties {
 };
 
 struct ProfileGradeGraphData {
-    ProfileGroundSourceType sourceType = ProfileGroundSourceType::TerrainTin;
+    ProfileGroundSourceType sourceType = ProfileGroundSourceType::DmxFile;
     std::wstring roadCenterlineHandle;
     std::wstring terrainTinHandle;
     std::wstring dmxFilePath;

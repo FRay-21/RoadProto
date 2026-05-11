@@ -6,7 +6,7 @@
 | 平面设计 | `ALIGNMENT` | `RD_ALIGN_` | 道路中线原型、WPF 编辑、夹点优化、元素链和 ICD 导入导出已实现；业务文档已按功能拆分 | `docs/modules/alignment.md` |
 | 立交设计 | `INTERCHANGE` | `RD_INTERCHANGE_` | 目录已预留 | 待补充 |
 | 平交口设计 | `INTERSECTION` | `RD_INTERSECTION_` | 示例模块已实现 | `docs/modules/intersection.md` |
-| 纵断面设计 | `PROFILE` | `RD_PROFILE_` | 目录已预留 | 待补充 |
+| 纵断面设计 | `PROFILE` | `RD_PROFILE_` | 纵断面拉坡图命令元数据和 C++ Ribbon model 已接入，实体、WPF 和可见 Ribbon 待后续任务补充 | `docs/modules/profile.md` |
 | 横断面设计 | `CROSS_SECTION` | `RD_SECTION_` | 目录已预留 | 待补充 |
 | 出图、出表、算量 | `DRAWING_QUANTITY` | `RD_DRAWING_` | 目录已预留 | 待补充 |
 | 辅助功能 | `UTILS` | `RD_UTIL_` | 目录已预留 | 待补充 |

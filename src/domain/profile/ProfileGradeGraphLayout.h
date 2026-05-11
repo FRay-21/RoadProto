@@ -3,8 +3,16 @@
 #include "domain/profile/ProfileGradeGraphModel.h"
 
 #include <string>
+#include <vector>
 
 namespace roadproto::domain::profile {
+
+struct ProfileGradeGraphMappedPoint {
+    double station = 0.0;
+    double elevation = 0.0;
+    double x = 0.0;
+    double y = 0.0;
+};
 
 struct ProfileGradeGraphLayoutResult {
     bool succeeded = false;
@@ -16,6 +24,7 @@ struct ProfileGradeGraphLayoutResult {
     double baseElevation = 0.0;
     double graphWidth = 0.0;
     double graphHeight = 0.0;
+    std::vector<ProfileGradeGraphMappedPoint> mappedPoints;
 };
 
 class ProfileGradeGraphLayout final {

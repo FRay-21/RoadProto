@@ -11,6 +11,11 @@ double positiveOrDefault(double value, double fallback)
     return value > 0.0 ? value : fallback;
 }
 
+bool isSupportedVerticalScale(double value)
+{
+    return value == 1.0 || value == 10.0 || value == 100.0;
+}
+
 } // namespace
 
 ProfileGradeGraphLayoutResult ProfileGradeGraphLayout::calculate(const ProfileGradeGraphData& graph)
@@ -47,6 +52,11 @@ ProfileGradeGraphLayoutResult ProfileGradeGraphLayout::calculate(const ProfileGr
 
     const auto gridSpacing = positiveOrDefault(graph.properties.gridSpacing, 10.0);
     const auto verticalScale = positiveOrDefault(graph.properties.verticalScale, 10.0);
+    if (!isSupportedVerticalScale(verticalScale)) {
+        result.errorMessage = L"Profile grade graph vertical scale must be 1.0, 10.0, or 100.0.";
+        return result;
+    }
+
     result.baseElevation = std::floor(result.minElevation / gridSpacing) * gridSpacing;
     result.graphWidth = result.maxStation - result.minStation;
     if (result.graphWidth <= 0.0) {
@@ -59,6 +69,15 @@ ProfileGradeGraphLayoutResult ProfileGradeGraphLayout::calculate(const ProfileGr
     if (!std::isfinite(result.graphWidth) || !std::isfinite(result.graphHeight)) {
         result.errorMessage = L"Profile grade graph layout dimensions must be finite.";
         return result;
+    }
+
+    result.mappedPoints.reserve(graph.groundSamples.size());
+    for (const auto& sample : graph.groundSamples) {
+        result.mappedPoints.push_back(ProfileGradeGraphMappedPoint{
+            sample.station,
+            sample.elevation,
+            sample.station - result.minStation,
+            (sample.elevation - result.baseElevation) * verticalScale});
     }
 
     result.succeeded = true;

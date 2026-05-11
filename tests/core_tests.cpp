@@ -877,18 +877,19 @@ void profileDmxFileParsesStationsAndKeepsDuplicates()
         L"0.00000000 21.25100000\n"
         L"2.70000000 19.95400000\n"
         L"2.70000000 19.93400000\n"
-        L"37123.456_2 36.12000000\n"
-        L"bad line\n");
+        L"37123.456_2 36.12000000\n");
 
     CHECK(parsed.succeeded);
     CHECK(parsed.samples.size() == 4);
-    CHECK(parsed.invalidLineCount == 1);
+    CHECK(parsed.invalidLineCount == 0);
+    CHECK(!parsed.samples[0].breakChainIndex.has_value());
     CHECK(std::fabs(parsed.samples[1].station - 2.7) < 1e-9);
     CHECK(std::fabs(parsed.samples[2].station - 2.7) < 1e-9);
     CHECK(std::fabs(parsed.samples[1].elevation - 19.954) < 1e-9);
     CHECK(std::fabs(parsed.samples[2].elevation - 19.934) < 1e-9);
     CHECK(parsed.samples[3].rawStationText == L"37123.456_2");
-    CHECK(parsed.samples[3].breakChainIndex == 2);
+    CHECK(parsed.samples[3].breakChainIndex.has_value());
+    CHECK(*parsed.samples[3].breakChainIndex == 2);
 }
 
 void profileDmxFileRejectsTooFewValidSamples()
@@ -905,6 +906,21 @@ void profileDmxFileRejectsTooFewValidSamples()
     CHECK(!parsed.errorMessage.empty());
 }
 
+void profileDmxFileRejectsInvalidRowsEvenWithEnoughSamples()
+{
+    using namespace roadproto::domain::profile;
+
+    const auto parsed = ProfileDmxFile::parseText(
+        L"0.00000000 21.25100000\n"
+        L"bad line\n"
+        L"10.00000000 22.25100000\n");
+
+    CHECK(!parsed.succeeded);
+    CHECK(parsed.samples.size() == 2);
+    CHECK(parsed.invalidLineCount == 1);
+    CHECK(!parsed.errorMessage.empty());
+}
+
 void profileDmxFileRejectsNonFiniteRows()
 {
     using namespace roadproto::domain::profile;
@@ -915,9 +931,10 @@ void profileDmxFileRejectsNonFiniteRows()
         L"10.00000000 inf\n"
         L"20.00000000 23.25100000\n");
 
-    CHECK(parsed.succeeded);
+    CHECK(!parsed.succeeded);
     CHECK(parsed.samples.size() == 2);
     CHECK(parsed.invalidLineCount == 2);
+    CHECK(!parsed.errorMessage.empty());
     CHECK(std::fabs(parsed.samples[0].station - 0.0) < 1e-9);
     CHECK(std::fabs(parsed.samples[1].station - 20.0) < 1e-9);
 }
@@ -1027,8 +1044,40 @@ void profileGradeGraphLayoutMapsStationAndElevation()
     CHECK(std::fabs(layout.minStation - 100.0) < 1e-9);
     CHECK(std::fabs(layout.maxStation - 120.0) < 1e-9);
     CHECK(std::fabs(layout.baseElevation - 20.0) < 1e-9);
+    CHECK(layout.mappedPoints.size() == 2);
+    CHECK(std::fabs(layout.mappedPoints[0].station - 100.0) < 1e-9);
+    CHECK(std::fabs(layout.mappedPoints[0].elevation - 23.5) < 1e-9);
+    CHECK(std::fabs(layout.mappedPoints[0].x - 0.0) < 1e-9);
+    CHECK(std::fabs(layout.mappedPoints[0].y - 35.0) < 1e-9);
+    CHECK(std::fabs(layout.mappedPoints[1].x - 20.0) < 1e-9);
+    CHECK(std::fabs(layout.mappedPoints[1].y - 160.0) < 1e-9);
     CHECK(std::fabs(ProfileGradeGraphLayout::mapX(layout, 115.0) - 15.0) < 1e-9);
     CHECK(std::fabs(ProfileGradeGraphLayout::mapY(graph, layout, 23.5) - 35.0) < 1e-9);
+}
+
+void profileGradeGraphLayoutMappedPointsPreserveInputOrderAndDuplicateStations()
+{
+    using namespace roadproto::domain::profile;
+
+    ProfileGradeGraphData graph;
+    graph.properties.gridSpacing = 10.0;
+    graph.properties.verticalScale = 10.0;
+    graph.groundSamples = {
+        ProfileGroundSample{100.0, 20.0},
+        ProfileGroundSample{110.0, 21.0},
+        ProfileGroundSample{110.0, 22.0},
+    };
+
+    const auto layout = ProfileGradeGraphLayout::calculate(graph);
+    CHECK(layout.succeeded);
+    CHECK(layout.mappedPoints.size() == 3);
+    CHECK(std::fabs(layout.mappedPoints[0].station - 100.0) < 1e-9);
+    CHECK(std::fabs(layout.mappedPoints[1].station - 110.0) < 1e-9);
+    CHECK(std::fabs(layout.mappedPoints[2].station - 110.0) < 1e-9);
+    CHECK(std::fabs(layout.mappedPoints[0].x - 0.0) < 1e-9);
+    CHECK(std::fabs(layout.mappedPoints[1].x - 10.0) < 1e-9);
+    CHECK(std::fabs(layout.mappedPoints[2].x - 10.0) < 1e-9);
+    CHECK(std::fabs(layout.mappedPoints[2].y - 20.0) < 1e-9);
 }
 
 void profileGradeGraphLayoutRejectsZeroStationSpan()
@@ -1039,6 +1088,22 @@ void profileGradeGraphLayoutRejectsZeroStationSpan()
     graph.groundSamples = {
         ProfileGroundSample{100.0, 23.5},
         ProfileGroundSample{100.0, 36.0},
+    };
+
+    const auto layout = ProfileGradeGraphLayout::calculate(graph);
+    CHECK(!layout.succeeded);
+    CHECK(!layout.errorMessage.empty());
+}
+
+void profileGradeGraphLayoutRejectsUnsupportedVerticalScale()
+{
+    using namespace roadproto::domain::profile;
+
+    ProfileGradeGraphData graph;
+    graph.properties.verticalScale = 2.0;
+    graph.groundSamples = {
+        ProfileGroundSample{100.0, 23.5},
+        ProfileGroundSample{120.0, 36.0},
     };
 
     const auto layout = ProfileGradeGraphLayout::calculate(graph);
@@ -1156,6 +1221,14 @@ void profileGradeGraphDataDefaultsToDmxFileSource()
     CHECK(graph.sourceType == ProfileGroundSourceType::DmxFile);
 }
 
+void profileGradeGraphPropertiesDefaultGroundLinePrecision()
+{
+    using namespace roadproto::domain::profile;
+
+    ProfileGradeGraphProperties properties;
+    CHECK(std::fabs(properties.groundLinePrecision - 10.0) < 1e-9);
+}
+
 void profileGradeGraphLayoutMapYUsesDefaultVerticalScale()
 {
     using namespace roadproto::domain::profile;
@@ -1218,6 +1291,7 @@ int main()
     alignmentGripEditServiceMovesSharedControlAndPiGripOnce();
     profileDmxFileParsesStationsAndKeepsDuplicates();
     profileDmxFileRejectsTooFewValidSamples();
+    profileDmxFileRejectsInvalidRowsEvenWithEnoughSamples();
     profileDmxFileRejectsNonFiniteRows();
     profileDmxFileIgnoresBlankLines();
     profileDmxFileSkipsStationHeader();
@@ -1225,13 +1299,16 @@ int main()
     profileDmxFileParsesTextWithLeadingUtf8BomBytes();
     profileDmxFileReadsTempFile();
     profileGradeGraphLayoutMapsStationAndElevation();
+    profileGradeGraphLayoutMappedPointsPreserveInputOrderAndDuplicateStations();
     profileGradeGraphLayoutRejectsZeroStationSpan();
+    profileGradeGraphLayoutRejectsUnsupportedVerticalScale();
     profileGradeGraphLayoutFallsBackForFiniteNonPositiveProperties();
     profileGradeGraphLayoutRejectsNonFiniteProperties();
     profileGradeGraphLayoutUsesGridIntervalForFlatProfileHeight();
     profileGradeGraphLayoutRejectsNonFiniteGeometry();
     profileGradeGraphLayoutRejectsNonFiniteSamples();
     profileGradeGraphDataDefaultsToDmxFileSource();
+    profileGradeGraphPropertiesDefaultGroundLinePrecision();
     profileGradeGraphLayoutMapYUsesDefaultVerticalScale();
     alignmentCommandMetadataUsesExpectedNames();
 

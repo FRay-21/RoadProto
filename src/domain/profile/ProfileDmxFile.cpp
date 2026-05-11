@@ -148,8 +148,10 @@ ProfileDmxParseResult ProfileDmxFile::parseText(const std::wstring& content)
         }
     }
 
-    result.succeeded = result.samples.size() >= 2;
-    if (!result.succeeded) {
+    result.succeeded = result.invalidLineCount == 0 && result.samples.size() >= 2;
+    if (result.invalidLineCount > 0) {
+        result.errorMessage = L"DMX file contains invalid ground sample rows.";
+    } else if (!result.succeeded) {
         result.errorMessage = L"At least two valid DMX ground samples are required.";
     }
     return result;

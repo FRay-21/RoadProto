@@ -1,5 +1,6 @@
 #pragma once
 
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -14,14 +15,14 @@ struct ProfileGroundSample {
     double station = 0.0;
     double elevation = 0.0;
     std::wstring rawStationText;
-    int breakChainIndex = 0;
+    std::optional<int> breakChainIndex;
 };
 
 struct ProfileGradeGraphProperties {
     std::wstring graphName = L"拉坡图";
     int groundLineColorIndex = 4;
     double groundLineWidth = 1.0;
-    double sampleInterval = 10.0;
+    double groundLinePrecision = 10.0;
     double verticalScale = 10.0;
     double gridSpacing = 10.0;
 };

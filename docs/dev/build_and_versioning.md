@@ -6,6 +6,8 @@
 
 - IDE：`D:\Program Files\Microsoft Visual Studio\18\Insiders\Common7\IDE\devenv.exe`
 - MSBuild：`D:\Program Files\Microsoft Visual Studio\18\Insiders\MSBuild\Current\Bin\amd64\MSBuild.exe`
+- Git 仓库：`https://github.com/FrFrFr123/RoadProto.git`
+- 当前 PowerShell 若找不到 `git`，优先使用 VS2026 Insiders 自带 Git：`D:\Program Files\Microsoft Visual Studio\18\Insiders\Common7\IDE\CommonExtensions\Microsoft\TeamFoundation\Team Explorer\Git\cmd\git.exe`
 
 命令行构建示例：
 
@@ -13,11 +15,18 @@
 & "D:\Program Files\Microsoft Visual Studio\18\Insiders\MSBuild\Current\Bin\amd64\MSBuild.exe" RoadProto.sln /p:Configuration=Release /p:Platform=x64
 ```
 
+Git 命令示例：
+
+```powershell
+& "D:\Program Files\Microsoft Visual Studio\18\Insiders\Common7\IDE\CommonExtensions\Microsoft\TeamFoundation\Team Explorer\Git\cmd\git.exe" status --short
+```
+
 注意：
 
 - 使用 VS2026 只代表本机优先编译入口，不代表项目升级 AutoCAD 或 ObjectARX 目标版本。
 - 当前 CAD 目标仍是 AutoCAD 2021 x64 / ObjectARX 2021，工程平台工具集按项目文件配置执行。
 - 如果 VS2026 缺少当前工程所需兼容工具集，可临时退回已安装的兼容 MSBuild，但需要在提交说明或版本记录中写明原因。
+- 不要因为 `git` 未加入 PATH 就要求用户重复提供仓库 URL；先使用上面的 VS2026 自带 Git 路径。
 
 ## 运行期内存排查
 

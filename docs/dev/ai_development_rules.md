@@ -16,6 +16,7 @@
 - 可复用能力必须记录到 `docs/reuse`。
 - 每次形成可构建版本后都要更新 `docs/dev/version_log.md`。
 - 本机编译优先使用 VS2026 Insiders：`D:\Program Files\Microsoft Visual Studio\18\Insiders\Common7\IDE`；命令行优先使用 `D:\Program Files\Microsoft Visual Studio\18\Insiders\MSBuild\Current\Bin\amd64\MSBuild.exe`。
+- Git 仓库 URL 固定为 `https://github.com/FrFrFr123/RoadProto.git`；当前 PowerShell 若找不到 `git`，优先使用 VS2026 Insiders 自带 Git：`D:\Program Files\Microsoft Visual Studio\18\Insiders\Common7\IDE\CommonExtensions\Microsoft\TeamFoundation\Team Explorer\Git\cmd\git.exe`。
 - 编译工具链可以更新，AutoCAD 2021 / ObjectARX 2021 目标不能随意升级。
 
 ## 新增功能流程

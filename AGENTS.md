@@ -77,6 +77,28 @@ RoadProto 采用“C++ ObjectARX 核心 + 可替换 UI 层”的架构原则。
 - 当前 RoadProto 原型阶段，用户参数窗口、编辑窗口、设置窗口和二级配置窗口先统一使用 WPF 实现。不得新增 C++ Win32/MFC 参数对话框作为当前阶段的正式交互；已有 C++ 临时对话框只能作为历史兼容，后续修改或重做时应优先迁移到 WPF。
 - 所有可复用能力必须沉淀在 C++ Service / Entity / Data 层，确保后续 UI 从 WPF 替换为 MFC、Qt、AutoCAD Palette、其他 UI 技术栈或 EICAD 正式 UI 时，核心能力仍可复用。
 
+## Git 仓库与本机 Git
+
+本项目 Git 仓库 URL 固定为：
+
+```text
+https://github.com/FrFrFr123/RoadProto.git
+```
+
+当前 PowerShell 环境如果找不到 `git` 命令，优先使用 Visual Studio 2026 Insiders 自带 Git：
+
+```text
+D:\Program Files\Microsoft Visual Studio\18\Insiders\Common7\IDE\CommonExtensions\Microsoft\TeamFoundation\Team Explorer\Git\cmd\git.exe
+```
+
+例如：
+
+```powershell
+& "D:\Program Files\Microsoft Visual Studio\18\Insiders\Common7\IDE\CommonExtensions\Microsoft\TeamFoundation\Team Explorer\Git\cmd\git.exe" status --short
+```
+
+不要因为 `git` 未加入 PATH 就要求用户重复提供仓库 URL；先按上面的本机 Git 路径执行。
+
 ## 本机编译与运行排查规则
 
 本项目在本机优先使用 Visual Studio 2026 Insiders 编译：

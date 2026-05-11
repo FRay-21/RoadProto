@@ -34,6 +34,10 @@ namespace {
 
 constexpr Adesk::Int16 kEntityVersion = 2;
 constexpr Adesk::Int32 kMaxPersistedSamples = 1000000;
+constexpr int kMaxGridLines = 2000;
+constexpr double kMinAxisLength = 1.0e-9;
+constexpr double kMaxAxisLength = 1.0e9;
+constexpr double kMinAxisSine = 1.0e-6;
 constexpr double kTextHeight = 2.5;
 constexpr double kTitleOffset = 8.0;
 constexpr double kTableHeaderHeight = 10.0;
@@ -80,6 +84,39 @@ bool isValidSourceType(Adesk::Int32 value)
         || value == static_cast<Adesk::Int32>(ProfileGroundSourceType::DmxFile);
 }
 
+bool isFiniteVector(const AcGeVector3d& vector)
+{
+    return std::isfinite(vector.x) && std::isfinite(vector.y) && std::isfinite(vector.z);
+}
+
+void resetDefaultAxes(AcGeVector3d& xAxis, AcGeVector3d& yAxis)
+{
+    xAxis = AcGeVector3d(1.0, 0.0, 0.0);
+    yAxis = AcGeVector3d(0.0, 1.0, 0.0);
+}
+
+bool areAxesUsable(const AcGeVector3d& xAxis, const AcGeVector3d& yAxis)
+{
+    if (!isFiniteVector(xAxis) || !isFiniteVector(yAxis)) {
+        return false;
+    }
+
+    const auto xLength = xAxis.length();
+    const auto yLength = yAxis.length();
+    if (!std::isfinite(xLength) || !std::isfinite(yLength)
+        || xLength < kMinAxisLength || yLength < kMinAxisLength
+        || xLength > kMaxAxisLength || yLength > kMaxAxisLength) {
+        return false;
+    }
+
+    const auto crossLength = xAxis.crossProduct(yAxis).length();
+    if (!std::isfinite(crossLength)) {
+        return false;
+    }
+
+    return crossLength / (xLength * yLength) >= kMinAxisSine;
+}
+
 AcGePoint3d graphPoint(const AcGePoint3d& origin, const AcGeVector3d& xAxis, const AcGeVector3d& yAxis, double x, double y)
 {
     return origin + xAxis * x + yAxis * y;
@@ -113,7 +150,8 @@ AcDb::LineWeight lineWeightFromMillimeters(double width)
         return AcDb::kLnWtByLayer;
     }
 
-    const auto hundredthsOfMillimeter = static_cast<int>(std::round(width * 100.0));
+    const auto clampedWidth = std::clamp(width, 0.0, 2.11);
+    const auto hundredthsOfMillimeter = static_cast<int>(std::round(clampedWidth * 100.0));
     return AcDbDatabase::getNearestLineWeight(hundredthsOfMillimeter);
 }
 
@@ -122,6 +160,24 @@ void markGraphicsModifiedIfResident(AcDbEntity& entity)
     if (!entity.objectId().isNull()) {
         entity.recordGraphicsModified(true);
     }
+}
+
+int boundedIterationCount(double start, double end, double step)
+{
+    if (!std::isfinite(start) || !std::isfinite(end) || !std::isfinite(step) || step <= 0.0) {
+        return -1;
+    }
+
+    if (start > end + 1e-9) {
+        return 0;
+    }
+
+    const auto rawCount = std::floor((end - start) / step) + 1.0;
+    if (!std::isfinite(rawCount) || rawCount < 0.0 || rawCount > static_cast<double>(kMaxGridLines)) {
+        return -1;
+    }
+
+    return static_cast<int>(rawCount);
 }
 
 void drawLine(
@@ -191,13 +247,17 @@ void drawGrid(
 
     worldDraw->subEntityTraits().setColor(8);
     const auto topElevation = std::ceil(layout.maxElevation / gridSpacing) * gridSpacing;
-    for (double elevation = layout.baseElevation; elevation <= topElevation + 1e-9; elevation += gridSpacing) {
+    const auto horizontalCount = boundedIterationCount(layout.baseElevation, topElevation, gridSpacing);
+    for (int i = 0; i < horizontalCount; ++i) {
+        const auto elevation = layout.baseElevation + static_cast<double>(i) * gridSpacing;
         const auto y = (elevation - layout.baseElevation) * verticalScale;
         drawLine(worldDraw, origin, xAxis, yAxis, 0.0, y, layout.graphWidth, y);
     }
 
     const auto firstStation = std::ceil(layout.minStation / kStationGridSpacing) * kStationGridSpacing;
-    for (double station = firstStation; station <= layout.maxStation + 1e-9; station += kStationGridSpacing) {
+    const auto verticalCount = boundedIterationCount(firstStation, layout.maxStation, kStationGridSpacing);
+    for (int i = 0; i < verticalCount; ++i) {
+        const auto station = firstStation + static_cast<double>(i) * kStationGridSpacing;
         const auto x = ProfileGradeGraphLayout::mapX(layout, station);
         drawLine(worldDraw, origin, xAxis, yAxis, x, 0.0, x, layout.graphHeight);
     }
@@ -216,13 +276,17 @@ void drawLabels(
 
     worldDraw->subEntityTraits().setColor(3);
     const auto topElevation = std::ceil(layout.maxElevation / gridSpacing) * gridSpacing;
-    for (double elevation = layout.baseElevation; elevation <= topElevation + 1e-9; elevation += gridSpacing) {
+    const auto elevationLabelCount = boundedIterationCount(layout.baseElevation, topElevation, gridSpacing);
+    for (int i = 0; i < elevationLabelCount; ++i) {
+        const auto elevation = layout.baseElevation + static_cast<double>(i) * gridSpacing;
         const auto y = (elevation - layout.baseElevation) * verticalScale;
         drawText(worldDraw, origin, xAxis, yAxis, -18.0, y - kTextHeight * 0.5, numberText(elevation, 2));
     }
 
     const auto firstStation = std::ceil(layout.minStation / kStationGridSpacing) * kStationGridSpacing;
-    for (double station = firstStation; station <= layout.maxStation + 1e-9; station += kStationGridSpacing) {
+    const auto stationLabelCount = boundedIterationCount(firstStation, layout.maxStation, kStationGridSpacing);
+    for (int i = 0; i < stationLabelCount; ++i) {
+        const auto station = firstStation + static_cast<double>(i) * kStationGridSpacing;
         const auto x = ProfileGradeGraphLayout::mapX(layout, station);
         drawText(worldDraw, origin, xAxis, yAxis, x - 8.0, -kTableHeaderHeight - kTextHeight, roadproto::domain::alignment::StationFormatter::format(station));
     }
@@ -364,6 +428,9 @@ Acad::ErrorStatus DnProfileGradeGraphEntity::dwgInFields(AcDbDwgFiler* filer)
         filer->readDouble(&yAxis_.x);
         filer->readDouble(&yAxis_.y);
         filer->readDouble(&yAxis_.z);
+        if (!areAxesUsable(xAxis_, yAxis_)) {
+            resetDefaultAxes(xAxis_, yAxis_);
+        }
     }
 
     Adesk::Int32 sourceType = 0;
@@ -416,16 +483,22 @@ Acad::ErrorStatus DnProfileGradeGraphEntity::dwgOutFields(AcDbDwgFiler* filer) c
         return status;
     }
 
+    auto xAxis = xAxis_;
+    auto yAxis = yAxis_;
+    if (!areAxesUsable(xAxis, yAxis)) {
+        resetDefaultAxes(xAxis, yAxis);
+    }
+
     filer->writeInt16(kEntityVersion);
     filer->writeDouble(insertionPoint_.x);
     filer->writeDouble(insertionPoint_.y);
     filer->writeDouble(insertionPoint_.z);
-    filer->writeDouble(xAxis_.x);
-    filer->writeDouble(xAxis_.y);
-    filer->writeDouble(xAxis_.z);
-    filer->writeDouble(yAxis_.x);
-    filer->writeDouble(yAxis_.y);
-    filer->writeDouble(yAxis_.z);
+    filer->writeDouble(xAxis.x);
+    filer->writeDouble(xAxis.y);
+    filer->writeDouble(xAxis.z);
+    filer->writeDouble(yAxis.x);
+    filer->writeDouble(yAxis.y);
+    filer->writeDouble(yAxis.z);
 
     filer->writeInt32(static_cast<Adesk::Int32>(graphData_.sourceType));
     writeWideString(filer, graphData_.roadCenterlineHandle);
@@ -462,6 +535,9 @@ Adesk::Boolean DnProfileGradeGraphEntity::subWorldDraw(AcGiWorldDraw* worldDraw)
     if (!layout.succeeded) {
         return Adesk::kTrue;
     }
+    if (!areAxesUsable(xAxis_, yAxis_)) {
+        return Adesk::kTrue;
+    }
 
     worldDraw->subEntityTraits().setFillType(kAcGiFillNever);
     drawFrame(worldDraw, insertionPoint_, xAxis_, yAxis_, layout);
@@ -478,6 +554,9 @@ Acad::ErrorStatus DnProfileGradeGraphEntity::subGetGeomExtents(AcDbExtents& exte
     assertReadEnabled();
     const auto layout = ProfileGradeGraphLayout::calculate(graphData_);
     if (!layout.succeeded) {
+        return Acad::eInvalidExtents;
+    }
+    if (!areAxesUsable(xAxis_, yAxis_)) {
         return Acad::eInvalidExtents;
     }
 
@@ -511,9 +590,19 @@ Acad::ErrorStatus DnProfileGradeGraphEntity::subGetGeomExtents(AcDbExtents& exte
 Acad::ErrorStatus DnProfileGradeGraphEntity::subTransformBy(const AcGeMatrix3d& transform)
 {
     assertWriteEnabled();
-    insertionPoint_.transformBy(transform);
-    xAxis_.transformBy(transform);
-    yAxis_.transformBy(transform);
+    auto transformedInsertionPoint = insertionPoint_;
+    auto transformedXAxis = xAxis_;
+    auto transformedYAxis = yAxis_;
+    transformedInsertionPoint.transformBy(transform);
+    transformedXAxis.transformBy(transform);
+    transformedYAxis.transformBy(transform);
+    if (!areAxesUsable(transformedXAxis, transformedYAxis)) {
+        return Acad::eInvalidInput;
+    }
+
+    insertionPoint_ = transformedInsertionPoint;
+    xAxis_ = transformedXAxis;
+    yAxis_ = transformedYAxis;
     markGraphicsModifiedIfResident(*this);
     return Acad::eOk;
 }

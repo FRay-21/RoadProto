@@ -16,6 +16,7 @@
 #include "domain/terrain/TerrainSurfaceQuery.h"
 #include "domain/terrain/TerrainTextElevationParser.h"
 #include "domain/terrain/TerrainTinBuilder.h"
+#include "app/startup/ProfileStartupRegistration.h"
 #include "modules/profile/ProfileModule.h"
 #include "ui/ribbon/RibbonModel.h"
 
@@ -145,6 +146,29 @@ void profileModuleRegistersCommandsAndRibbonPanel()
     CHECK(ribbon.tab().panels.size() == 1);
     CHECK(ribbon.tab().panels.front().moduleCode == L"PROFILE");
     CHECK(ribbon.tab().panels.front().title == L"\u7eb5\u65ad\u9762\u8bbe\u8ba1");
+}
+
+void startupRegistrationIncludesProfileModule()
+{
+    roadproto::core::ModuleRegistry modules;
+    roadproto::app::registerProfileModuleForStartup(modules);
+
+    CHECK(modules.contains(L"PROFILE"));
+
+    const auto module = modules.find(L"PROFILE");
+    CHECK(module.has_value());
+    if (!module.has_value()) {
+        return;
+    }
+
+    roadproto::core::CommandRegistry commands;
+    roadproto::ui::RibbonModel ribbon;
+    module->registerCommands(commands);
+    module->registerRibbon(ribbon);
+
+    CHECK(commands.contains(L"RD_PROFILE_GRADE_GRAPH_CREATE"));
+    CHECK(ribbon.tab().panels.size() == 1);
+    CHECK(ribbon.tab().panels.front().moduleCode == L"PROFILE");
 }
 
 void relationManagerMarksDependentsForRebuild()
@@ -1455,6 +1479,7 @@ int main()
     commandRegistryStoresMetadataAndRejectsDuplicates();
     moduleRegistryRegistersCommandsAndRibbonPanels();
     profileModuleRegistersCommandsAndRibbonPanel();
+    startupRegistrationIncludesProfileModule();
     relationManagerMarksDependentsForRebuild();
     terrainSampleServiceCreatesRelationUpdateScenario();
     terrainTextElevationParserRecognizesSupportedForms();

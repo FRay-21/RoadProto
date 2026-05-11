@@ -51,6 +51,7 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="core_tests.cpp" />
+    <ClCompile Include="..\src\app\startup\ProfileStartupRegistration.cpp" />
     <ClCompile Include="..\src\core\command\CommandRegistry.cpp" />
     <ClCompile Include="..\src\core\module\ModuleRegistry.cpp" />
     <ClCompile Include="..\src\domain\common\EntityId.cpp" />

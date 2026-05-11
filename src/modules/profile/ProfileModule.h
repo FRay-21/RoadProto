@@ -7,4 +7,3 @@ namespace roadproto::modules::profile {
 core::ModuleDefinition createProfileModule();
 
 } // namespace roadproto::modules::profile
-

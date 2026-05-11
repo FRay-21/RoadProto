@@ -55,6 +55,7 @@
   <ItemGroup>
     <ClCompile Include="arx_entry\RoadProtoArxEntry.cpp" />
     <ClCompile Include="startup\ApplicationContext.cpp" />
+    <ClCompile Include="startup\ProfileStartupRegistration.cpp" />
     <ClCompile Include="startup\Startup.cpp" />
     <ClCompile Include="..\core\command\CommandRegistry.cpp" />
     <ClCompile Include="..\core\module\ModuleRegistry.cpp" />
@@ -101,6 +102,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="startup\ApplicationContext.h" />
+    <ClInclude Include="startup\ProfileStartupRegistration.h" />
     <ClInclude Include="startup\Startup.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

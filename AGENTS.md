@@ -51,6 +51,25 @@
    - 版本记录：`docs/dev/version_log.md`
    - README 或本文件
 
+## Worktree 文档双写规则
+
+本项目经常使用 `.worktrees/<分支名>` 做隔离开发。AI 在 worktree 内新增或更新文档时，除提交 worktree 中的正式文档外，还必须在收尾前把同一份文档按相同相对路径同步到主项目目录 `F:\0_GPT_道路设计原型功能项目`，方便用户直接在常用目录查看。
+
+必须双写/同步的范围包括：
+
+- `AGENTS.md`
+- `README.md`
+- `docs/business/`
+- `docs/modules/`
+- `docs/reuse/`
+- `docs/dev/`
+- `docs/architecture/`
+- `docs/rules/`
+- `tests/README.md`
+- 其他用户明确要求可见的说明文档
+
+代码文件仍以当前开发 worktree 为准；除用户明确要求外，不要把源代码从 worktree 直接同步到主项目目录，避免不同分支代码混杂。
+
 ## 项目硬性规则
 
 - 不要把所有逻辑堆在 ARX 入口文件。

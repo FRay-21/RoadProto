@@ -1117,7 +1117,7 @@ void profileGradeGraphLayoutFallsBackForFiniteNonPositiveProperties()
 
     ProfileGradeGraphData graph;
     graph.properties.gridSpacing = 0.0;
-    graph.properties.verticalScale = -1.0;
+    graph.properties.verticalScale = 10.0;
     graph.groundSamples = {
         ProfileGroundSample{100.0, 23.5},
         ProfileGroundSample{120.0, 36.0},
@@ -1127,6 +1127,33 @@ void profileGradeGraphLayoutFallsBackForFiniteNonPositiveProperties()
     CHECK(layout.succeeded);
     CHECK(std::fabs(layout.baseElevation - 20.0) < 1e-9);
     CHECK(std::fabs(layout.graphHeight - 160.0) < 1e-9);
+}
+
+void profileGradeGraphLayoutRejectsNonPositiveVerticalScale()
+{
+    using namespace roadproto::domain::profile;
+
+    ProfileGradeGraphData zeroScaleGraph;
+    zeroScaleGraph.properties.verticalScale = 0.0;
+    zeroScaleGraph.groundSamples = {
+        ProfileGroundSample{100.0, 23.5},
+        ProfileGroundSample{120.0, 36.0},
+    };
+
+    const auto zeroScaleLayout = ProfileGradeGraphLayout::calculate(zeroScaleGraph);
+    CHECK(!zeroScaleLayout.succeeded);
+    CHECK(!zeroScaleLayout.errorMessage.empty());
+
+    ProfileGradeGraphData negativeScaleGraph;
+    negativeScaleGraph.properties.verticalScale = -1.0;
+    negativeScaleGraph.groundSamples = {
+        ProfileGroundSample{100.0, 23.5},
+        ProfileGroundSample{120.0, 36.0},
+    };
+
+    const auto negativeScaleLayout = ProfileGradeGraphLayout::calculate(negativeScaleGraph);
+    CHECK(!negativeScaleLayout.succeeded);
+    CHECK(!negativeScaleLayout.errorMessage.empty());
 }
 
 void profileGradeGraphLayoutRejectsNonFiniteProperties()
@@ -1239,6 +1266,19 @@ void profileGradeGraphLayoutMapYUsesDefaultVerticalScale()
     CHECK(std::fabs(ProfileGradeGraphLayout::mapY(layout, 23.5) - 35.0) < 1e-9);
 }
 
+void profileGradeGraphLayoutMapYRejectsUnsupportedGraphVerticalScale()
+{
+    using namespace roadproto::domain::profile;
+
+    ProfileGradeGraphData graph;
+    graph.properties.verticalScale = -1.0;
+
+    ProfileGradeGraphLayoutResult layout;
+    layout.baseElevation = 20.0;
+
+    CHECK(!std::isfinite(ProfileGradeGraphLayout::mapY(graph, layout, 23.5)));
+}
+
 void alignmentCommandMetadataUsesExpectedNames()
 {
     roadproto::core::CommandRegistry commands;
@@ -1303,6 +1343,7 @@ int main()
     profileGradeGraphLayoutRejectsZeroStationSpan();
     profileGradeGraphLayoutRejectsUnsupportedVerticalScale();
     profileGradeGraphLayoutFallsBackForFiniteNonPositiveProperties();
+    profileGradeGraphLayoutRejectsNonPositiveVerticalScale();
     profileGradeGraphLayoutRejectsNonFiniteProperties();
     profileGradeGraphLayoutUsesGridIntervalForFlatProfileHeight();
     profileGradeGraphLayoutRejectsNonFiniteGeometry();
@@ -1310,6 +1351,7 @@ int main()
     profileGradeGraphDataDefaultsToDmxFileSource();
     profileGradeGraphPropertiesDefaultGroundLinePrecision();
     profileGradeGraphLayoutMapYUsesDefaultVerticalScale();
+    profileGradeGraphLayoutMapYRejectsUnsupportedGraphVerticalScale();
     alignmentCommandMetadataUsesExpectedNames();
 
     if (g_failures != 0) {

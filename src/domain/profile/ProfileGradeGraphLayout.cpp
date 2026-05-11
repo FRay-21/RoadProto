@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <limits>
 
 namespace roadproto::domain::profile {
 namespace {
@@ -51,7 +52,7 @@ ProfileGradeGraphLayoutResult ProfileGradeGraphLayout::calculate(const ProfileGr
     }
 
     const auto gridSpacing = positiveOrDefault(graph.properties.gridSpacing, 10.0);
-    const auto verticalScale = positiveOrDefault(graph.properties.verticalScale, 10.0);
+    const auto verticalScale = graph.properties.verticalScale;
     if (!isSupportedVerticalScale(verticalScale)) {
         result.errorMessage = L"Profile grade graph vertical scale must be 1.0, 10.0, or 100.0.";
         return result;
@@ -99,7 +100,11 @@ double ProfileGradeGraphLayout::mapY(
     const ProfileGradeGraphLayoutResult& layout,
     double elevation)
 {
-    return mapY(layout, elevation, positiveOrDefault(graph.properties.verticalScale, 10.0));
+    if (!std::isfinite(graph.properties.verticalScale) || !isSupportedVerticalScale(graph.properties.verticalScale)) {
+        return std::numeric_limits<double>::quiet_NaN();
+    }
+
+    return mapY(layout, elevation, graph.properties.verticalScale);
 }
 
 } // namespace roadproto::domain::profile

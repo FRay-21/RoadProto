@@ -31,6 +31,7 @@ public sealed class RoadProtoRibbonExtension : IExtensionApplication
     private const string AlignmentImportIcdButtonId = "ROADPROTO_RD_ALIGN_CENTERLINE_IMPORT_ICD";
     private const string TerrainTinDxfName = "DNTERRAINTINENTITY";
     private const string RoadCenterlineDxfName = "DNROADCENTERLINEENTITY";
+    private const string ProfileGradeGraphDxfName = "DNPROFILEGRADEGRAPHENTITY";
     private static ObjectId _lastDoubleClickObjectId = ObjectId.Null;
     private static DateTime _lastDoubleClickUtc = DateTime.MinValue;
     private static bool _doubleClickHookAttached;
@@ -233,6 +234,15 @@ public sealed class RoadProtoRibbonExtension : IExtensionApplication
                 {
                     QueueRoadCenterlineEditByHandle(document, roadCenterlineId);
                 }
+                return;
+            }
+
+            if (TryFindEntityByDxfName(document, e.Location, ProfileGradeGraphDxfName, out var profileGradeGraphId))
+            {
+                if (!SuppressDuplicateDoubleClick(profileGradeGraphId))
+                {
+                    QueueProfileGradeGraphEditByHandle(document, profileGradeGraphId);
+                }
             }
         }
         catch (System.Exception error)
@@ -401,6 +411,17 @@ public sealed class RoadProtoRibbonExtension : IExtensionApplication
         }
 
         document.SendStringToExecute($"RD_ALIGN_CENTERLINE_EDIT_HANDLE {handle} ", true, false, true);
+    }
+
+    private static void QueueProfileGradeGraphEditByHandle(Document document, ObjectId entityId)
+    {
+        var handle = entityId.Handle.ToString();
+        if (string.IsNullOrWhiteSpace(handle))
+        {
+            return;
+        }
+
+        document.SendStringToExecute($"RD_PROFILE_GRADE_GRAPH_EDIT_HANDLE {handle} ", true, false, true);
     }
 
     private static void WriteEditorMessage(string message)

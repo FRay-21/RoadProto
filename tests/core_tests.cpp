@@ -922,6 +922,24 @@ void profileDmxFileRejectsNonFiniteRows()
     CHECK(std::fabs(parsed.samples[1].station - 20.0) < 1e-9);
 }
 
+void profileDmxFileIgnoresBlankLines()
+{
+    using namespace roadproto::domain::profile;
+
+    const auto parsed = ProfileDmxFile::parseText(
+        L"\n"
+        L"   \n"
+        L"0.00000000 21.25100000\n"
+        L"\t \n"
+        L"10.00000000 22.25100000\n"
+        L"\n");
+
+    CHECK(parsed.succeeded);
+    CHECK(parsed.samples.size() == 2);
+    CHECK(parsed.invalidLineCount == 0);
+    CHECK(std::fabs(parsed.samples[1].station - 10.0) < 1e-9);
+}
+
 void profileDmxFileSkipsStationHeader()
 {
     using namespace roadproto::domain::profile;
@@ -1011,6 +1029,24 @@ void profileGradeGraphLayoutMapsStationAndElevation()
     CHECK(std::fabs(layout.baseElevation - 20.0) < 1e-9);
     CHECK(std::fabs(ProfileGradeGraphLayout::mapX(layout, 115.0) - 15.0) < 1e-9);
     CHECK(std::fabs(ProfileGradeGraphLayout::mapY(graph, layout, 23.5) - 35.0) < 1e-9);
+}
+
+void profileGradeGraphLayoutFallsBackForFiniteNonPositiveProperties()
+{
+    using namespace roadproto::domain::profile;
+
+    ProfileGradeGraphData graph;
+    graph.properties.gridSpacing = 0.0;
+    graph.properties.verticalScale = -1.0;
+    graph.groundSamples = {
+        ProfileGroundSample{100.0, 23.5},
+        ProfileGroundSample{120.0, 36.0},
+    };
+
+    const auto layout = ProfileGradeGraphLayout::calculate(graph);
+    CHECK(layout.succeeded);
+    CHECK(std::fabs(layout.baseElevation - 20.0) < 1e-9);
+    CHECK(std::fabs(layout.graphHeight - 160.0) < 1e-9);
 }
 
 void profileGradeGraphLayoutRejectsNonFiniteProperties()
@@ -1168,11 +1204,13 @@ int main()
     profileDmxFileParsesStationsAndKeepsDuplicates();
     profileDmxFileRejectsTooFewValidSamples();
     profileDmxFileRejectsNonFiniteRows();
+    profileDmxFileIgnoresBlankLines();
     profileDmxFileSkipsStationHeader();
     profileDmxFileParsesTextWithLeadingBom();
     profileDmxFileParsesTextWithLeadingUtf8BomBytes();
     profileDmxFileReadsTempFile();
     profileGradeGraphLayoutMapsStationAndElevation();
+    profileGradeGraphLayoutFallsBackForFiniteNonPositiveProperties();
     profileGradeGraphLayoutRejectsNonFiniteProperties();
     profileGradeGraphLayoutUsesGridIntervalForFlatProfileHeight();
     profileGradeGraphLayoutRejectsNonFiniteGeometry();

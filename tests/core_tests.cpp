@@ -1031,6 +1031,21 @@ void profileGradeGraphLayoutMapsStationAndElevation()
     CHECK(std::fabs(ProfileGradeGraphLayout::mapY(graph, layout, 23.5) - 35.0) < 1e-9);
 }
 
+void profileGradeGraphLayoutRejectsZeroStationSpan()
+{
+    using namespace roadproto::domain::profile;
+
+    ProfileGradeGraphData graph;
+    graph.groundSamples = {
+        ProfileGroundSample{100.0, 23.5},
+        ProfileGroundSample{100.0, 36.0},
+    };
+
+    const auto layout = ProfileGradeGraphLayout::calculate(graph);
+    CHECK(!layout.succeeded);
+    CHECK(!layout.errorMessage.empty());
+}
+
 void profileGradeGraphLayoutFallsBackForFiniteNonPositiveProperties()
 {
     using namespace roadproto::domain::profile;
@@ -1210,6 +1225,7 @@ int main()
     profileDmxFileParsesTextWithLeadingUtf8BomBytes();
     profileDmxFileReadsTempFile();
     profileGradeGraphLayoutMapsStationAndElevation();
+    profileGradeGraphLayoutRejectsZeroStationSpan();
     profileGradeGraphLayoutFallsBackForFiniteNonPositiveProperties();
     profileGradeGraphLayoutRejectsNonFiniteProperties();
     profileGradeGraphLayoutUsesGridIntervalForFlatProfileHeight();

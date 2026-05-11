@@ -49,6 +49,11 @@ ProfileGradeGraphLayoutResult ProfileGradeGraphLayout::calculate(const ProfileGr
     const auto verticalScale = positiveOrDefault(graph.properties.verticalScale, 10.0);
     result.baseElevation = std::floor(result.minElevation / gridSpacing) * gridSpacing;
     result.graphWidth = result.maxStation - result.minStation;
+    if (result.graphWidth <= 0.0) {
+        result.errorMessage = L"Profile grade graph station span must be greater than zero.";
+        return result;
+    }
+
     const auto elevationSpanForHeight = std::max(gridSpacing, result.maxElevation - result.baseElevation);
     result.graphHeight = elevationSpanForHeight * verticalScale;
     if (!std::isfinite(result.graphWidth) || !std::isfinite(result.graphHeight)) {

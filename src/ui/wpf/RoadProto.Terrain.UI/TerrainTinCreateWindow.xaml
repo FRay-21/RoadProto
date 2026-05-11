@@ -1,0 +1,135 @@
+<Window x:Class="RoadProto.Terrain.UI.TerrainTinCreateWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="clr-namespace:RoadProto.Terrain.UI.ViewModels"
+        Title="地形构网"
+        Width="920"
+        Height="620"
+        MinWidth="820"
+        MinHeight="560"
+        WindowStartupLocation="CenterOwner"
+        Background="#F3F5F7">
+    <Window.Resources>
+        <Style x:Key="Card" TargetType="Border">
+            <Setter Property="Background" Value="White" />
+            <Setter Property="CornerRadius" Value="8" />
+            <Setter Property="Padding" Value="18" />
+            <Setter Property="BorderBrush" Value="#D8DEE6" />
+            <Setter Property="BorderThickness" Value="1" />
+        </Style>
+        <Style TargetType="TextBlock">
+            <Setter Property="FontFamily" Value="Microsoft YaHei UI" />
+            <Setter Property="Foreground" Value="#1F2933" />
+        </Style>
+        <Style TargetType="Button">
+            <Setter Property="MinHeight" Value="34" />
+            <Setter Property="Padding" Value="14,6" />
+            <Setter Property="Margin" Value="0,0,10,0" />
+        </Style>
+        <Style TargetType="TextBox">
+            <Setter Property="MinHeight" Value="30" />
+            <Setter Property="Padding" Value="8,4" />
+        </Style>
+    </Window.Resources>
+
+    <Window.DataContext>
+        <vm:TerrainTinCreateViewModel />
+    </Window.DataContext>
+
+    <Grid Margin="22">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <StackPanel Grid.Row="0" Margin="0,0,0,18">
+            <TextBlock Text="地形构网" FontSize="28" FontWeight="SemiBold" />
+            <TextBlock Text="从当前 CAD 选择对象提取高程点并生成 TIN 地形数模" Margin="0,6,0,0" Foreground="#5D6875" />
+        </StackPanel>
+
+        <Grid Grid.Row="1">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="1.05*" />
+                <ColumnDefinition Width="1*" />
+            </Grid.ColumnDefinitions>
+
+            <Border Grid.Column="0" Style="{StaticResource Card}" Margin="0,0,12,0">
+                <DockPanel>
+                    <TextBlock DockPanel.Dock="Top" Text="提取统计" FontSize="18" FontWeight="SemiBold" Margin="0,0,0,12" />
+                    <ScrollViewer VerticalScrollBarVisibility="Auto">
+                        <ItemsControl ItemsSource="{Binding Statistics}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Grid Margin="0,0,0,9">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Text="{Binding Name}" Foreground="#5D6875" />
+                                        <TextBlock Grid.Column="1" Text="{Binding Value}" FontWeight="SemiBold" />
+                                    </Grid>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </ScrollViewer>
+                </DockPanel>
+            </Border>
+
+            <Border Grid.Column="1" Style="{StaticResource Card}" Margin="12,0,0,0">
+                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                    <StackPanel>
+                        <TextBlock Text="构网参数" FontSize="18" FontWeight="SemiBold" Margin="0,0,0,12" />
+
+                        <TextBlock Text="XY 合并容差" Foreground="#5D6875" />
+                        <TextBox Text="{Binding Options.XyMergeTolerance, UpdateSourceTrigger=PropertyChanged}" Margin="0,4,0,12" />
+
+                        <TextBlock Text="最大三角边长" Foreground="#5D6875" />
+                        <TextBox Text="{Binding Options.MaxEdgeLength, UpdateSourceTrigger=PropertyChanged}" Margin="0,4,0,12" />
+
+                        <CheckBox Content="过滤退化三角形" IsChecked="{Binding Options.RemoveDegenerateTriangles}" Margin="0,0,0,12" />
+
+                        <TextBlock Text="显示模式" Foreground="#5D6875" />
+                        <ComboBox ItemsSource="{Binding DisplayModes}"
+                                  SelectedItem="{Binding Options.DisplayMode}"
+                                  Margin="0,4,0,16"
+                                  MinHeight="30" />
+
+                        <Expander Header="高级参数" IsExpanded="False">
+                            <StackPanel Margin="0,12,0,0">
+                                <TextBlock Text="Z 相等容差" Foreground="#5D6875" />
+                                <TextBox Text="{Binding Options.ZEqualTolerance, UpdateSourceTrigger=PropertyChanged}" Margin="0,4,0,12" />
+
+                                <TextBlock Text="文字-点关联距离" Foreground="#5D6875" />
+                                <TextBox Text="{Binding Options.TextPointSearchDistance, UpdateSourceTrigger=PropertyChanged}" Margin="0,4,0,12" />
+
+                                <CheckBox Content="启用块识别" IsChecked="{Binding Options.EnableBlockExtraction}" Margin="0,0,0,8" />
+                                <CheckBox Content="启用嵌套块识别" IsChecked="{Binding Options.EnableNestedBlockExtraction}" Margin="0,0,0,8" />
+                                <CheckBox Content="用文字高程修正附近无高程点" IsChecked="{Binding Options.UseTextElevationForNearbyFlatPoint}" />
+                            </StackPanel>
+                        </Expander>
+                    </StackPanel>
+                </ScrollViewer>
+            </Border>
+        </Grid>
+
+        <Border Grid.Row="2" Style="{StaticResource Card}" Margin="0,18,0,0">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <StackPanel>
+                    <TextBlock Text="{Binding ResultText}" FontWeight="SemiBold" />
+                    <TextBlock Text="{Binding ErrorText}" Foreground="#B42318" Margin="0,6,0,0" TextWrapping="Wrap" />
+                </StackPanel>
+                <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                    <Button Content="生成地形数模" Command="{Binding GenerateCommand}" IsEnabled="{Binding CanGenerate}" />
+                    <Button Content="重新提取" Command="{Binding ReextractCommand}" />
+                    <Button Content="切换显示模式" Command="{Binding ToggleDisplayCommand}" />
+                    <Button Content="关闭" Command="{Binding CloseCommand}" Margin="0" />
+                </StackPanel>
+            </Grid>
+        </Border>
+    </Grid>
+</Window>

@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Debug|x64">
+      <Configuration>Debug</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|x64">
+      <Configuration>Release</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+  </ItemGroup>
+  <PropertyGroup Label="Globals">
+    <VCProjectVersion>17.0</VCProjectVersion>
+    <Keyword>Win32Proj</Keyword>
+    <ProjectGuid>{02B4C420-744D-485D-9D08-2916B6BFCB10}</ProjectGuid>
+    <RootNamespace>RoadProtoCoreTests</RootNamespace>
+    <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <UseDebugLibraries>true</UseDebugLibraries>
+    <PlatformToolset>v143</PlatformToolset>
+    <CharacterSet>Unicode</CharacterSet>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <PlatformToolset>v143</PlatformToolset>
+    <WholeProgramOptimization>true</WholeProgramOptimization>
+    <CharacterSet>Unicode</CharacterSet>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <Import Project="..\build\RoadProto.Build.props" />
+  <PropertyGroup>
+    <OutDir>$(RoadProtoArtifactsDir)</OutDir>
+    <IntDir>$(RoadProtoRoot)artifacts\obj\RoadProtoCoreTests\$(Configuration)\</IntDir>
+    <TargetName>RoadProtoCoreTests</TargetName>
+  </PropertyGroup>
+  <ItemDefinitionGroup>
+    <ClCompile>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <RuntimeLibrary Condition="'$(Configuration)'=='Debug'">MultiThreadedDebugDLL</RuntimeLibrary>
+      <RuntimeLibrary Condition="'$(Configuration)'=='Release'">MultiThreadedDLL</RuntimeLibrary>
+      <PreprocessorDefinitions>ROADPROTO_TEST_BUILD;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ClCompile>
+    <Link>
+      <SubSystem>Console</SubSystem>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemGroup>
+    <ClCompile Include="core_tests.cpp" />
+    <ClCompile Include="..\src\core\command\CommandRegistry.cpp" />
+    <ClCompile Include="..\src\core\module\ModuleRegistry.cpp" />
+    <ClCompile Include="..\src\domain\common\EntityId.cpp" />
+    <ClCompile Include="..\src\domain\alignment\AlignmentElementChainBuilder.cpp" />
+    <ClCompile Include="..\src\domain\alignment\AlignmentGeometry.cpp" />
+    <ClCompile Include="..\src\domain\alignment\AlignmentGripEditService.cpp" />
+    <ClCompile Include="..\src\domain\alignment\HorizontalAlignmentBuilder.cpp" />
+    <ClCompile Include="..\src\domain\alignment\IcdAlignmentFile.cpp" />
+    <ClCompile Include="..\src\domain\alignment\StationFormatter.cpp" />
+    <ClCompile Include="..\src\domain\relation\EntityRelationManager.cpp" />
+    <ClCompile Include="..\src\domain\terrain\TerrainMeshFile.cpp" />
+    <ClCompile Include="..\src\domain\terrain\TerrainPointNormalizer.cpp" />
+    <ClCompile Include="..\src\domain\terrain\TerrainSurfaceQuery.cpp" />
+    <ClCompile Include="..\src\domain\terrain\TerrainTextElevationParser.cpp" />
+    <ClCompile Include="..\src\domain\terrain\TerrainTinBuilder.cpp" />
+    <ClCompile Include="..\src\application\terrain\TerrainUpdateSampleService.cpp" />
+    <ClCompile Include="..\src\ui\ribbon\RibbonModel.cpp" />
+  </ItemGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+</Project>

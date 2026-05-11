@@ -1,0 +1,55 @@
+# Visual Studio user and cache files
+.vs/
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+
+# Build outputs
+artifacts/
+bin/
+obj/
+x64/
+Debug/
+Release/
+ReleaseVerify/
+
+# C++ / MSBuild intermediates
+*.obj
+*.iobj
+*.ipdb
+*.idb
+*.pdb
+*.ilk
+*.tlog
+*.lastbuildstate
+*.recipe
+*.pch
+*.ipch
+*.exp
+*.lib
+
+# Generated binaries
+*.arx
+*.dll
+*.exe
+
+# .NET generated files
+*.baml
+*.g.cs
+*.g.i.cs
+*.AssemblyInfo.cs
+*.assets.cache
+project.assets.json
+project.nuget.cache
+*.nuget.g.props
+*.nuget.g.targets
+*.nuget.dgspec.json
+
+# Logs and temporary files
+*.log
+*.tmp
+*.temp
+*.cache
+Thumbs.db
+Desktop.ini

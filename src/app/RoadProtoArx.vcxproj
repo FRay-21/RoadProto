@@ -1,0 +1,102 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Debug|x64">
+      <Configuration>Debug</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|x64">
+      <Configuration>Release</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+  </ItemGroup>
+  <PropertyGroup Label="Globals">
+    <VCProjectVersion>17.0</VCProjectVersion>
+    <Keyword>Win32Proj</Keyword>
+    <ProjectGuid>{0D5B0E2A-8B14-4EE8-A9C8-5C925C45F191}</ProjectGuid>
+    <RootNamespace>RoadProtoArx</RootNamespace>
+    <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
+    <ConfigurationType>DynamicLibrary</ConfigurationType>
+    <UseDebugLibraries>true</UseDebugLibraries>
+    <PlatformToolset>v142</PlatformToolset>
+    <CharacterSet>Unicode</CharacterSet>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
+    <ConfigurationType>DynamicLibrary</ConfigurationType>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <PlatformToolset>v142</PlatformToolset>
+    <WholeProgramOptimization>true</WholeProgramOptimization>
+    <CharacterSet>Unicode</CharacterSet>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <Import Project="..\..\build\RoadProto.Build.props" />
+  <Import Project="..\..\build\ObjectARX2021.props" />
+  <PropertyGroup>
+    <OutDir>$(RoadProtoArtifactsDir)</OutDir>
+    <IntDir>$(RoadProtoRoot)artifacts\obj\RoadProtoArx\$(Configuration)\</IntDir>
+    <TargetName>$(RoadProtoArxBaseName)</TargetName>
+    <TargetExt>.arx</TargetExt>
+  </PropertyGroup>
+  <ItemDefinitionGroup>
+    <ClCompile>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <RuntimeLibrary Condition="'$(Configuration)'=='Debug'">MultiThreadedDLL</RuntimeLibrary>
+      <RuntimeLibrary Condition="'$(Configuration)'=='Release'">MultiThreadedDLL</RuntimeLibrary>
+    </ClCompile>
+    <Link>
+      <SubSystem>Windows</SubSystem>
+      <ModuleDefinitionFile>arx_entry\RoadProto.def</ModuleDefinitionFile>
+      <AdditionalOptions>/ignore:4099 %(AdditionalOptions)</AdditionalOptions>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemGroup>
+    <ClCompile Include="arx_entry\RoadProtoArxEntry.cpp" />
+    <ClCompile Include="startup\ApplicationContext.cpp" />
+    <ClCompile Include="startup\Startup.cpp" />
+    <ClCompile Include="..\core\command\CommandRegistry.cpp" />
+    <ClCompile Include="..\core\module\ModuleRegistry.cpp" />
+    <ClCompile Include="..\core\logging\Logger.cpp" />
+    <ClCompile Include="..\core\config\AppConfig.cpp" />
+    <ClCompile Include="..\core\error\RoadProtoError.cpp" />
+    <ClCompile Include="..\core\version\VersionInfo.cpp" />
+    <ClCompile Include="..\domain\common\EntityId.cpp" />
+    <ClCompile Include="..\domain\alignment\AlignmentElementChainBuilder.cpp" />
+    <ClCompile Include="..\domain\alignment\AlignmentGeometry.cpp" />
+    <ClCompile Include="..\domain\alignment\AlignmentGripEditService.cpp" />
+    <ClCompile Include="..\domain\alignment\HorizontalAlignmentBuilder.cpp" />
+    <ClCompile Include="..\domain\alignment\IcdAlignmentFile.cpp" />
+    <ClCompile Include="..\domain\alignment\StationFormatter.cpp" />
+    <ClCompile Include="..\domain\relation\EntityRelationManager.cpp" />
+    <ClCompile Include="..\domain\terrain\TerrainMeshFile.cpp" />
+    <ClCompile Include="..\domain\terrain\TerrainPointNormalizer.cpp" />
+    <ClCompile Include="..\domain\terrain\TerrainSurfaceQuery.cpp" />
+    <ClCompile Include="..\domain\terrain\TerrainTextElevationParser.cpp" />
+    <ClCompile Include="..\domain\terrain\TerrainTinBuilder.cpp" />
+    <ClCompile Include="..\application\alignment\AlignmentCreateService.cpp" />
+    <ClCompile Include="..\application\terrain\TerrainTinCreateService.cpp" />
+    <ClCompile Include="..\application\terrain\TerrainUpdateSampleService.cpp" />
+    <ClCompile Include="..\application\intersection\IntersectionInfoService.cpp" />
+    <ClCompile Include="..\modules\alignment\AlignmentModule.cpp" />
+    <ClCompile Include="..\modules\terrain\TerrainModule.cpp" />
+    <ClCompile Include="..\modules\intersection\IntersectionModule.cpp" />
+    <ClCompile Include="..\ui\ribbon\RibbonModel.cpp" />
+    <ClCompile Include="..\ui\ribbon\RibbonRegistrationService.cpp" />
+    <ClCompile Include="..\cad_adapter\objectarx\ObjectArxCommandRegistrar.cpp" />
+    <ClCompile Include="..\cad_adapter\objectarx\ObjectArxEditor.cpp" />
+    <ClCompile Include="..\cad_adapter\objectarx\ObjectArxRibbonAdapter.cpp" />
+    <ClCompile Include="..\cad_adapter\objectarx\alignment\AlignmentDialogBridge.cpp" />
+    <ClCompile Include="..\cad_adapter\objectarx\alignment\DnRoadCenterlineEntity.cpp" />
+    <ClCompile Include="..\cad_adapter\objectarx\alignment\ObjectArxAlignmentCommand.cpp" />
+    <ClCompile Include="..\cad_adapter\objectarx\terrain\DnTerrainTinEntity.cpp" />
+    <ClCompile Include="..\cad_adapter\objectarx\terrain\ObjectArxTerrainTinCommand.cpp" />
+    <ClCompile Include="..\cad_adapter\objectarx\terrain\TerrainTinCreateDialog.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="startup\ApplicationContext.h" />
+    <ClInclude Include="startup\Startup.h" />
+  </ItemGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+</Project>

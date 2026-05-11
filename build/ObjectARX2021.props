@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup>
+    <ObjectARX2021Dir Condition="'$(ObjectARX2021Dir)' == ''">C:\Autodesk\ObjectARX_for_AutoCAD_2021_Win_64bit_dlm\CDROM1</ObjectARX2021Dir>
+    <AutoCAD2021Dir Condition="'$(AutoCAD2021Dir)' == ''">C:\Program Files\Autodesk\AutoCAD 2021</AutoCAD2021Dir>
+  </PropertyGroup>
+  <ItemDefinitionGroup>
+    <ClCompile>
+      <AdditionalIncludeDirectories>$(ObjectARX2021Dir)\inc;$(ObjectARX2021Dir)\inc-x64;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>_ACRXAPP;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ClCompile>
+    <Link>
+      <AdditionalLibraryDirectories>$(ObjectARX2021Dir)\lib-x64;$(AutoCAD2021Dir);%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>rxapi.lib;accore.lib;acad.lib;acdb24.lib;acge24.lib;ac1st24.lib;%(AdditionalDependencies)</AdditionalDependencies>
+    </Link>
+  </ItemDefinitionGroup>
+  <Target Name="ValidateObjectARX2021Sdk" BeforeTargets="PrepareForBuild">
+    <Error
+      Condition="!Exists('$(ObjectARX2021Dir)\inc\rxregsvc.h')"
+      Text="ObjectARX 2021 SDK was not found. Set MSBuild property ObjectARX2021Dir to the ObjectARX 2021 SDK root. Current value: $(ObjectARX2021Dir)" />
+  </Target>
+</Project>

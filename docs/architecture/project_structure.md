@@ -1,0 +1,82 @@
+# 推荐目录结构
+
+```text
+src/
+  app/
+    arx_entry/
+    startup/
+  core/
+    command/
+    module/
+    logging/
+    config/
+    error/
+    version/
+  cad_adapter/
+    objectarx/
+    transaction/
+    selection/
+    entity/
+    layer/
+    annotation/
+    block/
+    geometry/
+  domain/
+    common/
+    geometry/
+    road/
+    terrain/
+    alignment/
+    intersection/
+    profile/
+    cross_section/
+    quantity/
+    relation/
+  application/
+    terrain/
+    alignment/
+    intersection/
+    profile/
+    cross_section/
+    drawing_quantity/
+  modules/
+    terrain/
+    alignment/
+    interchange/
+    intersection/
+    profile/
+    cross_section/
+    drawing_quantity/
+    utils/
+  ui/
+    ribbon/
+    dialogs/
+    wpf/
+      RoadProto.Terrain.UI/
+        AutoCad/
+        Bridge/
+        ViewModels/
+    resources/
+docs/
+  business/
+  rules/
+  modules/
+  reuse/
+  architecture/
+  dev/
+assets/
+  icons/
+artifacts/
+  x64/
+    Debug/
+    Release/
+  managed/
+    Debug/
+    Release/
+samples/
+tests/
+third_party/
+  delaunator-cpp/
+```
+
+部分模块目录目前只是预留。这样做是为了后续新增命令时不必重新调整仓库结构。

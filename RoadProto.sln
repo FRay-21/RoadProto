@@ -1,0 +1,33 @@
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.9.34728.123
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "RoadProtoArx", "src\app\RoadProtoArx.vcxproj", "{0D5B0E2A-8B14-4EE8-A9C8-5C925C45F191}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "RoadProtoCoreTests", "tests\RoadProtoCoreTests.vcxproj", "{02B4C420-744D-485D-9D08-2916B6BFCB10}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RoadProto.Terrain.UI", "src\ui\wpf\RoadProto.Terrain.UI\RoadProto.Terrain.UI.csproj", "{5F9F1249-4D85-43CF-A17E-69D6E6100470}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|x64 = Debug|x64
+		Release|x64 = Release|x64
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{0D5B0E2A-8B14-4EE8-A9C8-5C925C45F191}.Debug|x64.ActiveCfg = Debug|x64
+		{0D5B0E2A-8B14-4EE8-A9C8-5C925C45F191}.Debug|x64.Build.0 = Debug|x64
+		{0D5B0E2A-8B14-4EE8-A9C8-5C925C45F191}.Release|x64.ActiveCfg = Release|x64
+		{0D5B0E2A-8B14-4EE8-A9C8-5C925C45F191}.Release|x64.Build.0 = Release|x64
+		{02B4C420-744D-485D-9D08-2916B6BFCB10}.Debug|x64.ActiveCfg = Debug|x64
+		{02B4C420-744D-485D-9D08-2916B6BFCB10}.Debug|x64.Build.0 = Debug|x64
+		{02B4C420-744D-485D-9D08-2916B6BFCB10}.Release|x64.ActiveCfg = Release|x64
+		{02B4C420-744D-485D-9D08-2916B6BFCB10}.Release|x64.Build.0 = Release|x64
+		{5F9F1249-4D85-43CF-A17E-69D6E6100470}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{5F9F1249-4D85-43CF-A17E-69D6E6100470}.Debug|x64.Build.0 = Debug|Any CPU
+		{5F9F1249-4D85-43CF-A17E-69D6E6100470}.Release|x64.ActiveCfg = Release|Any CPU
+		{5F9F1249-4D85-43CF-A17E-69D6E6100470}.Release|x64.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+EndGlobal

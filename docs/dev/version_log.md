@@ -421,6 +421,13 @@
 - 构建验证：核心测试 Debug 构建通过并输出 `All RoadProto core tests passed.`；Debug ARX 构建通过，0 警告，0 错误；Debug 托管 Ribbon 构建通过，0 警告，0 错误。
 - 当前仍沿用 `RoadProto_v0.1.9_20260511_ProfileGradeGraph.arx` 输出名；后续正式 release 再统一更新 ARX 版本号和阶段名。
 
+## v0.1.9 vertical curve context menu follow-up - 2026-05-12
+
+- 修正竖曲线实体右键无法新增或删除变坡点的问题：托管 Ribbon 插件现在注册 AutoCAD 对象快捷菜单，并在当前隐含选择包含 `DNPROFILEVERTICALCURVEENTITY` 时显示 `新增竖曲线变坡点` 和 `删除竖曲线变坡点`。
+- 右键菜单项通过 `RD_PROFILE_VERTICAL_CURVE_CONTEXT_ADD_PVI` 和 `RD_PROFILE_VERTICAL_CURVE_CONTEXT_DELETE_PVI` 转发到 C++ 侧 `RD_PROFILE_VERTICAL_CURVE_ADD_PVI` / `RD_PROFILE_VERTICAL_CURVE_DELETE_PVI`，继续由 application/domain 层完成校验和回写。
+- 核心测试新增托管 Ribbon 扩展右键菜单注册约定检查，防止后续只保留命令而漏挂菜单。
+- 更新竖曲线夹点与右键编辑业务文档、纵断面模块文档和测试说明。
+
 ## 记录模板
 
 ```markdown

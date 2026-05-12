@@ -5,7 +5,7 @@
 - 模块名称：纵断面设计
 - 模块编码：`PROFILE`
 - 命令前缀：`RD_PROFILE_`
-- 当前状态：纵断面拉坡图创建、实体显示、DMX 更新、WPF 属性编辑、竖曲线创建、竖曲线夹点/PVI 编辑、竖曲线 WPF 编辑和可见 Ribbon 入口已接入
+- 当前状态：纵断面拉坡图创建、实体显示、DMX 更新、WPF 属性编辑、竖曲线创建、竖曲线夹点/PVI 编辑、竖曲线右键菜单、竖曲线 WPF 编辑和可见 Ribbon 入口已接入
 
 ## 命令清单
 
@@ -24,6 +24,7 @@
 
 - C++ Ribbon model：`RoadProto / 纵断面设计 / 纵断面拉坡图`
 - 可见 AutoCAD WPF Ribbon：`RoadProto / 纵断面设计 / 纵断面拉坡图`、`创建竖曲线`
+- AutoCAD 对象右键菜单：选中 `DnProfileVerticalCurveEntity` 后显示 `新增竖曲线变坡点`、`删除竖曲线变坡点`
 - 托管 Ribbon 插件文件：`src/ui/wpf/RoadProto.Terrain.UI/AutoCad/RoadProtoRibbonExtension.cs`
 
 ## 代码落点

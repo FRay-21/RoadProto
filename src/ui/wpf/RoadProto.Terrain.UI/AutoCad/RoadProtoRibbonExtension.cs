@@ -9,6 +9,9 @@ using Autodesk.AutoCAD.EditorInput;
 using Autodesk.AutoCAD.Geometry;
 using Autodesk.AutoCAD.Runtime;
 using Autodesk.Windows;
+using AutoCadApplication = Autodesk.AutoCAD.ApplicationServices.Application;
+using AutoCadContextMenuExtension = Autodesk.AutoCAD.Windows.ContextMenuExtension;
+using AutoCadMenuItem = Autodesk.AutoCAD.Windows.MenuItem;
 using CoreApplication = Autodesk.AutoCAD.ApplicationServices.Core.Application;
 
 [assembly: ExtensionApplication(typeof(RoadProto.Terrain.UI.AutoCad.RoadProtoRibbonExtension))]
@@ -39,10 +42,15 @@ public sealed class RoadProtoRibbonExtension : IExtensionApplication
     private static ObjectId _lastDoubleClickObjectId = ObjectId.Null;
     private static DateTime _lastDoubleClickUtc = DateTime.MinValue;
     private static bool _doubleClickHookAttached;
+    private static AutoCadContextMenuExtension? _profileVerticalCurveContextMenu;
+    private static RXClass? _profileVerticalCurveContextMenuClass;
+    private static AutoCadMenuItem? _profileVerticalCurveAddPviMenuItem;
+    private static AutoCadMenuItem? _profileVerticalCurveDeletePviMenuItem;
 
     public void Initialize()
     {
         AttachDoubleClickHook();
+        AttachProfileVerticalCurveContextMenu();
         if (!TryCreateRibbon())
         {
             ComponentManager.ItemInitialized += OnComponentItemInitialized;
@@ -52,6 +60,7 @@ public sealed class RoadProtoRibbonExtension : IExtensionApplication
     public void Terminate()
     {
         ComponentManager.ItemInitialized -= OnComponentItemInitialized;
+        DetachProfileVerticalCurveContextMenu();
         DetachDoubleClickHook();
     }
 
@@ -255,6 +264,90 @@ public sealed class RoadProtoRibbonExtension : IExtensionApplication
 
         CoreApplication.BeginDoubleClick -= OnBeginDoubleClick;
         _doubleClickHookAttached = false;
+    }
+
+    private static void AttachProfileVerticalCurveContextMenu()
+    {
+        if (_profileVerticalCurveContextMenu != null)
+        {
+            return;
+        }
+
+        var entityClass = RXObject.GetClass(typeof(Entity));
+        if (entityClass == null)
+        {
+            WriteEditorMessage("\nRoadProto 竖曲线右键菜单注册失败: 无法获取 AcDbEntity 类。");
+            return;
+        }
+
+        var addItem = new AutoCadMenuItem("新增竖曲线变坡点");
+        addItem.Click += (_, _) => SendActiveDocumentCommand("RD_PROFILE_VERTICAL_CURVE_CONTEXT_ADD_PVI ");
+
+        var deleteItem = new AutoCadMenuItem("删除竖曲线变坡点");
+        deleteItem.Click += (_, _) => SendActiveDocumentCommand("RD_PROFILE_VERTICAL_CURVE_CONTEXT_DELETE_PVI ");
+
+        var menu = new AutoCadContextMenuExtension
+        {
+            Title = "RoadProto 竖曲线",
+        };
+        menu.MenuItems.Add(addItem);
+        menu.MenuItems.Add(deleteItem);
+        menu.Popup += OnProfileVerticalCurveContextMenuPopup;
+
+        AutoCadApplication.AddObjectContextMenuExtension(entityClass, menu);
+        _profileVerticalCurveContextMenuClass = entityClass;
+        _profileVerticalCurveContextMenu = menu;
+        _profileVerticalCurveAddPviMenuItem = addItem;
+        _profileVerticalCurveDeletePviMenuItem = deleteItem;
+    }
+
+    private static void DetachProfileVerticalCurveContextMenu()
+    {
+        if (_profileVerticalCurveContextMenu == null || _profileVerticalCurveContextMenuClass == null)
+        {
+            return;
+        }
+
+        _profileVerticalCurveContextMenu.Popup -= OnProfileVerticalCurveContextMenuPopup;
+        AutoCadApplication.RemoveObjectContextMenuExtension(
+            _profileVerticalCurveContextMenuClass,
+            _profileVerticalCurveContextMenu);
+        _profileVerticalCurveContextMenu = null;
+        _profileVerticalCurveContextMenuClass = null;
+        _profileVerticalCurveAddPviMenuItem = null;
+        _profileVerticalCurveDeletePviMenuItem = null;
+    }
+
+    private static void OnProfileVerticalCurveContextMenuPopup(object? sender, EventArgs e)
+    {
+        var isProfileVerticalCurveSelection = TryGetImpliedProfileVerticalCurve(out _);
+        SetProfileVerticalCurveContextMenuItemState(_profileVerticalCurveAddPviMenuItem, isProfileVerticalCurveSelection);
+        SetProfileVerticalCurveContextMenuItemState(_profileVerticalCurveDeletePviMenuItem, isProfileVerticalCurveSelection);
+    }
+
+    private static void SetProfileVerticalCurveContextMenuItemState(AutoCadMenuItem? item, bool isVisible)
+    {
+        if (item == null)
+        {
+            return;
+        }
+
+        item.Visible = isVisible;
+        item.Enabled = isVisible;
+    }
+
+    private static bool TryGetImpliedProfileVerticalCurve(out ObjectId entityId)
+    {
+        var document = CoreApplication.DocumentManager.MdiActiveDocument;
+        var implied = document?.Editor.SelectImplied();
+        if (implied?.Status == PromptStatus.OK
+            && TryFindEntityByDxfName(implied.Value, ProfileVerticalCurveDxfName, out entityId))
+        {
+            return true;
+        }
+
+        entityId = ObjectId.Null;
+        return false;
     }
 
     private static void OnBeginDoubleClick(object? sender, BeginDoubleClickEventArgs e)
@@ -490,6 +583,12 @@ public sealed class RoadProtoRibbonExtension : IExtensionApplication
         }
 
         document.SendStringToExecute($"RD_PROFILE_VERTICAL_CURVE_EDIT_HANDLE {handle} ", true, false, true);
+    }
+
+    private static void SendActiveDocumentCommand(string command)
+    {
+        CoreApplication.DocumentManager.MdiActiveDocument?
+            .SendStringToExecute(command, true, false, true);
     }
 
     private static void WriteEditorMessage(string message)

@@ -51,6 +51,32 @@ void check(bool condition, const char* expression, const char* file, int line)
 
 #define CHECK(expression) check((expression), #expression, __FILE__, __LINE__)
 
+std::filesystem::path findRepositoryRootForTests()
+{
+    auto current = std::filesystem::current_path();
+    for (int i = 0; i < 8; ++i) {
+        if (std::filesystem::exists(current / "src" / "ui" / "wpf" / "RoadProto.Terrain.UI")) {
+            return current;
+        }
+        if (!current.has_parent_path()) {
+            break;
+        }
+        current = current.parent_path();
+    }
+
+    return std::filesystem::current_path();
+}
+
+std::string readTextFileForTests(const std::filesystem::path& path)
+{
+    std::ifstream input(path, std::ios::binary);
+    if (!input) {
+        return {};
+    }
+
+    return std::string(std::istreambuf_iterator<char>(input), std::istreambuf_iterator<char>());
+}
+
 roadproto::core::CommandDefinition makeCommand(const std::wstring& name)
 {
     return roadproto::core::CommandDefinition{
@@ -213,6 +239,27 @@ void startupRegistrationIncludesProfileModule()
     CHECK(commands.contains(L"RD_PROFILE_GRADE_GRAPH_CREATE"));
     CHECK(ribbon.tab().panels.size() == 1);
     CHECK(ribbon.tab().panels.front().moduleCode == L"PROFILE");
+}
+
+void managedRibbonExtensionRegistersVerticalCurveContextMenu()
+{
+    const auto sourcePath = findRepositoryRootForTests()
+        / "src"
+        / "ui"
+        / "wpf"
+        / "RoadProto.Terrain.UI"
+        / "AutoCad"
+        / "RoadProtoRibbonExtension.cs";
+    CHECK(std::filesystem::exists(sourcePath));
+
+    const auto source = readTextFileForTests(sourcePath);
+    CHECK(!source.empty());
+    CHECK(source.find("AddObjectContextMenuExtension") != std::string::npos);
+    CHECK(source.find("RemoveObjectContextMenuExtension") != std::string::npos);
+    CHECK(source.find("RD_PROFILE_VERTICAL_CURVE_CONTEXT_ADD_PVI") != std::string::npos);
+    CHECK(source.find("RD_PROFILE_VERTICAL_CURVE_CONTEXT_DELETE_PVI") != std::string::npos);
+    CHECK(source.find("新增竖曲线变坡点") != std::string::npos);
+    CHECK(source.find("删除竖曲线变坡点") != std::string::npos);
 }
 
 void relationManagerMarksDependentsForRebuild()
@@ -1813,6 +1860,7 @@ int main()
     moduleRegistryRegistersCommandsAndRibbonPanels();
     profileModuleRegistersCommandsAndRibbonPanel();
     startupRegistrationIncludesProfileModule();
+    managedRibbonExtensionRegistersVerticalCurveContextMenu();
     relationManagerMarksDependentsForRebuild();
     terrainSampleServiceCreatesRelationUpdateScenario();
     terrainTextElevationParserRecognizesSupportedForms();

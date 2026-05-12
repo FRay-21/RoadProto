@@ -1533,6 +1533,41 @@ void profileVerticalCurveCalculatorBuildsSingleCrestCurve()
     CHECK(built.elements[0].highLowPoint->isHighPoint);
 }
 
+void profileVerticalCurveCalculatorKeepsOriginalPviIndexAfterSorting()
+{
+    using namespace roadproto::domain::profile;
+
+    ProfileVerticalCurveData data;
+    data.controlPoints = {
+        {VerticalCurvePointRole::Start, 0.0, 0.0},
+        {VerticalCurvePointRole::End, 300.0, 0.0},
+    };
+    data.pvis = {
+        VerticalCurvePvi{200.0, 30.0, 1000.0},
+        VerticalCurvePvi{100.0, 20.0, 1000.0},
+    };
+
+    const auto built = ProfileVerticalCurveCalculator::rebuild(data);
+    CHECK(built.succeeded);
+    CHECK(built.elements.size() == 2);
+
+    const auto station100 = std::find_if(built.elements.begin(), built.elements.end(), [](const auto& element) {
+        return std::fabs(element.pviStation - 100.0) < 1e-9;
+    });
+    const auto station200 = std::find_if(built.elements.begin(), built.elements.end(), [](const auto& element) {
+        return std::fabs(element.pviStation - 200.0) < 1e-9;
+    });
+
+    CHECK(station100 != built.elements.end());
+    CHECK(station200 != built.elements.end());
+    if (station100 != built.elements.end()) {
+        CHECK(station100->pviIndex == 1);
+    }
+    if (station200 != built.elements.end()) {
+        CHECK(station200->pviIndex == 0);
+    }
+}
+
 void profileVerticalCurveCalculatorSamplesBeyondGradeGraphRange()
 {
     using namespace roadproto::domain::profile;
@@ -1680,6 +1715,7 @@ int main()
     profileVerticalCurveModelDefaultsToDesignLine();
     profileVerticalCurveCalculatorInterpolatesStraightLine();
     profileVerticalCurveCalculatorBuildsSingleCrestCurve();
+    profileVerticalCurveCalculatorKeepsOriginalPviIndexAfterSorting();
     profileVerticalCurveCalculatorSamplesBeyondGradeGraphRange();
     profileVerticalCurveCreateServiceBuildsDefaultLineFromGraphSamples();
     profileVerticalCurveCreateServiceRejectsTooFewGroundSamples();

@@ -8,6 +8,11 @@ namespace {
 
 constexpr double kEpsilon = 1e-9;
 
+struct IndexedPvi {
+    std::size_t originalIndex = 0;
+    VerticalCurvePvi pvi;
+};
+
 bool isFinite(double value)
 {
     return std::isfinite(value);
@@ -29,6 +34,19 @@ std::vector<VerticalCurvePvi> sortedPvis(const std::vector<VerticalCurvePvi>& pv
     auto sorted = pvis;
     std::sort(sorted.begin(), sorted.end(), [](const auto& lhs, const auto& rhs) {
         return lhs.station < rhs.station;
+    });
+    return sorted;
+}
+
+std::vector<IndexedPvi> sortedPvisWithSourceIndex(const std::vector<VerticalCurvePvi>& pvis)
+{
+    std::vector<IndexedPvi> sorted;
+    sorted.reserve(pvis.size());
+    for (std::size_t i = 0; i < pvis.size(); ++i) {
+        sorted.push_back(IndexedPvi{i, pvis[i]});
+    }
+    std::sort(sorted.begin(), sorted.end(), [](const auto& lhs, const auto& rhs) {
+        return lhs.pvi.station < rhs.pvi.station;
     });
     return sorted;
 }
@@ -223,9 +241,9 @@ ProfileVerticalCurveBuildResult ProfileVerticalCurveCalculator::rebuild(const Pr
         }
     }
 
-    const auto pvis = sortedPvis(data.pvis);
-    for (std::size_t pviIndex = 0; pviIndex < pvis.size(); ++pviIndex) {
-        const auto& pvi = pvis[pviIndex];
+    const auto pvis = sortedPvisWithSourceIndex(data.pvis);
+    for (const auto& indexedPvi : pvis) {
+        const auto& pvi = indexedPvi.pvi;
         auto pointIt = std::find_if(
             result.orderedControlPoints.begin(),
             result.orderedControlPoints.end(),
@@ -254,7 +272,7 @@ ProfileVerticalCurveBuildResult ProfileVerticalCurveCalculator::rebuild(const Pr
         }
 
         VerticalCurveElement element;
-        element.pviIndex = pviIndex;
+        element.pviIndex = indexedPvi.originalIndex;
         element.type = gradeDifference < 0.0 ? VerticalCurveType::Crest : VerticalCurveType::Sag;
         element.pviStation = pvi.station;
         element.pviElevation = pvi.elevation;

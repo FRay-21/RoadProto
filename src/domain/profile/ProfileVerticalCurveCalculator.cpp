@@ -284,6 +284,11 @@ ProfileVerticalCurveBuildResult ProfileVerticalCurveCalculator::rebuild(const Pr
         element.tangentLength = element.length / 2.0;
         element.bvcStation = pvi.station - element.tangentLength;
         element.evcStation = pvi.station + element.tangentLength;
+        if (element.bvcStation < previous.station - kEpsilon ||
+            element.evcStation > next.station + kEpsilon) {
+            result.errorMessage = L"Vertical curve extends beyond adjacent tangent control points.";
+            return result;
+        }
         element.bvcElevation = pvi.elevation - i1 * element.tangentLength;
         element.evcElevation = pvi.elevation + i2 * element.tangentLength;
 
@@ -303,6 +308,12 @@ ProfileVerticalCurveBuildResult ProfileVerticalCurveCalculator::rebuild(const Pr
     std::sort(result.elements.begin(), result.elements.end(), [](const auto& lhs, const auto& rhs) {
         return lhs.bvcStation < rhs.bvcStation;
     });
+    for (std::size_t i = 1; i < result.elements.size(); ++i) {
+        if (result.elements[i - 1].evcStation > result.elements[i].bvcStation + kEpsilon) {
+            result.errorMessage = L"Vertical curve elements must not overlap.";
+            return result;
+        }
+    }
     result.succeeded = true;
     return result;
 }
@@ -360,13 +371,20 @@ ProfileVerticalCurveSampleResult ProfileVerticalCurveCalculator::sample(const Pr
 
     const double start = built.orderedControlPoints.front().station;
     const double end = built.orderedControlPoints.back().station;
-    for (double station = start; station < end; station += interval) {
+    for (double station = start; station < end;) {
         const auto elevation = elevationAt(built, station);
         if (!elevation.succeeded) {
             result.errorMessage = elevation.errorMessage;
             return result;
         }
         result.points.push_back(VerticalCurveSamplePoint{station, elevation.value});
+
+        const double nextStation = station + interval;
+        if (nextStation <= station) {
+            result.errorMessage = L"Sample interval does not advance station.";
+            return result;
+        }
+        station = nextStation;
     }
 
     const auto endElevation = elevationAt(built, end);

@@ -1543,8 +1543,8 @@ void profileVerticalCurveCalculatorKeepsOriginalPviIndexAfterSorting()
         {VerticalCurvePointRole::End, 300.0, 0.0},
     };
     data.pvis = {
-        VerticalCurvePvi{200.0, 30.0, 1000.0},
-        VerticalCurvePvi{100.0, 20.0, 1000.0},
+        VerticalCurvePvi{200.0, 30.0, 100.0},
+        VerticalCurvePvi{100.0, 20.0, 100.0},
     };
 
     const auto built = ProfileVerticalCurveCalculator::rebuild(data);
@@ -1568,6 +1568,45 @@ void profileVerticalCurveCalculatorKeepsOriginalPviIndexAfterSorting()
     }
 }
 
+void profileVerticalCurveCalculatorRejectsCurveBeyondAdjacentTangents()
+{
+    using namespace roadproto::domain::profile;
+
+    ProfileVerticalCurveData data;
+    data.controlPoints = {
+        {VerticalCurvePointRole::Start, 0.0, 0.0},
+        {VerticalCurvePointRole::Pvi, 100.0, 10.0},
+        {VerticalCurvePointRole::End, 200.0, 10.0},
+    };
+    data.pvis = {
+        VerticalCurvePvi{100.0, 10.0, 5000.0},
+    };
+
+    const auto built = ProfileVerticalCurveCalculator::rebuild(data);
+    CHECK(!built.succeeded);
+    CHECK(!built.errorMessage.empty());
+}
+
+void profileVerticalCurveCalculatorUpdateRadiusRollsBackInvalidCurve()
+{
+    using namespace roadproto::domain::profile;
+
+    ProfileVerticalCurveData data;
+    data.controlPoints = {
+        {VerticalCurvePointRole::Start, 0.0, 0.0},
+        {VerticalCurvePointRole::Pvi, 100.0, 10.0},
+        {VerticalCurvePointRole::End, 200.0, 10.0},
+    };
+    data.pvis = {
+        VerticalCurvePvi{100.0, 10.0, 1000.0},
+    };
+
+    const auto edit = ProfileVerticalCurveCalculator::updateRadius(data, 0, 5000.0);
+    CHECK(!edit.succeeded);
+    CHECK(!edit.changed);
+    CHECK(std::fabs(data.pvis[0].radius - 1000.0) < 1e-9);
+}
+
 void profileVerticalCurveCalculatorSamplesBeyondGradeGraphRange()
 {
     using namespace roadproto::domain::profile;
@@ -1584,6 +1623,21 @@ void profileVerticalCurveCalculatorSamplesBeyondGradeGraphRange()
     CHECK(samples.points.size() >= 2);
     CHECK(std::fabs(samples.points.front().station + 20.0) < 1e-9);
     CHECK(std::fabs(samples.points.back().station - 120.0) < 1e-9);
+}
+
+void profileVerticalCurveCalculatorRejectsNonAdvancingSampleInterval()
+{
+    using namespace roadproto::domain::profile;
+
+    ProfileVerticalCurveData data;
+    data.controlPoints = {
+        {VerticalCurvePointRole::Start, 1.0e16, 10.0},
+        {VerticalCurvePointRole::End, 1.0e16 + 1024.0, 20.0},
+    };
+
+    const auto samples = ProfileVerticalCurveCalculator::sample(data, 0.1);
+    CHECK(!samples.succeeded);
+    CHECK(!samples.errorMessage.empty());
 }
 
 void profileVerticalCurveCreateServiceBuildsDefaultLineFromGraphSamples()
@@ -1716,7 +1770,10 @@ int main()
     profileVerticalCurveCalculatorInterpolatesStraightLine();
     profileVerticalCurveCalculatorBuildsSingleCrestCurve();
     profileVerticalCurveCalculatorKeepsOriginalPviIndexAfterSorting();
+    profileVerticalCurveCalculatorRejectsCurveBeyondAdjacentTangents();
+    profileVerticalCurveCalculatorUpdateRadiusRollsBackInvalidCurve();
     profileVerticalCurveCalculatorSamplesBeyondGradeGraphRange();
+    profileVerticalCurveCalculatorRejectsNonAdvancingSampleInterval();
     profileVerticalCurveCreateServiceBuildsDefaultLineFromGraphSamples();
     profileVerticalCurveCreateServiceRejectsTooFewGroundSamples();
     alignmentCommandMetadataUsesExpectedNames();

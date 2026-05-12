@@ -123,6 +123,8 @@ Acad::ErrorStatus DnProfileVerticalCurveEntity::dwgInFields(AcDbDwgFiler* filer)
     filer->readInt32(&curveData_.properties.keyPointColorIndex);
     filer->readDouble(&curveData_.properties.designLineWidth);
     filer->readDouble(&curveData_.properties.sampleInterval);
+    curveData_.properties.showLabels = readBool(filer);
+    curveData_.properties.showTangentLines = readBool(filer);
 
     Adesk::Int32 controlPointCount = 0;
     filer->readInt32(&controlPointCount);
@@ -180,6 +182,13 @@ Acad::ErrorStatus DnProfileVerticalCurveEntity::dwgOutFields(AcDbDwgFiler* filer
     filer->writeInt32(static_cast<Adesk::Int32>(curveData_.properties.keyPointColorIndex));
     filer->writeDouble(curveData_.properties.designLineWidth);
     filer->writeDouble(curveData_.properties.sampleInterval);
+    writeBool(filer, curveData_.properties.showLabels);
+    writeBool(filer, curveData_.properties.showTangentLines);
+
+    if (curveData_.controlPoints.size() > static_cast<std::size_t>(kMaxPersistedCount)
+        || curveData_.pvis.size() > static_cast<std::size_t>(kMaxPersistedCount)) {
+        return Acad::eInvalidInput;
+    }
 
     filer->writeInt32(static_cast<Adesk::Int32>(curveData_.controlPoints.size()));
     for (const auto& point : curveData_.controlPoints) {

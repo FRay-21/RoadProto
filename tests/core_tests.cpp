@@ -11,6 +11,7 @@
 #include "domain/alignment/StationFormatter.h"
 #include "domain/profile/ProfileDmxFile.h"
 #include "domain/profile/ProfileGradeGraphLayout.h"
+#include "domain/profile/ProfileVerticalCurveCalculator.h"
 #include "domain/profile/ProfileVerticalCurveModel.h"
 #include "domain/relation/EntityRelationManager.h"
 #include "domain/terrain/TerrainPointNormalizer.h"
@@ -1482,6 +1483,74 @@ void profileVerticalCurveModelDefaultsToDesignLine()
     CHECK(!pvi.radiusLocked);
 }
 
+void profileVerticalCurveCalculatorInterpolatesStraightLine()
+{
+    using namespace roadproto::domain::profile;
+
+    ProfileVerticalCurveData data;
+    data.controlPoints = {
+        {VerticalCurvePointRole::Start, 100.0, 20.0},
+        {VerticalCurvePointRole::End, 200.0, 30.0},
+    };
+
+    const auto built = ProfileVerticalCurveCalculator::rebuild(data);
+    CHECK(built.succeeded);
+    CHECK(built.elements.empty());
+    const auto elevation = ProfileVerticalCurveCalculator::elevationAt(built, 150.0);
+    CHECK(elevation.succeeded);
+    CHECK(std::fabs(elevation.value - 25.0) < 1e-9);
+    const auto grade = ProfileVerticalCurveCalculator::gradeAt(built, 150.0);
+    CHECK(grade.succeeded);
+    CHECK(std::fabs(grade.value - 0.1) < 1e-9);
+}
+
+void profileVerticalCurveCalculatorBuildsSingleCrestCurve()
+{
+    using namespace roadproto::domain::profile;
+
+    ProfileVerticalCurveData data;
+    data.controlPoints = {
+        {VerticalCurvePointRole::Start, 0.0, 0.0},
+        {VerticalCurvePointRole::Pvi, 100.0, 10.0},
+        {VerticalCurvePointRole::End, 200.0, 10.0},
+    };
+    data.pvis = {
+        VerticalCurvePvi{100.0, 10.0, 1000.0},
+    };
+
+    const auto built = ProfileVerticalCurveCalculator::rebuild(data);
+    CHECK(built.succeeded);
+    CHECK(built.elements.size() == 1);
+    CHECK(built.elements[0].type == VerticalCurveType::Crest);
+    CHECK(std::fabs(built.elements[0].i1 - 0.1) < 1e-9);
+    CHECK(std::fabs(built.elements[0].i2 - 0.0) < 1e-9);
+    CHECK(std::fabs(built.elements[0].gradeDifference + 0.1) < 1e-9);
+    CHECK(std::fabs(built.elements[0].length - 100.0) < 1e-9);
+    CHECK(std::fabs(built.elements[0].tangentLength - 50.0) < 1e-9);
+    CHECK(std::fabs(built.elements[0].bvcStation - 50.0) < 1e-9);
+    CHECK(std::fabs(built.elements[0].evcStation - 150.0) < 1e-9);
+    CHECK(built.elements[0].highLowPoint.has_value());
+    CHECK(built.elements[0].highLowPoint->isHighPoint);
+}
+
+void profileVerticalCurveCalculatorSamplesBeyondGradeGraphRange()
+{
+    using namespace roadproto::domain::profile;
+
+    ProfileVerticalCurveData data;
+    data.controlPoints = {
+        {VerticalCurvePointRole::Start, -20.0, 10.0},
+        {VerticalCurvePointRole::End, 120.0, 24.0},
+    };
+    data.properties.sampleInterval = 25.0;
+
+    const auto samples = ProfileVerticalCurveCalculator::sample(data, data.properties.sampleInterval);
+    CHECK(samples.succeeded);
+    CHECK(samples.points.size() >= 2);
+    CHECK(std::fabs(samples.points.front().station + 20.0) < 1e-9);
+    CHECK(std::fabs(samples.points.back().station - 120.0) < 1e-9);
+}
+
 void profileVerticalCurveCreateServiceBuildsDefaultLineFromGraphSamples()
 {
     using namespace roadproto::application::profile;
@@ -1609,6 +1678,9 @@ int main()
     profileGradeGraphCreateServiceRejectsTooFewSamples();
     profileGradeGraphCreateServiceRejectsInvalidLayoutSamples();
     profileVerticalCurveModelDefaultsToDesignLine();
+    profileVerticalCurveCalculatorInterpolatesStraightLine();
+    profileVerticalCurveCalculatorBuildsSingleCrestCurve();
+    profileVerticalCurveCalculatorSamplesBeyondGradeGraphRange();
     profileVerticalCurveCreateServiceBuildsDefaultLineFromGraphSamples();
     profileVerticalCurveCreateServiceRejectsTooFewGroundSamples();
     alignmentCommandMetadataUsesExpectedNames();

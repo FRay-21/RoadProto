@@ -1461,9 +1461,25 @@ void profileVerticalCurveModelDefaultsToDesignLine()
     CHECK(data.version == 1);
     CHECK(data.properties.name == L"\u7ad6\u66f2\u7ebf");
     CHECK(data.properties.designLineColorIndex == 1);
+    CHECK(data.properties.tangentLineColorIndex == 8);
+    CHECK(data.properties.keyPointColorIndex == 2);
+    CHECK(std::fabs(data.properties.designLineWidth - 0.35) < 1e-9);
     CHECK(data.properties.sampleInterval == 5.0);
+    CHECK(data.properties.showLabels);
+    CHECK(data.properties.showTangentLines);
     CHECK(data.controlPoints.empty());
     CHECK(data.pvis.empty());
+
+    VerticalCurveControlPoint controlPoint;
+    CHECK(controlPoint.role == VerticalCurvePointRole::Pvi);
+    CHECK(std::fabs(controlPoint.station) < 1e-9);
+    CHECK(std::fabs(controlPoint.elevation) < 1e-9);
+
+    VerticalCurvePvi pvi;
+    CHECK(std::fabs(pvi.station) < 1e-9);
+    CHECK(std::fabs(pvi.elevation) < 1e-9);
+    CHECK(std::fabs(pvi.radius - 1000.0) < 1e-9);
+    CHECK(!pvi.radiusLocked);
 }
 
 void profileVerticalCurveCreateServiceBuildsDefaultLineFromGraphSamples()

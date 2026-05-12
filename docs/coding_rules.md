@@ -35,7 +35,9 @@
 
 每个生成的 ARX 版本都要记录到 `docs/dev/version_log.md`。
 
-使用 `.worktrees/<分支名>` 开发时，文档需要双写：在 worktree 内保存正式文档后，收尾前必须把同一份文档按相同相对路径同步到主项目目录 `F:\0_GPT_道路设计原型功能项目`。这条规则适用于 `AGENTS.md`、`README.md`、`docs/business/`、`docs/modules/`、`docs/reuse/`、`docs/dev/`、`docs/architecture/`、`docs/rules/`、`tests/README.md` 和用户明确要求可见的说明文档。源代码不按此规则双写，避免主目录和 worktree 分支代码互相覆盖。
+使用 `.worktrees/<分支名>` 开发时，文档需要双写：在 worktree 内保存正式文档后，收尾前必须把同一份文档按相同相对路径同步到主项目目录 `F:\0_GPT_道路设计原型功能项目`。这条规则适用于 `AGENTS.md`、`README.md`、`docs/business/`、`docs/modules/`、`docs/reuse/`、`docs/dev/`、`docs/architecture/`、`docs/rules/`、`tests/README.md`、`assets/icons/README.md`、`samples/README.md` 和用户明确要求可见的说明文档。源代码不按此规则双写，避免主目录和 worktree 分支代码互相覆盖。
+
+Worktree 内的文档版本必须提交并推送到 Git，作为正式留档；主项目目录必须保留同路径、内容一致的可见副本，方便用户直接查看。
 
 ## 测试规则
 

@@ -66,9 +66,13 @@
 - `docs/architecture/`
 - `docs/rules/`
 - `tests/README.md`
+- `assets/icons/README.md`
+- `samples/README.md`
 - 其他用户明确要求可见的说明文档
 
 代码文件仍以当前开发 worktree 为准；除用户明确要求外，不要把源代码从 worktree 直接同步到主项目目录，避免不同分支代码混杂。
+
+约定：在 worktree 中形成或更新的文档，以 worktree 内提交并推送到 Git 的版本作为正式版本；主项目目录必须保留一份相同相对路径、内容一致的可见副本，方便用户直接打开查看。每次收尾前都要完成“worktree 提交/推送一份、主目录同步保留一份”的双份同步。
 
 ## Worktree 构建产物同步规则
 

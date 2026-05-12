@@ -408,6 +408,19 @@
 - WPF Bridge 当前采用临时请求/响应文件，后续可替换为更正式的进程内 Bridge。
 - Core Console 无法覆盖完整鼠标双击、文件对话框和 WPF 弹窗；这些路径需要在 AutoCAD 图形界面中人工验证。
 
+## v0.1.9 profile vertical curve follow-up - 2026-05-12
+
+- 新增竖曲线领域模型、默认创建服务、对称二次抛物线计算器和编辑服务。
+- 新增 `DnProfileVerticalCurveEntity`，独立关联纵断面拉坡图 handle，支持 DWG 持久化、拉坡图 frame 坐标映射、曲线绘制、几何范围、起终点/PVI/半径夹点。
+- 新增 `RD_PROFILE_VERTICAL_CURVE_CREATE`、`RD_PROFILE_VERTICAL_CURVE_EDIT_HANDLE`、`RD_PROFILE_VERTICAL_CURVE_APPLY_DIALOG_FILE`、`RD_PROFILE_VERTICAL_CURVE_ADD_PVI` 和 `RD_PROFILE_VERTICAL_CURVE_DELETE_PVI`。
+- 新增 WPF 竖曲线编辑窗口和 `ProfileVerticalCurveDialogBridge`，支持编辑名称、起终点桩号/高程、PVI 桩号/高程和半径。
+- 托管 Ribbon `纵断面设计` 面板新增 `创建竖曲线` 按钮；双击 `DNPROFILEVERTICALCURVEENTITY` 可进入 WPF 编辑窗口。
+- 增强竖曲线实体图面反算：按拉坡图 `xAxis/yAxis` 二维基向量求逆，支持拉坡图被旋转或缩放后的夹点和点取反算。
+- 响应文件解析改为严格数值解析，并限制 PVI 数量，避免坏响应文件写坏竖曲线实体。
+- 更新竖曲线创建、编辑、夹点与右键编辑业务文档，新增竖曲线复用说明，并同步模块、复用目录、测试说明和 README。
+- 构建验证：核心测试 Debug 构建通过并输出 `All RoadProto core tests passed.`；Debug ARX 构建通过，0 警告，0 错误；Debug 托管 Ribbon 构建通过，0 警告，0 错误。
+- 当前仍沿用 `RoadProto_v0.1.9_20260511_ProfileGradeGraph.arx` 输出名；后续正式 release 再统一更新 ARX 版本号和阶段名。
+
 ## 记录模板
 
 ```markdown

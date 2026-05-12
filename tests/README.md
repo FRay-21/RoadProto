@@ -22,6 +22,7 @@ artifacts\x64\Debug\RoadProtoCoreTests.exe
 - RMesh `.rmesh` 地形数模文件的写入、读取、Unicode 元数据回读和非法文件拒绝。
 - 回旋线公式、道路主点切线长、旧切线长保护、单交点五单元构建、多交点连续平曲线链构建、桩号格式化和无效平曲线参数拒绝。
 - 纵断面拉坡图领域规则：DMX 文件读取、断链桩号兼容、重复桩号保留、布局范围、纵向比例校验和创建服务默认属性。
+- 纵断面竖曲线领域规则：默认设计线创建、PVI 对称二次抛物线、BVC/EVC、高低点、任意桩号高程和坡度、PVI 增删、半径更新和命令元数据。
 
 V0.1.6 继续保留 `TerrainMeshFile` 领域层测试，用于保证 `DN_TERRAIN_TIN_EXPORT` / `DN_TERRAIN_TIN_IMPORT` 依赖的跨 DWG 数模文件数据不会在读写中丢失。
 
@@ -62,3 +63,21 @@ AutoCAD 图形界面需要手工验证 `RD_PROFILE_GRADE_GRAPH_CREATE`、`RD_PRO
 - 双击拉坡图可打开 WPF 属性窗口，修改颜色、线宽、精度、纵向比例和网格间距后刷新实体。
 - DMX 来源实体点击“更新地面线”会重新读取保存的 DMX 文件路径；数模来源实体该按钮置灰。
 - 保存 DWG 后重开并 `REGEN`，拉坡图实体和属性保持正常。
+
+## V0.1.9 纵断面竖曲线验证范围
+
+核心测试覆盖 `ProfileVerticalCurveCreateService` 从拉坡图地面线首末点创建默认设计线。
+
+核心测试覆盖 `ProfileVerticalCurveCalculator` 的前后坡、坡度差、凸/凹曲线类型、`L/T/BVC/EVC`、任意桩号设计高程、瞬时坡度、高点或低点计算，以及曲线越过相邻坡段时拒绝。
+
+核心测试覆盖 `ProfileVerticalCurveEditService` 的 PVI 新增、删除、夹点移动和半径更新。
+
+核心测试覆盖 PROFILE 模块中 `RD_PROFILE_VERTICAL_CURVE_CREATE`、`RD_PROFILE_VERTICAL_CURVE_EDIT_HANDLE`、`RD_PROFILE_VERTICAL_CURVE_APPLY_DIALOG_FILE`、`RD_PROFILE_VERTICAL_CURVE_ADD_PVI` 和 `RD_PROFILE_VERTICAL_CURVE_DELETE_PVI` 的命令元数据。
+
+AutoCAD 图形界面需要手工验证 `RD_PROFILE_VERTICAL_CURVE_CREATE`、`RD_PROFILE_VERTICAL_CURVE_EDIT_HANDLE`、`RD_PROFILE_VERTICAL_CURVE_APPLY_DIALOG_FILE`、`RD_PROFILE_VERTICAL_CURVE_ADD_PVI`、`RD_PROFILE_VERTICAL_CURVE_DELETE_PVI` 和 `DnProfileVerticalCurveEntity`：
+
+- 选择纵断面拉坡图后，可创建默认连接地面线起终点的竖曲线实体。
+- 竖曲线在拉坡图坐标系中显示，保存 DWG 后重开并 `REGEN` 仍保持可见。
+- 双击竖曲线可打开 WPF 编辑窗口，修改起终点、PVI 高程和半径后刷新实体。
+- 起点、终点、PVI 和半径夹点可拖动，拖动后图形刷新且无索引错位。
+- 新增 PVI 和删除最近 PVI 命令可正确更新实体。

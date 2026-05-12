@@ -40,6 +40,9 @@
 | 纵断面拉坡图布局映射 | V0.1.9 原型，支持桩号 X 方向 1:1、纵向比例 1/10/100、网格范围和地面线图面坐标计算 | `src/domain/profile/ProfileGradeGraphLayout.*` |
 | 纵断面拉坡图自定义实体 | V0.1.9 原型，支持标题、表头、网格线、地面线折线、DWG 持久化、几何范围和变换 | `src/cad_adapter/objectarx/profile/DnProfileGradeGraphEntity.*` |
 | 纵断面拉坡图 WPF 属性 Bridge | V0.1.9 原型，通过请求/响应文件编辑显示属性，并支持 DMX 来源重新读取地面线 | `src/cad_adapter/objectarx/profile/ProfileGradeGraphDialogBridge.*` |
+| 纵断面竖曲线计算 | V0.1.9 follow-up 原型，支持起终点、PVI、半径、对称二次抛物线、BVC/EVC、高低点、任意桩号高程和瞬时坡度 | `src/domain/profile/ProfileVerticalCurveCalculator.*` |
+| 纵断面竖曲线自定义实体 | V0.1.9 follow-up 原型，独立关联拉坡图，支持 DWG 持久化、拉坡图 frame 映射、曲线绘制、起终点/PVI/半径夹点和 PVI 增删 | `src/cad_adapter/objectarx/profile/DnProfileVerticalCurveEntity.*` |
+| 纵断面竖曲线 WPF 编辑 Bridge | V0.1.9 follow-up 原型，通过请求/响应文件编辑名称、起终点、PVI 高程和半径，并由 C++ 严格解析后回写实体 | `src/cad_adapter/objectarx/profile/ProfileVerticalCurveDialogBridge.*` |
 
 ## 模块专用能力
 
@@ -49,7 +52,7 @@
 | 地形构网流程服务 | V0.1.6 原型 | `src/application/terrain/TerrainTinCreateService.*` |
 | 平交口模块注册 | V0.1 示例 | `src/modules/intersection/IntersectionModule.*` |
 | 平面设计模块注册 | V0.1.8 原型，注册平面布线、编辑平曲线参数、ICD 导入导出、双击 handle 编辑命令和 WPF 回写内部命令，并按功能文档分配业务文档路径 | `src/modules/alignment/AlignmentModule.*` |
-| 纵断面设计模块注册 | V0.1.9 原型，注册纵断面拉坡图创建、双击 handle 编辑、WPF 回写内部命令和 Ribbon 面板 | `src/modules/profile/ProfileModule.*` |
+| 纵断面设计模块注册 | V0.1.9 原型，注册纵断面拉坡图、竖曲线创建、双击 handle 编辑、WPF 回写、PVI 增删命令和 Ribbon 面板 | `src/modules/profile/ProfileModule.*` |
 
 ## 临时原型能力
 
@@ -76,3 +79,12 @@
 - `DnProfileGradeGraphEntity` 是 CAD 持久化和显示能力，负责标题、表头、网格线和地面线折线表达。
 - `ProfileGradeGraphDialogBridge` 是原型阶段 UI 解耦能力，通过请求/响应文件在 WPF 与 C++ ObjectARX 之间传递属性和 DMX 更新请求。
 - 数模来源的地面线当前在创建命令中按精度采样，属性窗口修改精度时可按保存 handle 重新采样；路线移动或数模更新后的自动重建需后续接入统一实体关系管理机制。
+
+## V0.1.9 纵断面竖曲线复用边界
+
+- `ProfileVerticalCurveModel` 和 `ProfileVerticalCurveCalculator` 是竖曲线几何核心能力，不依赖 ObjectARX，可复用于横断面设计高程、三维模型、土方和排水设计。
+- `ProfileVerticalCurveCreateService` 负责从拉坡图地面线首末点生成默认设计线，不做 CAD 选择。
+- `ProfileVerticalCurveEditService` 统一承接 WPF 回写、夹点移动、PVI 新增、PVI 删除和半径更新。
+- `DnProfileVerticalCurveEntity` 是 CAD 持久化和显示能力，负责通过关联拉坡图 frame 映射设计坐标、绘制曲线和提供起终点/PVI/半径夹点。
+- `ProfileVerticalCurveDialogBridge` 是原型阶段 UI 解耦能力，通过请求/响应文件在 WPF 与 C++ ObjectARX 之间传递竖曲线参数。
+- 第一版完整标注、要素表、非对称竖曲线和跨模块自动联动仍需后续扩展。

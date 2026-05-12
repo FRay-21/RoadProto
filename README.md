@@ -98,6 +98,12 @@ UI   -> 只负责参数收集和展示
   - 实体绘制拉坡图名称、表头、网格线和地面线折线；默认地面线为青绿色、线宽 1、采样精度 10、网格间距 10。
   - 双击拉坡图可打开 WPF 属性窗口，修改地面线颜色、线宽、精度、纵向比例和网格间距；DMX 来源实体可使用“更新地面线”重新读取保存的 DMX 文件路径，数模来源实体该按钮置灰。
   - 业务文档：`docs/business/profile/纵断面拉坡图_创建.md`、`docs/business/profile/纵断面拉坡图_属性编辑.md`
+- 竖曲线命令：命令 `RD_PROFILE_VERTICAL_CURVE_CREATE`
+  - 可通过 AutoCAD Ribbon 的 `RoadProto` 选项卡、`纵断面设计` 面板、`创建竖曲线` 按钮触发。
+  - 用户选择纵断面拉坡图后，系统创建独立 `DnProfileVerticalCurveEntity`，默认连接地面线起终点，作为设计高程线。
+  - 竖曲线实体通过关联拉坡图的图面坐标系绘制，支持 DWG 持久化、起终点/PVI/半径夹点、PVI 新增和删除。
+  - 双击竖曲线可打开 WPF 编辑窗口，修改名称、起终点、PVI 桩号/高程和半径；回写由 C++ application/domain 层校验后刷新实体。
+  - 业务文档：`docs/business/profile/竖曲线_创建.md`、`docs/business/profile/竖曲线_编辑.md`、`docs/business/profile/竖曲线_夹点与右键编辑.md`
 - 平交口模块：命令 `RD_INTERSECTION_INFO`
   - 示例演示新增模块可以通过框架完成注册、命令暴露和 Ribbon 元数据挂接。
   - 业务文档：`docs/business/intersection/平交口模块框架说明.md`
@@ -144,7 +150,7 @@ ARXLOAD artifacts\x64\Release\RoadProto_v0.1.9_20260511_ProfileGradeGraph.arx
 NETLOAD artifacts\managed\Release\net48\RoadProto.Terrain.UI.dll
 ```
 
-加载后可在 Ribbon 中打开 `RoadProto` 选项卡，点击 `数模` 面板下的 `地形构网`、`编辑数模`、`导出数模` 或 `导入数模`；也可点击 `平面设计` 面板下的 `平面布线`、`编辑平曲线参数`、`导出中线 ICD` 和 `导入中线 ICD`；纵断面入口位于 `纵断面设计` 面板下的 `纵断面拉坡图`。命令行可直接运行 `DN_TERRAIN_TIN_CREATE`、`DN_TERRAIN_TIN_EDIT`、`DN_TERRAIN_TIN_EXPORT`、`DN_TERRAIN_TIN_IMPORT`、`RD_ALIGN_CENTERLINE_CREATE`、`RD_ALIGN_CURVE_PARAM_EDIT`、`RD_ALIGN_CENTERLINE_EXPORT_ICD`、`RD_ALIGN_CENTERLINE_IMPORT_ICD` 和 `RD_PROFILE_GRADE_GRAPH_CREATE`。数模流转文件后缀固定为 `.rmesh`，道路中线流转文件后缀固定为 `.icd`，纵断面地面线文件后缀固定为 `.dmx`。
+加载后可在 Ribbon 中打开 `RoadProto` 选项卡，点击 `数模` 面板下的 `地形构网`、`编辑数模`、`导出数模` 或 `导入数模`；也可点击 `平面设计` 面板下的 `平面布线`、`编辑平曲线参数`、`导出中线 ICD` 和 `导入中线 ICD`；纵断面入口位于 `纵断面设计` 面板下的 `纵断面拉坡图` 和 `创建竖曲线`。命令行可直接运行 `DN_TERRAIN_TIN_CREATE`、`DN_TERRAIN_TIN_EDIT`、`DN_TERRAIN_TIN_EXPORT`、`DN_TERRAIN_TIN_IMPORT`、`RD_ALIGN_CENTERLINE_CREATE`、`RD_ALIGN_CURVE_PARAM_EDIT`、`RD_ALIGN_CENTERLINE_EXPORT_ICD`、`RD_ALIGN_CENTERLINE_IMPORT_ICD`、`RD_PROFILE_GRADE_GRAPH_CREATE`、`RD_PROFILE_VERTICAL_CURVE_CREATE`、`RD_PROFILE_VERTICAL_CURVE_ADD_PVI` 和 `RD_PROFILE_VERTICAL_CURVE_DELETE_PVI`。数模流转文件后缀固定为 `.rmesh`，道路中线流转文件后缀固定为 `.icd`，纵断面地面线文件后缀固定为 `.dmx`。
 
 ## 本机运行与内存排查
 
@@ -171,6 +177,7 @@ artifacts\x64\Debug\RoadProtoCoreTests.exe
 - 平面布线元素链规则：圆曲线、有限半径到有限半径的不完整缓和曲线、反向曲率过渡的计算和采样。
 - ICD 路线文件规则：积木法线形单元 `.icd` 的读取、写入、注释清理、工程坐标与 CAD 坐标转换、五单元导出再导入和 `5/6` 不完整缓和曲线导入。
 - 纵断面拉坡图规则：DMX 纵地面线读取、桩号/高程布局映射、纵向比例校验、网格范围计算和创建服务默认属性。
+- 纵断面竖曲线规则：默认创建、对称二次抛物线计算、BVC/EVC、高低点、任意桩号高程和坡度、PVI 增删、半径更新和命令元数据。
 
 ## 新增命令流程
 

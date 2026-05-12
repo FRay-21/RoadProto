@@ -120,7 +120,7 @@ AcGePoint3d mapDesignPoint(const ProfileGradeGraphDrawingFrame& frame, double st
 {
     return frame.insertionPoint
         + frame.xAxis * (station - frame.minStation)
-        + frame.yAxis * ((elevation - frame.baseElevation) / frame.verticalScale);
+        + frame.yAxis * ((elevation - frame.baseElevation) * frame.verticalScale);
 }
 
 bool unmapDesignPoint(
@@ -141,7 +141,7 @@ bool unmapDesignPoint(
 
     const auto vector = point - frame.insertionPoint;
     station = frame.minStation + vector.dotProduct(xDirection);
-    elevation = frame.baseElevation + vector.dotProduct(yDirection) * frame.verticalScale;
+    elevation = frame.baseElevation + vector.dotProduct(yDirection) / frame.verticalScale;
     return std::isfinite(station) && std::isfinite(elevation);
 }
 

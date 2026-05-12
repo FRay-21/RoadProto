@@ -1,4 +1,5 @@
 #include "application/profile/ProfileGradeGraphCreateService.h"
+#include "application/profile/ProfileVerticalCurveCreateService.h"
 #include "application/terrain/TerrainUpdateSampleService.h"
 #include "core/command/CommandRegistry.h"
 #include "core/module/ModuleRegistry.h"
@@ -10,6 +11,7 @@
 #include "domain/alignment/StationFormatter.h"
 #include "domain/profile/ProfileDmxFile.h"
 #include "domain/profile/ProfileGradeGraphLayout.h"
+#include "domain/profile/ProfileVerticalCurveModel.h"
 #include "domain/relation/EntityRelationManager.h"
 #include "domain/terrain/TerrainPointNormalizer.h"
 #include "domain/terrain/TerrainMeshFile.h"
@@ -1451,6 +1453,66 @@ void profileGradeGraphCreateServiceRejectsInvalidLayoutSamples()
     CHECK(!nonFiniteResult.errorMessage.empty());
 }
 
+void profileVerticalCurveModelDefaultsToDesignLine()
+{
+    using namespace roadproto::domain::profile;
+
+    ProfileVerticalCurveData data;
+    CHECK(data.version == 1);
+    CHECK(data.properties.name == L"\u7ad6\u66f2\u7ebf");
+    CHECK(data.properties.designLineColorIndex == 1);
+    CHECK(data.properties.sampleInterval == 5.0);
+    CHECK(data.controlPoints.empty());
+    CHECK(data.pvis.empty());
+}
+
+void profileVerticalCurveCreateServiceBuildsDefaultLineFromGraphSamples()
+{
+    using namespace roadproto::application::profile;
+    using namespace roadproto::domain::profile;
+
+    ProfileVerticalCurveCreateInput input;
+    input.profileGraphHandle = L"ABCD";
+    input.groundSamples = {
+        ProfileGroundSample{100.0, 23.5},
+        ProfileGroundSample{120.0, 24.5},
+        ProfileGroundSample{150.0, 26.0},
+    };
+
+    const ProfileVerticalCurveCreateService service;
+    const auto result = service.buildDefaultFromGraph(input);
+
+    CHECK(result.succeeded);
+    CHECK(result.errorMessage.empty());
+    CHECK(result.data.profileGraphHandle == L"ABCD");
+    CHECK(result.data.controlPoints.size() == 2);
+    CHECK(result.data.controlPoints[0].role == VerticalCurvePointRole::Start);
+    CHECK(std::fabs(result.data.controlPoints[0].station - 100.0) < 1e-9);
+    CHECK(std::fabs(result.data.controlPoints[0].elevation - 23.5) < 1e-9);
+    CHECK(result.data.controlPoints[1].role == VerticalCurvePointRole::End);
+    CHECK(std::fabs(result.data.controlPoints[1].station - 150.0) < 1e-9);
+    CHECK(std::fabs(result.data.controlPoints[1].elevation - 26.0) < 1e-9);
+    CHECK(result.data.pvis.empty());
+}
+
+void profileVerticalCurveCreateServiceRejectsTooFewGroundSamples()
+{
+    using namespace roadproto::application::profile;
+    using namespace roadproto::domain::profile;
+
+    ProfileVerticalCurveCreateInput input;
+    input.profileGraphHandle = L"ABCD";
+    input.groundSamples = {
+        ProfileGroundSample{100.0, 23.5},
+    };
+
+    const ProfileVerticalCurveCreateService service;
+    const auto result = service.buildDefaultFromGraph(input);
+
+    CHECK(!result.succeeded);
+    CHECK(!result.errorMessage.empty());
+}
+
 void alignmentCommandMetadataUsesExpectedNames()
 {
     roadproto::core::CommandRegistry commands;
@@ -1530,6 +1592,9 @@ int main()
     profileGradeGraphCreateServiceUsesDefaultRoadName();
     profileGradeGraphCreateServiceRejectsTooFewSamples();
     profileGradeGraphCreateServiceRejectsInvalidLayoutSamples();
+    profileVerticalCurveModelDefaultsToDesignLine();
+    profileVerticalCurveCreateServiceBuildsDefaultLineFromGraphSamples();
+    profileVerticalCurveCreateServiceRejectsTooFewGroundSamples();
     alignmentCommandMetadataUsesExpectedNames();
 
     if (g_failures != 0) {

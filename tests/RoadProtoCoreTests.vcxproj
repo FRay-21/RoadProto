@@ -70,6 +70,7 @@
     <ClCompile Include="..\src\domain\terrain\TerrainTextElevationParser.cpp" />
     <ClCompile Include="..\src\domain\terrain\TerrainTinBuilder.cpp" />
     <ClCompile Include="..\src\application\profile\ProfileGradeGraphCreateService.cpp" />
+    <ClCompile Include="..\src\application\profile\ProfileVerticalCurveCreateService.cpp" />
     <ClCompile Include="..\src\application\terrain\TerrainUpdateSampleService.cpp" />
     <ClCompile Include="..\src\modules\profile\ProfileModule.cpp" />
     <ClCompile Include="..\src\cad_adapter\objectarx\profile\ObjectArxProfileGradeGraphCommand.cpp" />

@@ -82,6 +82,7 @@
     <ClCompile Include="..\application\alignment\AlignmentCreateService.cpp" />
     <ClCompile Include="..\application\profile\ProfileGradeGraphCreateService.cpp" />
     <ClCompile Include="..\application\profile\ProfileVerticalCurveCreateService.cpp" />
+    <ClCompile Include="..\application\profile\ProfileVerticalCurveEditService.cpp" />
     <ClCompile Include="..\application\terrain\TerrainTinCreateService.cpp" />
     <ClCompile Include="..\application\terrain\TerrainUpdateSampleService.cpp" />
     <ClCompile Include="..\application\intersection\IntersectionInfoService.cpp" />

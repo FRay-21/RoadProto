@@ -1,5 +1,6 @@
 #include "application/profile/ProfileGradeGraphCreateService.h"
 #include "application/profile/ProfileVerticalCurveCreateService.h"
+#include "application/profile/ProfileVerticalCurveEditService.h"
 #include "application/terrain/TerrainUpdateSampleService.h"
 #include "core/command/CommandRegistry.h"
 #include "core/module/ModuleRegistry.h"
@@ -1687,6 +1688,62 @@ void profileVerticalCurveCreateServiceRejectsTooFewGroundSamples()
     CHECK(!result.errorMessage.empty());
 }
 
+void profileVerticalCurveEditServiceAddsAndDeletesPvi()
+{
+    using namespace roadproto::application::profile;
+    using namespace roadproto::domain::profile;
+
+    ProfileVerticalCurveData data;
+    data.controlPoints = {
+        {VerticalCurvePointRole::Start, 0.0, 0.0},
+        {VerticalCurvePointRole::End, 200.0, 10.0},
+    };
+
+    const ProfileVerticalCurveEditService service;
+    const auto added = service.addPvi(data, 100.0, 12.0, 800.0);
+    CHECK(added.succeeded);
+    CHECK(added.changed);
+    CHECK(data.pvis.size() == 1);
+    CHECK(data.controlPoints.size() == 3);
+
+    const auto deleted = service.deletePvi(data, 0);
+    CHECK(deleted.succeeded);
+    CHECK(deleted.changed);
+    CHECK(data.pvis.empty());
+    CHECK(data.controlPoints.size() == 2);
+}
+
+void profileVerticalCurveEditServiceAppliesDialogEdit()
+{
+    using namespace roadproto::application::profile;
+    using namespace roadproto::domain::profile;
+
+    ProfileVerticalCurveData data;
+    data.controlPoints = {
+        {VerticalCurvePointRole::Start, 0.0, 0.0},
+        {VerticalCurvePointRole::Pvi, 100.0, 10.0},
+        {VerticalCurvePointRole::End, 200.0, 10.0},
+    };
+    data.pvis = {VerticalCurvePvi{100.0, 10.0, 1000.0}};
+
+    ProfileVerticalCurveDialogEdit edit;
+    edit.name = L"VC-1";
+    edit.startStation = 0.0;
+    edit.startElevation = 1.0;
+    edit.endStation = 210.0;
+    edit.endElevation = 11.0;
+    edit.pvis = {VerticalCurvePvi{105.0, 12.0, 900.0}};
+
+    const ProfileVerticalCurveEditService service;
+    const auto result = service.applyDialogEdit(data, edit);
+    CHECK(result.succeeded);
+    CHECK(result.changed);
+    CHECK(data.properties.name == L"VC-1");
+    CHECK(std::fabs(data.controlPoints.front().elevation - 1.0) < 1e-9);
+    CHECK(std::fabs(data.controlPoints.back().station - 210.0) < 1e-9);
+    CHECK(std::fabs(data.pvis[0].radius - 900.0) < 1e-9);
+}
+
 void alignmentCommandMetadataUsesExpectedNames()
 {
     roadproto::core::CommandRegistry commands;
@@ -1776,6 +1833,8 @@ int main()
     profileVerticalCurveCalculatorRejectsNonAdvancingSampleInterval();
     profileVerticalCurveCreateServiceBuildsDefaultLineFromGraphSamples();
     profileVerticalCurveCreateServiceRejectsTooFewGroundSamples();
+    profileVerticalCurveEditServiceAddsAndDeletesPvi();
+    profileVerticalCurveEditServiceAppliesDialogEdit();
     alignmentCommandMetadataUsesExpectedNames();
 
     if (g_failures != 0) {

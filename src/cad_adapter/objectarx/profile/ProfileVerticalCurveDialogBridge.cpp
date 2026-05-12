@@ -6,6 +6,7 @@
 
 #include <chrono>
 #include <cctype>
+#include <cmath>
 #include <cstdlib>
 #include <filesystem>
 #include <fstream>
@@ -15,6 +16,8 @@
 
 namespace roadproto::cad_adapter::objectarx::profile {
 namespace {
+
+constexpr int kMaxDialogPviCount = 100000;
 
 std::string wideToUtf8(const std::wstring& value)
 {
@@ -233,28 +236,50 @@ bool boolValue(
     return value == L"1" || value == L"true" || value == L"True";
 }
 
-int intValue(
+bool tryIntValue(
     const std::unordered_map<std::wstring, std::wstring>& values,
     const std::wstring& key,
-    int fallback = 0)
+    int& result)
 {
     try {
-        return std::stoi(valueOrDefault(values, key, std::to_wstring(fallback)));
+        std::size_t parsedLength = 0;
+        const auto value = valueOrDefault(values, key);
+        if (value.empty()) {
+            return false;
+        }
+        result = std::stoi(value, &parsedLength);
+        return parsedLength == value.size();
     } catch (...) {
-        return fallback;
+        return false;
     }
 }
 
-double doubleValue(
+bool tryDoubleValue(
     const std::unordered_map<std::wstring, std::wstring>& values,
     const std::wstring& key,
-    double fallback = 0.0)
+    double& result)
 {
     try {
-        return std::stod(valueOrDefault(values, key, std::to_wstring(fallback)));
+        std::size_t parsedLength = 0;
+        const auto value = valueOrDefault(values, key);
+        if (value.empty()) {
+            return false;
+        }
+        result = std::stod(value, &parsedLength);
+        return parsedLength == value.size() && std::isfinite(result);
     } catch (...) {
-        return fallback;
+        return false;
     }
+}
+
+void removeFileIfExists(const std::wstring& path)
+{
+    if (path.empty()) {
+        return;
+    }
+
+    std::error_code error;
+    std::filesystem::remove(std::filesystem::path(path), error);
 }
 
 } // namespace
@@ -269,11 +294,15 @@ bool queueProfileVerticalCurveWpfDialog(
         return false;
     }
     if (!writePendingRequestPath(requestPath, errorMessage)) {
+        removeFileIfExists(requestPath);
         return false;
     }
 
     auto* document = acDocManager == nullptr ? nullptr : acDocManager->curDocument();
     if (document == nullptr) {
+        removeFileIfExists(pendingRequestPath());
+        removeFileIfExists(requestPath);
+        removeFileIfExists(responsePath);
         errorMessage = L"No active AutoCAD document is available.";
         return false;
     }
@@ -299,12 +328,28 @@ bool readProfileVerticalCurveDialogResponse(
     response.accepted = boolValue(values, L"accepted", false);
     response.handle = valueOrDefault(values, L"handle");
     response.name = valueOrDefault(values, L"name", L"\u7ad6\u66f2\u7ebf");
-    response.startStation = doubleValue(values, L"startStation", 0.0);
-    response.startElevation = doubleValue(values, L"startElevation", 0.0);
-    response.endStation = doubleValue(values, L"endStation", 0.0);
-    response.endElevation = doubleValue(values, L"endElevation", 0.0);
+    if (!response.accepted) {
+        removeFileIfExists(responsePath);
+        return true;
+    }
 
-    const auto pviCount = intValue(values, L"pviCount", 0);
+    if (response.handle.empty()) {
+        errorMessage = L"Profile vertical curve dialog response handle is empty.";
+        return false;
+    }
+    if (!tryDoubleValue(values, L"startStation", response.startStation)
+        || !tryDoubleValue(values, L"startElevation", response.startElevation)
+        || !tryDoubleValue(values, L"endStation", response.endStation)
+        || !tryDoubleValue(values, L"endElevation", response.endElevation)) {
+        errorMessage = L"Profile vertical curve dialog response has invalid start/end values.";
+        return false;
+    }
+
+    int pviCount = 0;
+    if (!tryIntValue(values, L"pviCount", pviCount) || pviCount < 0 || pviCount > kMaxDialogPviCount) {
+        errorMessage = L"Profile vertical curve dialog response has invalid PVI count.";
+        return false;
+    }
     response.pvis.clear();
     if (pviCount > 0) {
         response.pvis.reserve(static_cast<std::size_t>(pviCount));
@@ -312,12 +357,16 @@ bool readProfileVerticalCurveDialogResponse(
     for (int i = 0; i < pviCount; ++i) {
         const auto prefix = L"pvi." + std::to_wstring(i);
         roadproto::domain::profile::VerticalCurvePvi pvi;
-        pvi.station = doubleValue(values, prefix + L".station", 0.0);
-        pvi.elevation = doubleValue(values, prefix + L".elevation", 0.0);
-        pvi.radius = doubleValue(values, prefix + L".radius", 1000.0);
+        if (!tryDoubleValue(values, prefix + L".station", pvi.station)
+            || !tryDoubleValue(values, prefix + L".elevation", pvi.elevation)
+            || !tryDoubleValue(values, prefix + L".radius", pvi.radius)) {
+            errorMessage = L"Profile vertical curve dialog response has invalid PVI values.";
+            return false;
+        }
         response.pvis.push_back(pvi);
     }
 
+    removeFileIfExists(responsePath);
     return true;
 }
 

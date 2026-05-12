@@ -42,6 +42,7 @@ public sealed class ProfileVerticalCurveDialogCommands
             }
 
             var request = ProfileVerticalCurveDialogFile.ReadRequest(requestPath);
+            TryDeleteFile(requestPath);
             if (string.IsNullOrWhiteSpace(request.ResponsePath))
             {
                 editor.WriteMessage("\nRoadProto profile vertical curve dialog response path is empty.");
@@ -63,6 +64,20 @@ public sealed class ProfileVerticalCurveDialogCommands
         catch (System.Exception error)
         {
             editor.WriteMessage($"\nRoadProto profile vertical curve WPF dialog failed: {error.Message}");
+        }
+    }
+
+    private static void TryDeleteFile(string path)
+    {
+        try
+        {
+            if (!string.IsNullOrWhiteSpace(path) && File.Exists(path))
+            {
+                File.Delete(path);
+            }
+        }
+        catch
+        {
         }
     }
 

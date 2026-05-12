@@ -139,6 +139,27 @@ public partial class ProfileVerticalCurveWindow : Window
                 ErrorTextBlock.Text = $"变坡点 {index + 1} 的半径必须大于等于 1。";
                 return false;
             }
+
+            if (pvi.Station <= startStation || pvi.Station >= endStation)
+            {
+                ErrorTextBlock.Text = $"变坡点 {index + 1} 的桩号必须位于起终点之间。";
+                return false;
+            }
+        }
+
+        var pviStations = new List<double>();
+        foreach (var pvi in _pvis)
+        {
+            pviStations.Add(pvi.Station);
+        }
+        pviStations.Sort();
+        for (var index = 1; index < pviStations.Count; index++)
+        {
+            if (pviStations[index] <= pviStations[index - 1])
+            {
+                ErrorTextBlock.Text = "变坡点桩号必须互不相同。";
+                return false;
+            }
         }
 
         response = new ProfileVerticalCurveDialogResponse

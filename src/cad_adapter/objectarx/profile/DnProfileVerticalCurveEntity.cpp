@@ -113,6 +113,7 @@ Acad::ErrorStatus DnProfileVerticalCurveEntity::dwgInFields(AcDbDwgFiler* filer)
     if (version > kEntityVersion) {
         return Acad::eMakeMeProxy;
     }
+    curveData_.version = version;
 
     curveData_.profileGraphHandle = readWideString(filer);
 

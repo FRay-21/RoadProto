@@ -147,6 +147,30 @@ void profileModuleRegistersCommandsAndRibbonPanel()
     CHECK(!applyDialogFileCommand->ribbonAttachable);
     CHECK(!applyDialogFileCommand->reusable);
 
+    const auto verticalCurveCreate = commands.find(L"RD_PROFILE_VERTICAL_CURVE_CREATE");
+    CHECK(verticalCurveCreate.has_value());
+    CHECK(verticalCurveCreate->displayName == L"\u521b\u5efa\u7ad6\u66f2\u7ebf");
+    CHECK(verticalCurveCreate->moduleCode == L"PROFILE");
+    CHECK(verticalCurveCreate->businessDocPath == L"docs/business/profile/\u7ad6\u66f2\u7ebf_\u521b\u5efa.md");
+    CHECK(verticalCurveCreate->ribbonAttachable);
+
+    const auto verticalCurveEdit = commands.find(L"RD_PROFILE_VERTICAL_CURVE_EDIT_HANDLE");
+    CHECK(verticalCurveEdit.has_value());
+    CHECK(verticalCurveEdit->businessDocPath == L"docs/business/profile/\u7ad6\u66f2\u7ebf_\u7f16\u8f91.md");
+    CHECK(!verticalCurveEdit->ribbonAttachable);
+
+    const auto verticalCurveApply = commands.find(L"RD_PROFILE_VERTICAL_CURVE_APPLY_DIALOG_FILE");
+    CHECK(verticalCurveApply.has_value());
+    CHECK(verticalCurveApply->businessDocPath == L"docs/business/profile/\u7ad6\u66f2\u7ebf_\u7f16\u8f91.md");
+
+    const auto verticalCurveAddPvi = commands.find(L"RD_PROFILE_VERTICAL_CURVE_ADD_PVI");
+    CHECK(verticalCurveAddPvi.has_value());
+    CHECK(verticalCurveAddPvi->businessDocPath == L"docs/business/profile/\u7ad6\u66f2\u7ebf_\u5939\u70b9\u4e0e\u53f3\u952e\u7f16\u8f91.md");
+
+    const auto verticalCurveDeletePvi = commands.find(L"RD_PROFILE_VERTICAL_CURVE_DELETE_PVI");
+    CHECK(verticalCurveDeletePvi.has_value());
+    CHECK(verticalCurveDeletePvi->businessDocPath == L"docs/business/profile/\u7ad6\u66f2\u7ebf_\u5939\u70b9\u4e0e\u53f3\u952e\u7f16\u8f91.md");
+
     CHECK(ribbon.tab().panels.size() == 1);
     CHECK(ribbon.tab().panels.front().moduleCode == L"PROFILE");
     CHECK(ribbon.tab().panels.front().title == L"\u7eb5\u65ad\u9762\u8bbe\u8ba1");

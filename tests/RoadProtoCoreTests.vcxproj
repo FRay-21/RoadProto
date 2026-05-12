@@ -76,6 +76,7 @@
     <ClCompile Include="..\src\application\terrain\TerrainUpdateSampleService.cpp" />
     <ClCompile Include="..\src\modules\profile\ProfileModule.cpp" />
     <ClCompile Include="..\src\cad_adapter\objectarx\profile\ObjectArxProfileGradeGraphCommand.cpp" />
+    <ClCompile Include="..\src\cad_adapter\objectarx\profile\ObjectArxProfileVerticalCurveCommand.cpp" />
     <ClCompile Include="..\src\ui\ribbon\RibbonModel.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

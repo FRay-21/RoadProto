@@ -35,6 +35,7 @@ public sealed class RoadProtoRibbonExtension : IExtensionApplication
     private const string TerrainTinDxfName = "DNTERRAINTINENTITY";
     private const string RoadCenterlineDxfName = "DNROADCENTERLINEENTITY";
     private const string ProfileGradeGraphDxfName = "DNPROFILEGRADEGRAPHENTITY";
+    private const string ProfileVerticalCurveDxfName = "DNPROFILEVERTICALCURVEENTITY";
     private static ObjectId _lastDoubleClickObjectId = ObjectId.Null;
     private static DateTime _lastDoubleClickUtc = DateTime.MinValue;
     private static bool _doubleClickHookAttached;
@@ -58,6 +59,20 @@ public sealed class RoadProtoRibbonExtension : IExtensionApplication
     public void ShowRibbon()
     {
         TryCreateRibbon();
+    }
+
+    [CommandMethod("RD_PROFILE_VERTICAL_CURVE_CONTEXT_ADD_PVI")]
+    public void ContextAddProfileVerticalCurvePvi()
+    {
+        CoreApplication.DocumentManager.MdiActiveDocument?
+            .SendStringToExecute("RD_PROFILE_VERTICAL_CURVE_ADD_PVI ", true, false, true);
+    }
+
+    [CommandMethod("RD_PROFILE_VERTICAL_CURVE_CONTEXT_DELETE_PVI")]
+    public void ContextDeleteProfileVerticalCurvePvi()
+    {
+        CoreApplication.DocumentManager.MdiActiveDocument?
+            .SendStringToExecute("RD_PROFILE_VERTICAL_CURVE_DELETE_PVI ", true, false, true);
     }
 
     private static void OnComponentItemInitialized(object? sender, RibbonItemEventArgs e)
@@ -276,6 +291,15 @@ public sealed class RoadProtoRibbonExtension : IExtensionApplication
                 {
                     QueueProfileGradeGraphEditByHandle(document, profileGradeGraphId);
                 }
+                return;
+            }
+
+            if (TryFindEntityByDxfName(document, e.Location, ProfileVerticalCurveDxfName, out var profileVerticalCurveId))
+            {
+                if (!SuppressDuplicateDoubleClick(profileVerticalCurveId))
+                {
+                    QueueProfileVerticalCurveEditByHandle(document, profileVerticalCurveId);
+                }
             }
         }
         catch (System.Exception error)
@@ -455,6 +479,17 @@ public sealed class RoadProtoRibbonExtension : IExtensionApplication
         }
 
         document.SendStringToExecute($"RD_PROFILE_GRADE_GRAPH_EDIT_HANDLE {handle} ", true, false, true);
+    }
+
+    private static void QueueProfileVerticalCurveEditByHandle(Document document, ObjectId entityId)
+    {
+        var handle = entityId.Handle.ToString();
+        if (string.IsNullOrWhiteSpace(handle))
+        {
+            return;
+        }
+
+        document.SendStringToExecute($"RD_PROFILE_VERTICAL_CURVE_EDIT_HANDLE {handle} ", true, false, true);
     }
 
     private static void WriteEditorMessage(string message)

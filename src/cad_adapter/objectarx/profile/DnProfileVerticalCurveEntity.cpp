@@ -35,6 +35,7 @@ namespace {
 constexpr Adesk::Int16 kEntityVersion = 1;
 constexpr Adesk::Int32 kMaxPersistedCount = 100000;
 constexpr double kExtentsPadding = 2.0;
+constexpr double kMinMappingDeterminant = 1.0e-18;
 constexpr double kRadiusGripScale = 0.01;
 
 std::wstring readWideString(AcDbDwgFiler* filer)
@@ -88,9 +89,11 @@ void markGraphicsModifiedIfResident(AcDbEntity& entity)
     }
 }
 
-bool resolveObjectIdFromHandle(const std::wstring& handleText, AcDbObjectId& entityId)
+bool resolveObjectIdFromHandle(AcDbDatabase* database, const std::wstring& handleText, AcDbObjectId& entityId)
 {
-    AcDbDatabase* database = acdbHostApplicationServices()->workingDatabase();
+    if (database == nullptr) {
+        database = acdbHostApplicationServices()->workingDatabase();
+    }
     if (database == nullptr || handleText.empty()) {
         return false;
     }
@@ -99,10 +102,10 @@ bool resolveObjectIdFromHandle(const std::wstring& handleText, AcDbObjectId& ent
     return database->getAcDbObjectId(entityId, false, handle) == Acad::eOk && !entityId.isNull();
 }
 
-bool loadGraphFrame(const std::wstring& handleText, ProfileGradeGraphDrawingFrame& frame)
+bool loadGraphFrame(AcDbDatabase* database, const std::wstring& handleText, ProfileGradeGraphDrawingFrame& frame)
 {
     AcDbObjectId graphId;
-    if (!resolveObjectIdFromHandle(handleText, graphId)) {
+    if (!resolveObjectIdFromHandle(database, handleText, graphId)) {
         return false;
     }
 
@@ -134,14 +137,23 @@ bool unmapDesignPoint(
         return false;
     }
 
-    auto xDirection = frame.xAxis;
-    auto yDirection = frame.yAxis;
-    xDirection.normalize();
-    yDirection.normalize();
-
     const auto vector = point - frame.insertionPoint;
-    station = frame.minStation + vector.dotProduct(xDirection);
-    elevation = frame.baseElevation + vector.dotProduct(yDirection) / frame.verticalScale;
+    const double xx = frame.xAxis.dotProduct(frame.xAxis);
+    const double xy = frame.xAxis.dotProduct(frame.yAxis);
+    const double yy = frame.yAxis.dotProduct(frame.yAxis);
+    const double vx = vector.dotProduct(frame.xAxis);
+    const double vy = vector.dotProduct(frame.yAxis);
+    const double determinant = xx * yy - xy * xy;
+    if (!std::isfinite(xx) || !std::isfinite(xy) || !std::isfinite(yy)
+        || !std::isfinite(vx) || !std::isfinite(vy)
+        || !std::isfinite(determinant) || std::fabs(determinant) < kMinMappingDeterminant) {
+        return false;
+    }
+
+    const double localX = (vx * yy - vy * xy) / determinant;
+    const double localY = (vy * xx - vx * xy) / determinant;
+    station = frame.minStation + localX;
+    elevation = frame.baseElevation + localY / frame.verticalScale;
     return std::isfinite(station) && std::isfinite(elevation);
 }
 
@@ -199,7 +211,7 @@ bool DnProfileVerticalCurveEntity::mapDesignPointToCad(double station, double el
 {
     assertReadEnabled();
     ProfileGradeGraphDrawingFrame frame;
-    return loadGraphFrame(curveData_.profileGraphHandle, frame) && mapCurvePoint(frame, station, elevation, point);
+    return loadGraphFrame(database(), curveData_.profileGraphHandle, frame) && mapCurvePoint(frame, station, elevation, point);
 }
 
 bool DnProfileVerticalCurveEntity::mapCadPointToDesign(
@@ -209,7 +221,7 @@ bool DnProfileVerticalCurveEntity::mapCadPointToDesign(
 {
     assertReadEnabled();
     ProfileGradeGraphDrawingFrame frame;
-    return loadGraphFrame(curveData_.profileGraphHandle, frame)
+    return loadGraphFrame(database(), curveData_.profileGraphHandle, frame)
         && unmapDesignPoint(frame, point, station, elevation);
 }
 
@@ -329,7 +341,7 @@ Adesk::Boolean DnProfileVerticalCurveEntity::subWorldDraw(AcGiWorldDraw* worldDr
     }
 
     ProfileGradeGraphDrawingFrame frame;
-    if (!loadGraphFrame(curveData_.profileGraphHandle, frame)) {
+    if (!loadGraphFrame(database(), curveData_.profileGraphHandle, frame)) {
         return Adesk::kTrue;
     }
 
@@ -387,18 +399,28 @@ Acad::ErrorStatus DnProfileVerticalCurveEntity::subGetGeomExtents(AcDbExtents& e
     }
 
     ProfileGradeGraphDrawingFrame frame;
-    if (!loadGraphFrame(curveData_.profileGraphHandle, frame)) {
+    if (!loadGraphFrame(database(), curveData_.profileGraphHandle, frame)) {
         return Acad::eInvalidExtents;
     }
 
     bool hasPoint = false;
+    auto addPaddedPoint = [&extents, &hasPoint](const AcGePoint3d& cadPoint) {
+        extents.addPoint(cadPoint);
+        extents.addPoint(cadPoint + AcGeVector3d(kExtentsPadding, kExtentsPadding, 0.0));
+        extents.addPoint(cadPoint + AcGeVector3d(-kExtentsPadding, -kExtentsPadding, 0.0));
+        hasPoint = true;
+    };
+
     for (const auto& point : samples.points) {
         AcGePoint3d cadPoint;
         if (mapCurvePoint(frame, point.station, point.elevation, cadPoint)) {
-            extents.addPoint(cadPoint);
-            extents.addPoint(cadPoint + AcGeVector3d(kExtentsPadding, kExtentsPadding, 0.0));
-            extents.addPoint(cadPoint + AcGeVector3d(-kExtentsPadding, -kExtentsPadding, 0.0));
-            hasPoint = true;
+            addPaddedPoint(cadPoint);
+        }
+    }
+    for (const auto& point : curveData_.controlPoints) {
+        AcGePoint3d cadPoint;
+        if (mapCurvePoint(frame, point.station, point.elevation, cadPoint)) {
+            addPaddedPoint(cadPoint);
         }
     }
     return hasPoint ? Acad::eOk : Acad::eInvalidExtents;
@@ -418,19 +440,24 @@ Acad::ErrorStatus DnProfileVerticalCurveEntity::subGetGripPoints(
     assertReadEnabled();
 
     ProfileGradeGraphDrawingFrame frame;
-    if (!loadGraphFrame(curveData_.profileGraphHandle, frame)) {
+    if (!loadGraphFrame(database(), curveData_.profileGraphHandle, frame)) {
+        return Acad::eOk;
+    }
+
+    const auto built = ProfileVerticalCurveCalculator::rebuild(curveData_);
+    if (!built.succeeded) {
         return Acad::eOk;
     }
 
     VerticalCurveControlPoint startPoint;
-    if (findControlPoint(curveData_, VerticalCurvePointRole::Start, startPoint)) {
-        gripPoints.append(mapDesignPoint(frame, startPoint.station, startPoint.elevation));
+    VerticalCurveControlPoint endPoint;
+    if (!findControlPoint(curveData_, VerticalCurvePointRole::Start, startPoint)
+        || !findControlPoint(curveData_, VerticalCurvePointRole::End, endPoint)) {
+        return Acad::eOk;
     }
 
-    VerticalCurveControlPoint endPoint;
-    if (findControlPoint(curveData_, VerticalCurvePointRole::End, endPoint)) {
-        gripPoints.append(mapDesignPoint(frame, endPoint.station, endPoint.elevation));
-    }
+    gripPoints.append(mapDesignPoint(frame, startPoint.station, startPoint.elevation));
+    gripPoints.append(mapDesignPoint(frame, endPoint.station, endPoint.elevation));
 
     for (const auto& pvi : curveData_.pvis) {
         gripPoints.append(mapDesignPoint(frame, pvi.station, pvi.elevation));
@@ -453,7 +480,11 @@ Acad::ErrorStatus DnProfileVerticalCurveEntity::subMoveGripPointsAt(
     }
 
     ProfileGradeGraphDrawingFrame frame;
-    if (!loadGraphFrame(curveData_.profileGraphHandle, frame)) {
+    if (!loadGraphFrame(database(), curveData_.profileGraphHandle, frame)) {
+        return Acad::eInvalidInput;
+    }
+    const auto built = ProfileVerticalCurveCalculator::rebuild(curveData_);
+    if (!built.succeeded) {
         return Acad::eInvalidInput;
     }
 
@@ -492,7 +523,12 @@ Acad::ErrorStatus DnProfileVerticalCurveEntity::subMoveGripPointsAt(
             edit.role = VerticalCurveGripRole::RadiusPoint;
             edit.index = index - 2 - editedData.pvis.size();
             const auto& pvi = editedData.pvis[edit.index];
-            edit.radius = std::max(1.0, pvi.radius + offset.length() * 10.0);
+            double radiusStation = 0.0;
+            double radiusElevation = 0.0;
+            if (!unmapDesignPoint(frame, radiusGripPoint(frame, pvi) + offset, radiusStation, radiusElevation)) {
+                return Acad::eInvalidInput;
+            }
+            edit.radius = std::max(1.0, (radiusStation - pvi.station) / kRadiusGripScale);
             needsStationElevation = false;
         } else {
             return Acad::eInvalidInput;

@@ -103,6 +103,7 @@
     <ClCompile Include="..\cad_adapter\objectarx\profile\ObjectArxProfileGradeGraphCommand.cpp" />
     <ClCompile Include="..\cad_adapter\objectarx\profile\ObjectArxProfileVerticalCurveCommand.cpp" />
     <ClCompile Include="..\cad_adapter\objectarx\profile\ProfileGradeGraphDialogBridge.cpp" />
+    <ClCompile Include="..\cad_adapter\objectarx\profile\ProfileVerticalCurveDialogBridge.cpp" />
     <ClCompile Include="..\cad_adapter\objectarx\terrain\DnTerrainTinEntity.cpp" />
     <ClCompile Include="..\cad_adapter\objectarx\terrain\ObjectArxTerrainTinCommand.cpp" />
     <ClCompile Include="..\cad_adapter\objectarx\terrain\TerrainTinCreateDialog.cpp" />

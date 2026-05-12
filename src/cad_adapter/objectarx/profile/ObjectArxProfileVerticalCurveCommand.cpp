@@ -8,6 +8,7 @@
 #include "cad_adapter/objectarx/ObjectArxSelectionSetGuard.h"
 #include "cad_adapter/objectarx/profile/DnProfileGradeGraphEntity.h"
 #include "cad_adapter/objectarx/profile/DnProfileVerticalCurveEntity.h"
+#include "cad_adapter/objectarx/profile/ProfileVerticalCurveDialogBridge.h"
 
 #include "aced.h"
 #include "adscodes.h"
@@ -16,6 +17,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cwctype>
 #include <limits>
 #include <sstream>
 #include <string>
@@ -28,8 +30,31 @@ namespace {
 
 using roadproto::application::profile::ProfileVerticalCurveCreateInput;
 using roadproto::application::profile::ProfileVerticalCurveCreateService;
+using roadproto::application::profile::ProfileVerticalCurveDialogEdit;
 using roadproto::application::profile::ProfileVerticalCurveEditService;
 using roadproto::domain::profile::ProfileVerticalCurveData;
+using roadproto::domain::profile::VerticalCurveControlPoint;
+using roadproto::domain::profile::VerticalCurvePointRole;
+
+std::wstring trimDialogCommandPath(std::wstring path)
+{
+    while (!path.empty() && std::iswspace(path.front()) != 0) {
+        path.erase(path.begin());
+    }
+    while (!path.empty() && std::iswspace(path.back()) != 0) {
+        path.pop_back();
+    }
+
+    if (path.size() >= 2) {
+        const auto first = path.front();
+        const auto last = path.back();
+        if ((first == L'"' && last == L'"') || (first == L'\'' && last == L'\'')) {
+            path = path.substr(1, path.size() - 2);
+        }
+    }
+
+    return path;
+}
 
 bool appendEntityToModelSpace(AcDbEntity* entity, AcDbObjectId& entityId)
 {
@@ -160,6 +185,25 @@ bool readProfileGraph(AcDbObjectId entityId, ProfileVerticalCurveCreateInput& in
     return !input.profileGraphHandle.empty();
 }
 
+bool findControlPoint(
+    const ProfileVerticalCurveData& data,
+    VerticalCurvePointRole role,
+    VerticalCurveControlPoint& controlPoint)
+{
+    const auto found = std::find_if(
+        data.controlPoints.begin(),
+        data.controlPoints.end(),
+        [role](const VerticalCurveControlPoint& candidate) {
+            return candidate.role == role;
+        });
+    if (found == data.controlPoints.end()) {
+        return false;
+    }
+
+    controlPoint = *found;
+    return true;
+}
+
 bool promptGraphPointAsStationElevation(
     DnProfileVerticalCurveEntity& entity,
     double& station,
@@ -225,13 +269,114 @@ void runProfileVerticalCurveCreateCommand()
 void runProfileVerticalCurveEditHandleCommand()
 {
     auto& editor = app::ApplicationContext::instance().editor();
-    editor.writeMessage(L"纵曲线 WPF 编辑窗口将在 Task 7 接入。");
+    ACHAR handleBuffer[64] = {};
+    if (acedGetString(Adesk::kFalse, L"\nProfile vertical curve handle: ", handleBuffer) != RTNORM) {
+        return;
+    }
+
+    AcDbObjectId entityId;
+    if (!resolveObjectIdFromHandle(handleBuffer, entityId)) {
+        editor.writeWarning(L"No profile vertical curve entity was found for the handle.");
+        return;
+    }
+
+    DnProfileVerticalCurveEntity* entity = nullptr;
+    if (acdbOpenObject(entity, entityId, AcDb::kForRead) != Acad::eOk || entity == nullptr) {
+        editor.writeError(L"Cannot open profile vertical curve entity.");
+        return;
+    }
+
+    const auto isProfileVerticalCurve = entity->isKindOf(DnProfileVerticalCurveEntity::desc());
+    if (!isProfileVerticalCurve) {
+        entity->close();
+        editor.writeWarning(L"The handle does not reference a profile vertical curve entity.");
+        return;
+    }
+
+    const auto data = entity->curveData();
+    const auto handle = entityHandleText(entity);
+    entity->close();
+
+    VerticalCurveControlPoint startPoint;
+    VerticalCurveControlPoint endPoint;
+    if (!findControlPoint(data, VerticalCurvePointRole::Start, startPoint)
+        || !findControlPoint(data, VerticalCurvePointRole::End, endPoint)) {
+        editor.writeError(L"Profile vertical curve start/end control points are missing.");
+        return;
+    }
+
+    ProfileVerticalCurveDialogRequest request;
+    request.handle = handle;
+    request.profileGraphHandle = data.profileGraphHandle;
+    request.name = data.properties.name;
+    request.startStation = startPoint.station;
+    request.startElevation = startPoint.elevation;
+    request.endStation = endPoint.station;
+    request.endElevation = endPoint.elevation;
+    request.currentPviIndex = 0;
+    request.pvis = data.pvis;
+
+    std::wstring errorMessage;
+    if (!queueProfileVerticalCurveWpfDialog(request, errorMessage)) {
+        editor.writeError(L"Failed to open profile vertical curve WPF edit dialog: " + errorMessage);
+    }
 }
 
 void runProfileVerticalCurveApplyDialogFileCommand()
 {
     auto& editor = app::ApplicationContext::instance().editor();
-    editor.writeMessage(L"纵曲线对话框回写将在 Task 7 接入。");
+    ACHAR pathBuffer[1024] = {};
+    if (acedGetString(Adesk::kTrue, L"\nRoadProto profile vertical curve dialog response file: ", pathBuffer) != RTNORM) {
+        return;
+    }
+
+    ProfileVerticalCurveDialogResponse response;
+    std::wstring errorMessage;
+    const auto responsePath = trimDialogCommandPath(pathBuffer);
+    if (!readProfileVerticalCurveDialogResponse(responsePath, response, errorMessage)) {
+        editor.writeError(L"Failed to read profile vertical curve dialog response: " + errorMessage);
+        return;
+    }
+
+    if (!response.accepted) {
+        return;
+    }
+
+    AcDbObjectId entityId;
+    if (!resolveObjectIdFromHandle(response.handle, entityId)) {
+        editor.writeWarning(L"No profile vertical curve entity was found for the dialog response.");
+        return;
+    }
+
+    DnProfileVerticalCurveEntity* entity = nullptr;
+    if (acdbOpenObject(entity, entityId, AcDb::kForWrite) != Acad::eOk || entity == nullptr) {
+        editor.writeError(L"Cannot open profile vertical curve entity.");
+        return;
+    }
+
+    auto data = entity->curveData();
+    ProfileVerticalCurveDialogEdit edit;
+    edit.name = response.name;
+    edit.startStation = response.startStation;
+    edit.startElevation = response.startElevation;
+    edit.endStation = response.endStation;
+    edit.endElevation = response.endElevation;
+    edit.pvis = response.pvis;
+
+    const ProfileVerticalCurveEditService service;
+    const auto result = service.applyDialogEdit(data, edit);
+    if (!result.succeeded) {
+        entity->close();
+        editor.writeError(L"Profile vertical curve parameters are invalid: "
+            + editErrorText(L"profile vertical curve data is invalid.", result.errorMessage));
+        return;
+    }
+
+    entity->setCurveData(data);
+    entity->recordGraphicsModified(true);
+    entity->close();
+    acedUpdateDisplay();
+    editor.writeMessage(L"Profile vertical curve properties have been updated.");
 }
 
 void runProfileVerticalCurveAddPviCommand()

@@ -380,6 +380,24 @@ AcGePoint3d DnProfileGradeGraphEntity::insertionPoint() const
     return insertionPoint_;
 }
 
+ProfileGradeGraphDrawingFrame DnProfileGradeGraphEntity::drawingFrame() const
+{
+    assertReadEnabled();
+    ProfileGradeGraphDrawingFrame frame;
+    const auto layout = ProfileGradeGraphLayout::calculate(graphData_);
+    if (!layout.succeeded || !areAxesUsable(xAxis_, yAxis_)) {
+        return frame;
+    }
+    frame.valid = true;
+    frame.minStation = layout.minStation;
+    frame.baseElevation = layout.baseElevation;
+    frame.verticalScale = graphData_.properties.verticalScale;
+    frame.insertionPoint = insertionPoint_;
+    frame.xAxis = xAxis_;
+    frame.yAxis = yAxis_;
+    return frame;
+}
+
 void DnProfileGradeGraphEntity::setProperties(const ProfileGradeGraphProperties& properties)
 {
     assertWriteEnabled();

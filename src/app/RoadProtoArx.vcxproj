@@ -99,6 +99,7 @@
     <ClCompile Include="..\cad_adapter\objectarx\alignment\DnRoadCenterlineEntity.cpp" />
     <ClCompile Include="..\cad_adapter\objectarx\alignment\ObjectArxAlignmentCommand.cpp" />
     <ClCompile Include="..\cad_adapter\objectarx\profile\DnProfileGradeGraphEntity.cpp" />
+    <ClCompile Include="..\cad_adapter\objectarx\profile\DnProfileVerticalCurveEntity.cpp" />
     <ClCompile Include="..\cad_adapter\objectarx\profile\ObjectArxProfileGradeGraphCommand.cpp" />
     <ClCompile Include="..\cad_adapter\objectarx\profile\ObjectArxProfileVerticalCurveCommand.cpp" />
     <ClCompile Include="..\cad_adapter\objectarx\profile\ProfileGradeGraphDialogBridge.cpp" />

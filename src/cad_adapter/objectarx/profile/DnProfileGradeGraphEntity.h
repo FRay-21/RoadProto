@@ -7,6 +7,16 @@
 
 #include <vector>
 
+struct ProfileGradeGraphDrawingFrame {
+    bool valid = false;
+    double minStation = 0.0;
+    double baseElevation = 0.0;
+    double verticalScale = 10.0;
+    AcGePoint3d insertionPoint;
+    AcGeVector3d xAxis;
+    AcGeVector3d yAxis;
+};
+
 class DnProfileGradeGraphEntity : public AcDbEntity {
 public:
     ACRX_DECLARE_MEMBERS(DnProfileGradeGraphEntity);
@@ -17,6 +27,7 @@ public:
     const roadproto::domain::profile::ProfileGradeGraphData& graphData() const;
     void setInsertionPoint(const AcGePoint3d& point);
     AcGePoint3d insertionPoint() const;
+    ProfileGradeGraphDrawingFrame drawingFrame() const;
     void setProperties(const roadproto::domain::profile::ProfileGradeGraphProperties& properties);
     bool replaceGroundSamples(const std::vector<roadproto::domain::profile::ProfileGroundSample>& samples);
 

@@ -31,6 +31,7 @@ public sealed class RoadProtoRibbonExtension : IExtensionApplication
     private const string AlignmentImportIcdButtonId = "ROADPROTO_RD_ALIGN_CENTERLINE_IMPORT_ICD";
     private const string ProfilePanelId = "ROADPROTO_PROFILE_PANEL";
     private const string ProfileGradeGraphButtonId = "ROADPROTO_RD_PROFILE_GRADE_GRAPH_CREATE";
+    private const string ProfileVerticalCurveButtonId = "ROADPROTO_RD_PROFILE_VERTICAL_CURVE_CREATE";
     private const string TerrainTinDxfName = "DNTERRAINTINENTITY";
     private const string RoadCenterlineDxfName = "DNROADCENTERLINEENTITY";
     private const string ProfileGradeGraphDxfName = "DNPROFILEGRADEGRAPHENTITY";
@@ -203,6 +204,15 @@ public sealed class RoadProtoRibbonExtension : IExtensionApplication
                 "纵断面拉坡图",
                 "选择道路中线并创建纵断面拉坡图",
                 "RD_PROFILE_GRADE_GRAPH_CREATE "));
+        }
+
+        if (!profilePanel.Source.Items.OfType<RibbonButton>().Any(item => item.Id == ProfileVerticalCurveButtonId))
+        {
+            profilePanel.Source.Items.Add(CreateProfileCommandButton(
+                ProfileVerticalCurveButtonId,
+                "创建竖曲线",
+                "选择纵断面拉坡图并创建竖曲线",
+                "RD_PROFILE_VERTICAL_CURVE_CREATE "));
         }
 
         tab.IsActive = true;

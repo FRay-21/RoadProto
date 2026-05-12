@@ -36,6 +36,7 @@
 | domain | `src/domain/profile/ProfileGradeGraphLayout.*` | 坐标映射和网格范围计算 |
 | domain | `src/domain/profile/ProfileVerticalCurveModel.h` | 竖曲线控制点、PVI、半径和显示属性模型 |
 | domain | `src/domain/profile/ProfileVerticalCurveCalculator.*` | 竖曲线重建、BVC/EVC、高低点、高程和坡度计算 |
+| domain | `src/domain/profile/ProfileVerticalCurveDisplayPlanner.*` | 竖曲线图形分段、直坡/曲线/切线显示角色和颜色计划 |
 | application | `src/application/profile/ProfileGradeGraphCreateService.*` | 创建流程服务 |
 | application | `src/application/profile/ProfileVerticalCurveCreateService.*` | 从拉坡图首末地面线创建默认竖曲线 |
 | application | `src/application/profile/ProfileVerticalCurveEditService.*` | WPF 回写、夹点移动、PVI 增删和半径更新服务 |
@@ -67,3 +68,4 @@
 - `cad_adapter/objectarx/profile` 承担 AutoCAD 选择、文件对话框、数模高程查询、自定义实体和命令行输出。
 - WPF 只展示和收集属性，不直接操作 `AcDbEntity`、`AcDbObjectId`、`ads_name`。
 - 竖曲线与拉坡图通过 handle 建立第一版关联；路线、地形或拉坡图变化后的自动重建暂未实现，后续应通过统一关系管理机制表达依赖和重建请求。
+- 竖曲线图形表达中，直坡设计段为青色，曲线段为黄色，BVC/PVI/EVC 理论切线为白色细线。

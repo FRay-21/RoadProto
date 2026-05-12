@@ -13,6 +13,7 @@
 #include "domain/profile/ProfileDmxFile.h"
 #include "domain/profile/ProfileGradeGraphLayout.h"
 #include "domain/profile/ProfileVerticalCurveCalculator.h"
+#include "domain/profile/ProfileVerticalCurveDisplayPlanner.h"
 #include "domain/profile/ProfileVerticalCurveModel.h"
 #include "domain/relation/EntityRelationManager.h"
 #include "domain/terrain/TerrainPointNormalizer.h"
@@ -1549,8 +1550,8 @@ void profileVerticalCurveModelDefaultsToDesignLine()
     ProfileVerticalCurveData data;
     CHECK(data.version == 1);
     CHECK(data.properties.name == L"\u7ad6\u66f2\u7ebf");
-    CHECK(data.properties.designLineColorIndex == 1);
-    CHECK(data.properties.tangentLineColorIndex == 8);
+    CHECK(data.properties.designLineColorIndex == 4);
+    CHECK(data.properties.tangentLineColorIndex == 7);
     CHECK(data.properties.keyPointColorIndex == 2);
     CHECK(std::fabs(data.properties.designLineWidth - 0.35) < 1e-9);
     CHECK(data.properties.sampleInterval == 5.0);
@@ -1831,6 +1832,56 @@ void profileVerticalCurveEditServiceAppliesDialogEdit()
     CHECK(std::fabs(data.pvis[0].radius - 900.0) < 1e-9);
 }
 
+void profileVerticalCurveDisplayPlannerColorsStraightAndCurveSegments()
+{
+    using roadproto::domain::profile::ProfileVerticalCurveData;
+    using roadproto::domain::profile::ProfileVerticalCurveDisplayPlanner;
+    using roadproto::domain::profile::VerticalCurveDisplaySegmentRole;
+    using roadproto::domain::profile::VerticalCurvePointRole;
+    using roadproto::domain::profile::VerticalCurvePvi;
+
+    ProfileVerticalCurveData data;
+    data.controlPoints = {
+        {VerticalCurvePointRole::Start, 0.0, 0.0},
+        {VerticalCurvePointRole::Pvi, 100.0, 10.0},
+        {VerticalCurvePointRole::End, 200.0, 10.0},
+    };
+    data.pvis = {VerticalCurvePvi{100.0, 10.0, 1000.0}};
+    data.properties.sampleInterval = 25.0;
+
+    const auto plan = ProfileVerticalCurveDisplayPlanner::build(data);
+    CHECK(plan.succeeded);
+
+    int straightCount = 0;
+    int curveCount = 0;
+    int tangentCount = 0;
+    bool hasBvcBoundary = false;
+    bool hasEvcBoundary = false;
+    for (const auto& segment : plan.segments) {
+        if (segment.role == VerticalCurveDisplaySegmentRole::StraightDesignLine) {
+            ++straightCount;
+            CHECK(segment.colorIndex == 4);
+            CHECK(segment.endStation <= 50.0 || segment.startStation >= 150.0);
+        } else if (segment.role == VerticalCurveDisplaySegmentRole::CurveDesignLine) {
+            ++curveCount;
+            CHECK(segment.colorIndex == 2);
+            CHECK(segment.startStation >= 50.0);
+            CHECK(segment.endStation <= 150.0);
+            hasBvcBoundary = hasBvcBoundary || std::fabs(segment.startStation - 50.0) < 1.0e-9;
+            hasEvcBoundary = hasEvcBoundary || std::fabs(segment.endStation - 150.0) < 1.0e-9;
+        } else if (segment.role == VerticalCurveDisplaySegmentRole::CurveTangentLine) {
+            ++tangentCount;
+            CHECK(segment.colorIndex == 7);
+        }
+    }
+
+    CHECK(straightCount > 0);
+    CHECK(curveCount > 0);
+    CHECK(tangentCount == 2);
+    CHECK(hasBvcBoundary);
+    CHECK(hasEvcBoundary);
+}
+
 void alignmentCommandMetadataUsesExpectedNames()
 {
     roadproto::core::CommandRegistry commands;
@@ -1923,6 +1974,7 @@ int main()
     profileVerticalCurveCreateServiceRejectsTooFewGroundSamples();
     profileVerticalCurveEditServiceAddsAndDeletesPvi();
     profileVerticalCurveEditServiceAppliesDialogEdit();
+    profileVerticalCurveDisplayPlannerColorsStraightAndCurveSegments();
     alignmentCommandMetadataUsesExpectedNames();
 
     if (g_failures != 0) {

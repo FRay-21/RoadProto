@@ -19,6 +19,13 @@
 - 曲线规则：第一版使用对称二次抛物线，长度 `L = abs(i2 - i1) * R`，切线长 `T = L / 2`。
 - 约束：PVI 必须位于起终点之间；曲线范围不能越过相邻坡段；采样间距必须为正。
 
+### 图形分段计划
+
+- 源码：`src/domain/profile/ProfileVerticalCurveDisplayPlanner.*`
+- 能力：把竖曲线设计线拆分为直坡设计段、曲线设计段和曲线理论切线段。
+- 显示规则：直坡设计段为青色，曲线设计段为黄色，BVC/PVC - PVI - EVC/PVT 理论切线默认为白色细线。
+- 复用边界：DisplayPlanner 不依赖 ObjectARX，只输出桩号/高程和颜色角色；CAD 实体负责把这些点映射为图面坐标并绘制。
+
 ### 创建和编辑服务
 
 - 源码：`src/application/profile/ProfileVerticalCurveCreateService.*`、`src/application/profile/ProfileVerticalCurveEditService.*`
@@ -29,7 +36,7 @@
 ### ObjectARX 自定义实体
 
 - 源码：`src/cad_adapter/objectarx/profile/DnProfileVerticalCurveEntity.*`
-- 能力：DWG 持久化、关联拉坡图 frame 映射、世界绘制、几何范围、起终点/PVI/半径夹点。
+- 能力：DWG 持久化、关联拉坡图 frame 映射、直坡/曲线/理论切线分段世界绘制、几何范围、起终点/PVI/半径夹点。
 - 坐标映射：正向使用拉坡图 `insertionPoint + xAxis * stationOffset + yAxis * elevationOffset`；反向按 `xAxis/yAxis` 二维基向量求逆，支持拉坡图实体被旋转或缩放后的点位反算。
 - 边界：实体只保存竖曲线自身数据，不把设计线嵌入拉坡图实体。
 
@@ -51,8 +58,7 @@
 ## 当前限制
 
 - 第一版只支持对称二次抛物线。
-- 当前图形表达以曲线采样线和控制点标记为主，完整坡度、半径、BVC/EVC 和高低点标注后续补充。
-- 右键菜单第一版提供托管转发命令，完整 AutoCAD 原生上下文菜单后续接入。
+- 当前图形表达已区分直坡段、曲线段和理论切线，但完整坡度、半径、BVC/EVC 和高低点标注后续补充。
 - 竖曲线与横断面、三维模型、土方和排水设计的自动联动尚未接入。
 
 ## 后续扩展

@@ -101,7 +101,7 @@ UI   -> 只负责参数收集和展示
 - 竖曲线命令：命令 `RD_PROFILE_VERTICAL_CURVE_CREATE`
   - 可通过 AutoCAD Ribbon 的 `RoadProto` 选项卡、`纵断面设计` 面板、`创建竖曲线` 按钮触发。
   - 用户选择纵断面拉坡图后，系统创建独立 `DnProfileVerticalCurveEntity`，默认连接地面线起终点，作为设计高程线。
-  - 竖曲线实体通过关联拉坡图的图面坐标系绘制，支持 DWG 持久化、起终点/PVI/半径夹点、PVI 新增和删除。
+  - 竖曲线实体通过关联拉坡图的图面坐标系绘制，直坡段为青色、曲线段为黄色，并绘制 BVC/PVI/EVC 理论切线；支持 DWG 持久化、起终点/PVI/半径夹点、PVI 新增和删除。
   - 双击竖曲线可打开 WPF 编辑窗口，修改名称、起终点、PVI 桩号/高程和半径；回写由 C++ application/domain 层校验后刷新实体。
   - 业务文档：`docs/business/profile/竖曲线_创建.md`、`docs/business/profile/竖曲线_编辑.md`、`docs/business/profile/竖曲线_夹点与右键编辑.md`
 - 平交口模块：命令 `RD_INTERSECTION_INFO`

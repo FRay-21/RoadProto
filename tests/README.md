@@ -72,6 +72,8 @@ AutoCAD 图形界面需要手工验证 `RD_PROFILE_GRADE_GRAPH_CREATE`、`RD_PRO
 
 核心测试覆盖 `ProfileVerticalCurveEditService` 的 PVI 新增、删除、夹点移动和半径更新。
 
+核心测试覆盖 `ProfileVerticalCurveDisplayPlanner` 的图形分段规则：直坡设计段为青色、曲线设计段为黄色，并为每个曲线元素输出两段理论切线。
+
 核心测试覆盖 PROFILE 模块中 `RD_PROFILE_VERTICAL_CURVE_CREATE`、`RD_PROFILE_VERTICAL_CURVE_EDIT_HANDLE`、`RD_PROFILE_VERTICAL_CURVE_APPLY_DIALOG_FILE`、`RD_PROFILE_VERTICAL_CURVE_ADD_PVI` 和 `RD_PROFILE_VERTICAL_CURVE_DELETE_PVI` 的命令元数据。
 
 核心测试覆盖托管 Ribbon 扩展源码中的竖曲线对象右键菜单注册约定：必须注册 AutoCAD 对象快捷菜单，并包含新增/删除 PVI 的上下文转发命令。
@@ -80,6 +82,7 @@ AutoCAD 图形界面需要手工验证 `RD_PROFILE_VERTICAL_CURVE_CREATE`、`RD_
 
 - 选择纵断面拉坡图后，可创建默认连接地面线起终点的竖曲线实体。
 - 竖曲线在拉坡图坐标系中显示，保存 DWG 后重开并 `REGEN` 仍保持可见。
+- 竖曲线直坡设计段为青色，曲线段为黄色，BVC/PVI/EVC 理论切线可见。
 - 双击竖曲线可打开 WPF 编辑窗口，修改起终点、PVI 高程和半径后刷新实体。
 - 起点、终点、PVI 和半径夹点可拖动，拖动后图形刷新且无索引错位。
 - 选中竖曲线实体后右键，可看到 `新增竖曲线变坡点` 和 `删除竖曲线变坡点` 菜单项。

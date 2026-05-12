@@ -3,6 +3,7 @@
 #include "cad_adapter/objectarx/profile/DnProfileGradeGraphEntity.h"
 #include "application/profile/ProfileVerticalCurveEditService.h"
 #include "domain/profile/ProfileVerticalCurveCalculator.h"
+#include "domain/profile/ProfileVerticalCurveDisplayPlanner.h"
 
 #include "acgi.h"
 #include "acutmem.h"
@@ -16,6 +17,8 @@
 
 using roadproto::domain::profile::ProfileVerticalCurveCalculator;
 using roadproto::domain::profile::ProfileVerticalCurveData;
+using roadproto::domain::profile::ProfileVerticalCurveDisplayPlanner;
+using roadproto::domain::profile::VerticalCurveDisplaySegmentRole;
 using roadproto::domain::profile::VerticalCurveGripRole;
 using roadproto::domain::profile::VerticalCurveControlPoint;
 using roadproto::domain::profile::VerticalCurvePointRole;
@@ -345,25 +348,30 @@ Adesk::Boolean DnProfileVerticalCurveEntity::subWorldDraw(AcGiWorldDraw* worldDr
         return Adesk::kTrue;
     }
 
-    const auto samples = ProfileVerticalCurveCalculator::sample(curveData_, curveData_.properties.sampleInterval);
-    if (!samples.succeeded || samples.points.size() < 2) {
+    const auto displayPlan = ProfileVerticalCurveDisplayPlanner::build(curveData_);
+    if (!displayPlan.succeeded || displayPlan.segments.empty()) {
         return Adesk::kTrue;
     }
 
-    const auto color = curveData_.properties.designLineColorIndex > 0
-        ? static_cast<Adesk::UInt16>(curveData_.properties.designLineColorIndex)
-        : static_cast<Adesk::UInt16>(1);
     worldDraw->subEntityTraits().setFillType(kAcGiFillNever);
-    worldDraw->subEntityTraits().setColor(color);
-    worldDraw->subEntityTraits().setLineWeight(lineWeightFromMillimeters(curveData_.properties.designLineWidth));
 
-    for (std::size_t i = 1; i < samples.points.size(); ++i) {
+    for (const auto& segment : displayPlan.segments) {
         AcGePoint3d startPoint;
         AcGePoint3d endPoint;
-        if (!mapCurvePoint(frame, samples.points[i - 1].station, samples.points[i - 1].elevation, startPoint)
-            || !mapCurvePoint(frame, samples.points[i].station, samples.points[i].elevation, endPoint)) {
+        if (!mapCurvePoint(frame, segment.startStation, segment.startElevation, startPoint)
+            || !mapCurvePoint(frame, segment.endStation, segment.endElevation, endPoint)) {
             continue;
         }
+
+        const auto color = segment.colorIndex > 0
+            ? static_cast<Adesk::UInt16>(segment.colorIndex)
+            : static_cast<Adesk::UInt16>(4);
+        worldDraw->subEntityTraits().setColor(color);
+        worldDraw->subEntityTraits().setLineWeight(
+            segment.role == VerticalCurveDisplaySegmentRole::CurveTangentLine
+                ? AcDb::kLnWtByLayer
+                : lineWeightFromMillimeters(curveData_.properties.designLineWidth));
+
         AcGePoint3d line[2] = {
             startPoint,
             endPoint};

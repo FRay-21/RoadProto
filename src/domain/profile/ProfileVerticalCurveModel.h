@@ -40,8 +40,8 @@ struct VerticalCurvePvi {
 
 struct VerticalCurveProperties {
     std::wstring name = L"\u7ad6\u66f2\u7ebf";
-    int designLineColorIndex = 1;
-    int tangentLineColorIndex = 8;
+    int designLineColorIndex = 4;
+    int tangentLineColorIndex = 7;
     int keyPointColorIndex = 2;
     double designLineWidth = 0.35;
     double sampleInterval = 5.0;

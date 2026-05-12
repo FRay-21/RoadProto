@@ -73,6 +73,7 @@
     <ClCompile Include="..\domain\profile\ProfileDmxFile.cpp" />
     <ClCompile Include="..\domain\profile\ProfileGradeGraphLayout.cpp" />
     <ClCompile Include="..\domain\profile\ProfileVerticalCurveCalculator.cpp" />
+    <ClCompile Include="..\domain\profile\ProfileVerticalCurveDisplayPlanner.cpp" />
     <ClCompile Include="..\domain\relation\EntityRelationManager.cpp" />
     <ClCompile Include="..\domain\terrain\TerrainMeshFile.cpp" />
     <ClCompile Include="..\domain\terrain\TerrainPointNormalizer.cpp" />

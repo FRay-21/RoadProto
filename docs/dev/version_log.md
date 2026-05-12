@@ -428,6 +428,14 @@
 - 核心测试新增托管 Ribbon 扩展右键菜单注册约定检查，防止后续只保留命令而漏挂菜单。
 - 更新竖曲线夹点与右键编辑业务文档、纵断面模块文档和测试说明。
 
+## v0.1.9 vertical curve display follow-up - 2026-05-12
+
+- 新增 `ProfileVerticalCurveDisplayPlanner`，在 domain 层生成竖曲线图形分段计划，区分直坡设计段、曲线设计段和曲线理论切线。
+- `DnProfileVerticalCurveEntity` 改为按分段绘制：直坡设计段使用青色，曲线设计段使用黄色，BVC/PVC - PVI - EVC/PVT 理论切线使用白色细线。
+- 竖曲线显示默认色调整为直坡青色、理论切线白色，关键点标记仍沿用黄色。
+- 核心测试新增竖曲线显示分段规则用例，覆盖 BVC/EVC 边界拆分、直坡/曲线颜色和两段理论切线。
+- 更新竖曲线创建业务文档、复用说明、模块文档、README 和测试说明。
+
 ## 记录模板
 
 ```markdown

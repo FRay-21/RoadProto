@@ -70,6 +70,19 @@
 
 代码文件仍以当前开发 worktree 为准；除用户明确要求外，不要把源代码从 worktree 直接同步到主项目目录，避免不同分支代码混杂。
 
+## Worktree 构建产物同步规则
+
+在 `.worktrees/<分支名>` 内构建时，ARX / 托管 DLL 默认输出到该 worktree 的 `artifacts/` 目录。若用户需要在主项目常用目录直接加载、查看或分发，收尾前必须把最新构建产物同步到主项目目录 `F:\0_GPT_道路设计原型功能项目`。
+
+必须同步的默认位置：
+
+- ARX：从 `.worktrees/<分支名>/artifacts/x64/<Configuration>/` 复制到 `F:\0_GPT_道路设计原型功能项目\artifacts\x64\<Configuration>\`
+- 托管 WPF 插件：从 `.worktrees/<分支名>/artifacts/managed/<Configuration>/net48/` 复制到 `F:\0_GPT_道路设计原型功能项目\artifacts\managed\<Configuration>\net48\`
+- 若存在同名 PDB，可一并同步，方便后续调试和异常定位。
+- 同步完成后，必须在回复中明确给出主项目下的 ARX 路径和托管 DLL 路径。
+
+这条规则只同步构建产物；源代码仍以当前开发 worktree 为准，除用户明确要求外，不从 worktree 直接覆盖主项目源代码。
+
 ## 项目硬性规则
 
 - 不要把所有逻辑堆在 ARX 入口文件。

@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <LangVersion>latest</LangVersion>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="..\..\src\ui\wpf\RoadProto.Terrain.UI\Bridge\AlignmentDialogDtos.cs" Link="Bridge\AlignmentDialogDtos.cs" />
+    <Compile Include="..\..\src\ui\wpf\RoadProto.Terrain.UI\Bridge\AlignmentDialogFile.cs" Link="Bridge\AlignmentDialogFile.cs" />
+    <Compile Include="..\..\src\ui\wpf\RoadProto.Terrain.UI\Bridge\SubgradeTemplateDialogDtos.cs" Link="Bridge\SubgradeTemplateDialogDtos.cs" />
+    <Compile Include="..\..\src\ui\wpf\RoadProto.Terrain.UI\Bridge\SubgradeTemplateDialogFile.cs" Link="Bridge\SubgradeTemplateDialogFile.cs" />
+  </ItemGroup>
+</Project>

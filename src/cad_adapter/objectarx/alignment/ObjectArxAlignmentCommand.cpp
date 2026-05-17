@@ -6,6 +6,7 @@
 #include "cad_adapter/objectarx/ObjectArxSelectionSetGuard.h"
 #include "cad_adapter/objectarx/alignment/AlignmentDialogBridge.h"
 #include "cad_adapter/objectarx/alignment/DnRoadCenterlineEntity.h"
+#include "cad_adapter/objectarx/terrain/DnTerrainTinEntity.h"
 #include "domain/alignment/IcdAlignmentFile.h"
 
 #include "aced.h"
@@ -33,6 +34,26 @@ using domain::alignment::HorizontalCurveParameters;
 using domain::alignment::IcdAlignmentFile;
 
 AcDbObjectId g_entityHiddenDuringAlignmentPreview;
+
+std::wstring trimDialogCommandPath(std::wstring path)
+{
+    while (!path.empty() && std::iswspace(path.front()) != 0) {
+        path.erase(path.begin());
+    }
+    while (!path.empty() && std::iswspace(path.back()) != 0) {
+        path.pop_back();
+    }
+
+    if (path.size() >= 2) {
+        const auto first = path.front();
+        const auto last = path.back();
+        if ((first == L'"' && last == L'"') || (first == L'\'' && last == L'\'')) {
+            path = path.substr(1, path.size() - 2);
+        }
+    }
+
+    return path;
+}
 
 bool appendEntityToModelSpace(AcDbEntity* entity, AcDbObjectId& entityId)
 {
@@ -473,6 +494,72 @@ bool queueDialogForEntity(
     return queueDialogForAlignment(handle, alignment, mode, deleteOnCancel, curveIndex);
 }
 
+void clearImpliedSelection()
+{
+    acedSSSetFirst(nullptr, nullptr);
+}
+
+bool promptTerrainTinHandle(std::wstring& terrainHandle)
+{
+    auto& editor = app::ApplicationContext::instance().editor();
+
+    ads_name entityName;
+    ads_point pickedPoint;
+    if (acedEntSel(L"\n请选择关联的 TIN 数模实体: ", entityName, pickedPoint) != RTNORM) {
+        editor.writeWarning(L"已取消数模选择。");
+        return false;
+    }
+
+    AcDbObjectId entityId;
+    if (acdbGetObjectId(entityId, entityName) != Acad::eOk) {
+        editor.writeWarning(L"无法识别选择对象。");
+        return false;
+    }
+
+    DnTerrainTinEntity* terrain = nullptr;
+    if (acdbOpenObject(terrain, entityId, AcDb::kForRead) != Acad::eOk || terrain == nullptr) {
+        editor.writeWarning(L"选择对象不是 RoadProto TIN 数模实体。");
+        return false;
+    }
+
+    terrainHandle = entityHandleText(terrain);
+    terrain->close();
+    clearImpliedSelection();
+    return true;
+}
+
+bool handlePickTerrainAction(
+    AcDbObjectId centerlineId,
+    const AlignmentDialogResponse& response)
+{
+    std::wstring terrainHandle = response.properties.linkedTerrainHandle;
+    const auto picked = promptTerrainTinHandle(terrainHandle);
+
+    DnRoadCenterlineEntity* entity = nullptr;
+    if (acdbOpenObject(entity, centerlineId, AcDb::kForRead) != Acad::eOk || entity == nullptr) {
+        app::ApplicationContext::instance().editor().writeError(L"无法重新打开道路中线实体。");
+        return false;
+    }
+
+    auto alignment = entity->alignment();
+    entity->close();
+    alignment.properties = response.properties;
+    if (!response.curveParameters.empty()) {
+        alignment.curveParameters = response.curveParameters;
+    }
+    if (picked) {
+        alignment.properties.linkedTerrainEnabled = true;
+        alignment.properties.linkedTerrainHandle = terrainHandle;
+    }
+
+    return queueDialogForAlignment(
+        response.handle,
+        alignment,
+        response.mode,
+        response.deleteOnCancel,
+        response.curveIndex);
+}
+
 bool eraseEntityById(AcDbObjectId entityId)
 {
     AcDbEntity* entity = nullptr;
@@ -706,7 +793,8 @@ void runAlignmentApplyDialogFileCommand()
 
     AlignmentDialogResponse response;
     std::wstring errorMessage;
-    if (!readAlignmentDialogResponse(pathBuffer, response, errorMessage)) {
+    const auto responsePath = trimDialogCommandPath(pathBuffer);
+    if (!readAlignmentDialogResponse(responsePath, response, errorMessage)) {
         editor.writeError(L"读取道路中线对话框结果失败: " + errorMessage);
         return;
     }
@@ -714,6 +802,11 @@ void runAlignmentApplyDialogFileCommand()
     AcDbObjectId entityId;
     if (!resolveObjectIdFromHandle(response.handle, entityId)) {
         editor.writeWarning(L"未找到对话框结果对应的道路中线实体。");
+        return;
+    }
+
+    if (response.action == AlignmentDialogAction::PickTerrain) {
+        handlePickTerrainAction(entityId, response);
         return;
     }
 

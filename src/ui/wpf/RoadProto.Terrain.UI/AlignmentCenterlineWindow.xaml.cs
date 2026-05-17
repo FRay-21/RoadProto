@@ -2,10 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Windows;
-using Autodesk.AutoCAD.DatabaseServices;
-using Autodesk.AutoCAD.EditorInput;
 using RoadProto.Terrain.UI.Bridge;
-using CoreApplication = Autodesk.AutoCAD.ApplicationServices.Core.Application;
 
 namespace RoadProto.Terrain.UI;
 
@@ -125,33 +122,15 @@ public partial class AlignmentCenterlineWindow : Window
 
     private void SelectTerrainButton_Click(object sender, RoutedEventArgs e)
     {
-        var document = CoreApplication.DocumentManager.MdiActiveDocument;
-        if (document == null)
+        ErrorTextBlock.Text = string.Empty;
+        if (!TrySaveCurrentCurveParameter())
         {
-            ErrorTextBlock.Text = "没有可用的 CAD 文档。";
             return;
         }
 
-        Visibility = System.Windows.Visibility.Hidden;
-        try
-        {
-            var options = new PromptEntityOptions("\n请选择关联的 TIN 数模实体: ");
-            var result = document.Editor.GetEntity(options);
-            if (result.Status != PromptStatus.OK)
-            {
-                return;
-            }
-
-            LinkedTerrainCheckBox.IsChecked = true;
-            LinkedTerrainHandleTextBox.Text = result.ObjectId.Handle.ToString();
-            document.Editor.SetImpliedSelection(Array.Empty<ObjectId>());
-            ErrorTextBlock.Text = string.Empty;
-        }
-        finally
-        {
-            Visibility = System.Windows.Visibility.Visible;
-            Activate();
-        }
+        Response = CreateResponse(false);
+        Response.Action = AlignmentDialogAction.PickTerrain;
+        DialogResult = true;
     }
 
     private void OkButton_Click(object sender, RoutedEventArgs e)

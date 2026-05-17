@@ -1,4 +1,9 @@
+#include "application/cross_section/SubgradeTemplateCreateService.h"
+#include "application/profile/ProfileGradeGraphCreateService.h"
+#include "application/profile/ProfileVerticalCurveCreateService.h"
+#include "application/profile/ProfileVerticalCurveEditService.h"
 #include "application/terrain/TerrainUpdateSampleService.h"
+#include "app/startup/CrossSectionStartupRegistration.h"
 #include "core/command/CommandRegistry.h"
 #include "core/module/ModuleRegistry.h"
 #include "domain/alignment/AlignmentGeometry.h"
@@ -7,20 +12,33 @@
 #include "domain/alignment/HorizontalAlignmentBuilder.h"
 #include "domain/alignment/IcdAlignmentFile.h"
 #include "domain/alignment/StationFormatter.h"
+#include "domain/cross_section/SubgradeTemplateModel.h"
+#include "domain/profile/ProfileDmxFile.h"
+#include "domain/profile/ProfileGradeGraphLayout.h"
+#include "domain/profile/ProfileVerticalCurveCalculator.h"
+#include "domain/profile/ProfileVerticalCurveDisplayPlanner.h"
+#include "domain/profile/ProfileVerticalCurveModel.h"
 #include "domain/relation/EntityRelationManager.h"
 #include "domain/terrain/TerrainPointNormalizer.h"
 #include "domain/terrain/TerrainMeshFile.h"
 #include "domain/terrain/TerrainSurfaceQuery.h"
 #include "domain/terrain/TerrainTextElevationParser.h"
 #include "domain/terrain/TerrainTinBuilder.h"
+#include "app/startup/ProfileStartupRegistration.h"
+#include "modules/cross_section/CrossSectionModule.h"
+#include "modules/profile/ProfileModule.h"
 #include "ui/ribbon/RibbonModel.h"
 
 #include <algorithm>
+#include <chrono>
 #include <cmath>
 #include <filesystem>
 #include <fstream>
 #include <iostream>
+#include <limits>
 #include <string>
+#include <utility>
+#include <vector>
 
 namespace {
 
@@ -39,6 +57,32 @@ void check(bool condition, const char* expression, const char* file, int line)
 }
 
 #define CHECK(expression) check((expression), #expression, __FILE__, __LINE__)
+
+std::filesystem::path findRepositoryRootForTests()
+{
+    auto current = std::filesystem::current_path();
+    for (int i = 0; i < 8; ++i) {
+        if (std::filesystem::exists(current / "src" / "ui" / "wpf" / "RoadProto.Terrain.UI")) {
+            return current;
+        }
+        if (!current.has_parent_path()) {
+            break;
+        }
+        current = current.parent_path();
+    }
+
+    return std::filesystem::current_path();
+}
+
+std::string readTextFileForTests(const std::filesystem::path& path)
+{
+    std::ifstream input(path, std::ios::binary);
+    if (!input) {
+        return {};
+    }
+
+    return std::string(std::istreambuf_iterator<char>(input), std::istreambuf_iterator<char>());
+}
 
 roadproto::core::CommandDefinition makeCommand(const std::wstring& name)
 {
@@ -100,6 +144,527 @@ void moduleRegistryRegistersCommandsAndRibbonPanels()
     modules.registerRibbon(ribbon);
     CHECK(ribbon.tab().panels.size() == 1);
     CHECK(ribbon.tab().panels.front().moduleCode == L"TEST");
+}
+
+void profileModuleRegistersCommandsAndRibbonPanel()
+{
+    roadproto::core::CommandRegistry commands;
+    roadproto::ui::RibbonModel ribbon;
+
+    auto module = roadproto::modules::profile::createProfileModule();
+    module.registerCommands(commands);
+    module.registerRibbon(ribbon);
+
+    const auto createCommand = commands.find(L"RD_PROFILE_GRADE_GRAPH_CREATE");
+    CHECK(createCommand.has_value());
+    if (createCommand.has_value()) {
+        CHECK(createCommand->moduleCode == L"PROFILE");
+        CHECK(createCommand->displayName == L"\u7eb5\u65ad\u9762\u62c9\u5761\u56fe");
+        CHECK(createCommand->businessDocPath == L"docs/business/profile/\u7eb5\u65ad\u9762\u62c9\u5761\u56fe_\u521b\u5efa.md");
+        CHECK(createCommand->ribbonAttachable);
+        CHECK(createCommand->isPrototype);
+        CHECK(createCommand->reusable);
+    }
+
+    const auto editHandleCommand = commands.find(L"RD_PROFILE_GRADE_GRAPH_EDIT_HANDLE");
+    CHECK(editHandleCommand.has_value());
+    if (editHandleCommand.has_value()) {
+        CHECK(editHandleCommand->moduleCode == L"PROFILE");
+        CHECK(editHandleCommand->displayName == L"\u6309 handle \u7f16\u8f91\u7eb5\u65ad\u9762\u62c9\u5761\u56fe");
+        CHECK(editHandleCommand->businessDocPath == L"docs/business/profile/\u7eb5\u65ad\u9762\u62c9\u5761\u56fe_\u5c5e\u6027\u7f16\u8f91.md");
+        CHECK(!editHandleCommand->ribbonAttachable);
+        CHECK(!editHandleCommand->reusable);
+    }
+
+    const auto applyDialogFileCommand = commands.find(L"RD_PROFILE_APPLY_DIALOG_FILE");
+    CHECK(applyDialogFileCommand.has_value());
+    if (applyDialogFileCommand.has_value()) {
+        CHECK(applyDialogFileCommand->moduleCode == L"PROFILE");
+        CHECK(applyDialogFileCommand->displayName == L"\u5e94\u7528\u7eb5\u65ad\u9762\u62c9\u5761\u56fe\u5bf9\u8bdd\u6846\u7ed3\u679c");
+        CHECK(applyDialogFileCommand->businessDocPath == L"docs/business/profile/\u7eb5\u65ad\u9762\u62c9\u5761\u56fe_\u5c5e\u6027\u7f16\u8f91.md");
+        CHECK(!applyDialogFileCommand->ribbonAttachable);
+        CHECK(!applyDialogFileCommand->reusable);
+    }
+
+    const auto verticalCurveCreate = commands.find(L"RD_PROFILE_VERTICAL_CURVE_CREATE");
+    CHECK(verticalCurveCreate.has_value());
+    if (verticalCurveCreate.has_value()) {
+        CHECK(verticalCurveCreate->displayName == L"\u521b\u5efa\u7ad6\u66f2\u7ebf");
+        CHECK(verticalCurveCreate->moduleCode == L"PROFILE");
+        CHECK(verticalCurveCreate->businessDocPath == L"docs/business/profile/\u7ad6\u66f2\u7ebf_\u521b\u5efa.md");
+        CHECK(verticalCurveCreate->ribbonAttachable);
+    }
+
+    const auto verticalCurveEdit = commands.find(L"RD_PROFILE_VERTICAL_CURVE_EDIT_HANDLE");
+    CHECK(verticalCurveEdit.has_value());
+    if (verticalCurveEdit.has_value()) {
+        CHECK(verticalCurveEdit->businessDocPath == L"docs/business/profile/\u7ad6\u66f2\u7ebf_\u7f16\u8f91.md");
+        CHECK(!verticalCurveEdit->ribbonAttachable);
+    }
+
+    const auto verticalCurveApply = commands.find(L"RD_PROFILE_VERTICAL_CURVE_APPLY_DIALOG_FILE");
+    CHECK(verticalCurveApply.has_value());
+    if (verticalCurveApply.has_value()) {
+        CHECK(verticalCurveApply->businessDocPath == L"docs/business/profile/\u7ad6\u66f2\u7ebf_\u7f16\u8f91.md");
+    }
+
+    const auto verticalCurveAddPvi = commands.find(L"RD_PROFILE_VERTICAL_CURVE_ADD_PVI");
+    CHECK(verticalCurveAddPvi.has_value());
+    if (verticalCurveAddPvi.has_value()) {
+        CHECK(verticalCurveAddPvi->businessDocPath == L"docs/business/profile/\u7ad6\u66f2\u7ebf_\u5939\u70b9\u4e0e\u53f3\u952e\u7f16\u8f91.md");
+    }
+
+    const auto verticalCurveDeletePvi = commands.find(L"RD_PROFILE_VERTICAL_CURVE_DELETE_PVI");
+    CHECK(verticalCurveDeletePvi.has_value());
+    if (verticalCurveDeletePvi.has_value()) {
+        CHECK(verticalCurveDeletePvi->businessDocPath == L"docs/business/profile/\u7ad6\u66f2\u7ebf_\u5939\u70b9\u4e0e\u53f3\u952e\u7f16\u8f91.md");
+    }
+
+    CHECK(ribbon.tab().panels.size() == 1);
+    CHECK(ribbon.tab().panels.front().moduleCode == L"PROFILE");
+    CHECK(ribbon.tab().panels.front().title == L"\u7eb5\u65ad\u9762\u8bbe\u8ba1");
+}
+
+void startupRegistrationIncludesProfileModule()
+{
+    roadproto::core::ModuleRegistry modules;
+    roadproto::app::registerProfileModuleForStartup(modules);
+
+    CHECK(modules.contains(L"PROFILE"));
+
+    const auto module = modules.find(L"PROFILE");
+    CHECK(module.has_value());
+    if (!module.has_value()) {
+        return;
+    }
+
+    roadproto::core::CommandRegistry commands;
+    roadproto::ui::RibbonModel ribbon;
+    module->registerCommands(commands);
+    module->registerRibbon(ribbon);
+
+    CHECK(commands.contains(L"RD_PROFILE_GRADE_GRAPH_CREATE"));
+    CHECK(ribbon.tab().panels.size() == 1);
+    CHECK(ribbon.tab().panels.front().moduleCode == L"PROFILE");
+}
+
+void subgradeTemplateDefaultsBuildExpressway()
+{
+    using namespace roadproto::domain::cross_section;
+
+    const auto data = SubgradeTemplateDefaults::create(RoadGrade::Expressway);
+
+    CHECK(data.properties.roadGrade == RoadGrade::Expressway);
+    CHECK(data.properties.name == L"\u9ed8\u8ba4\u8def\u57fa\u6a21\u677f");
+    CHECK(std::fabs(data.properties.displayScale - 10.0) < 1.0e-9);
+    CHECK(data.components.size() == 10);
+
+    std::vector<SubgradeTemplateComponent> left;
+    std::vector<SubgradeTemplateComponent> right;
+    for (const auto& component : data.components) {
+        if (component.side == SubgradeSide::Left) {
+            left.push_back(component);
+        } else if (component.side == SubgradeSide::Right) {
+            right.push_back(component);
+        }
+    }
+
+    CHECK(left.size() == 5);
+    CHECK(right.size() == 5);
+    CHECK(left[0].type == SubgradeComponentType::Median);
+    CHECK(std::fabs(left[0].width - 1.5) < 1.0e-9);
+    CHECK(left[1].type == SubgradeComponentType::CurbStrip);
+    CHECK(std::fabs(left[1].width - 0.75) < 1.0e-9);
+    CHECK(left[2].type == SubgradeComponentType::TravelLane);
+    CHECK(std::fabs(left[2].width - 7.5) < 1.0e-9);
+    CHECK(left[3].type == SubgradeComponentType::HardShoulder);
+    CHECK(std::fabs(left[3].width - 3.0) < 1.0e-9);
+    CHECK(left[4].type == SubgradeComponentType::EarthShoulder);
+    CHECK(std::fabs(left[4].width - 0.75) < 1.0e-9);
+
+    CHECK(right[0].type == SubgradeComponentType::Median);
+    CHECK(std::fabs(right[0].width - left[0].width) < 1.0e-9);
+    CHECK(right[4].type == SubgradeComponentType::EarthShoulder);
+    CHECK(std::fabs(right[4].width - left[4].width) < 1.0e-9);
+
+    CHECK(left[0].color.r == 0);
+    CHECK(left[0].color.g == 120);
+    CHECK(left[0].color.b == 0);
+    CHECK(left[2].color.r == 0);
+    CHECK(left[2].color.g == 90);
+    CHECK(left[2].color.b == 180);
+    CHECK(left[4].color.r == 120);
+    CHECK(left[4].color.g == 120);
+    CHECK(left[4].color.b == 120);
+}
+
+void subgradeTemplateDefaultsBuildUrbanExpressway()
+{
+    using namespace roadproto::domain::cross_section;
+
+    const auto data = SubgradeTemplateDefaults::create(RoadGrade::UrbanExpressway);
+
+    CHECK(data.properties.roadGrade == RoadGrade::UrbanExpressway);
+    CHECK(data.components.size() == 10);
+
+    std::vector<SubgradeTemplateComponent> left;
+    for (const auto& component : data.components) {
+        if (component.side == SubgradeSide::Left) {
+            left.push_back(component);
+        }
+    }
+
+    CHECK(left.size() == 5);
+    CHECK(left[0].type == SubgradeComponentType::Median);
+    CHECK(std::fabs(left[0].width - 1.0) < 1.0e-9);
+    CHECK(left[1].type == SubgradeComponentType::TravelLane);
+    CHECK(std::fabs(left[1].width - 7.5) < 1.0e-9);
+    CHECK(left[2].type == SubgradeComponentType::SideMedian);
+    CHECK(std::fabs(left[2].width - 1.0) < 1.0e-9);
+    CHECK(left[3].type == SubgradeComponentType::BikeLane);
+    CHECK(std::fabs(left[3].width - 3.0) < 1.0e-9);
+    CHECK(left[4].type == SubgradeComponentType::Sidewalk);
+    CHECK(std::fabs(left[4].width - 4.0) < 1.0e-9);
+}
+
+std::vector<roadproto::domain::cross_section::SubgradeTemplateComponent> subgradeComponentsForSide(
+    const roadproto::domain::cross_section::SubgradeTemplateData& data,
+    roadproto::domain::cross_section::SubgradeSide side)
+{
+    std::vector<roadproto::domain::cross_section::SubgradeTemplateComponent> result;
+    for (const auto& component : data.components) {
+        if (component.side == side) {
+            result.push_back(component);
+        }
+    }
+    return result;
+}
+
+void checkSubgradeSideProfile(
+    const std::vector<roadproto::domain::cross_section::SubgradeTemplateComponent>& components,
+    const std::vector<std::pair<roadproto::domain::cross_section::SubgradeComponentType, double>>& expected)
+{
+    CHECK(components.size() == expected.size());
+    const auto count = std::min(components.size(), expected.size());
+    for (std::size_t i = 0; i < count; ++i) {
+        CHECK(components[i].type == expected[i].first);
+        CHECK(std::fabs(components[i].width - expected[i].second) < 1.0e-9);
+    }
+}
+
+void subgradeTemplateDefaultsBuildHighwayGradesFromRoadClassProfiles()
+{
+    using namespace roadproto::domain::cross_section;
+
+    const auto firstClass = SubgradeTemplateDefaults::create(RoadGrade::FirstClass);
+    CHECK(firstClass.properties.roadGrade == RoadGrade::FirstClass);
+    const auto firstClassLeft = subgradeComponentsForSide(firstClass, SubgradeSide::Left);
+    const auto firstClassRight = subgradeComponentsForSide(firstClass, SubgradeSide::Right);
+    checkSubgradeSideProfile(
+        firstClassLeft,
+        {
+            {SubgradeComponentType::Median, 1.0},
+            {SubgradeComponentType::CurbStrip, 0.5},
+            {SubgradeComponentType::TravelLane, 3.75},
+            {SubgradeComponentType::TravelLane, 3.75},
+            {SubgradeComponentType::HardShoulder, 2.5},
+            {SubgradeComponentType::EarthShoulder, 0.75},
+        });
+    CHECK(firstClassRight.size() == firstClassLeft.size());
+    for (std::size_t i = 0; i < std::min(firstClassLeft.size(), firstClassRight.size()); ++i) {
+        CHECK(firstClassRight[i].type == firstClassLeft[i].type);
+        CHECK(std::fabs(firstClassRight[i].width - firstClassLeft[i].width) < 1.0e-9);
+    }
+
+    const auto secondClass = SubgradeTemplateDefaults::create(RoadGrade::SecondClass);
+    CHECK(secondClass.properties.roadGrade == RoadGrade::SecondClass);
+    checkSubgradeSideProfile(
+        subgradeComponentsForSide(secondClass, SubgradeSide::Left),
+        {
+            {SubgradeComponentType::TravelLane, 3.75},
+            {SubgradeComponentType::HardShoulder, 1.5},
+            {SubgradeComponentType::EarthShoulder, 0.75},
+        });
+
+    const auto thirdClass = SubgradeTemplateDefaults::create(RoadGrade::ThirdClass);
+    CHECK(thirdClass.properties.roadGrade == RoadGrade::ThirdClass);
+    checkSubgradeSideProfile(
+        subgradeComponentsForSide(thirdClass, SubgradeSide::Left),
+        {
+            {SubgradeComponentType::TravelLane, 3.5},
+            {SubgradeComponentType::HardShoulder, 0.75},
+            {SubgradeComponentType::EarthShoulder, 0.75},
+        });
+
+    const auto fourthClass = SubgradeTemplateDefaults::create(RoadGrade::FourthClass);
+    CHECK(fourthClass.properties.roadGrade == RoadGrade::FourthClass);
+    checkSubgradeSideProfile(
+        subgradeComponentsForSide(fourthClass, SubgradeSide::Left),
+        {
+            {SubgradeComponentType::TravelLane, 3.0},
+            {SubgradeComponentType::HardShoulder, 0.25},
+            {SubgradeComponentType::EarthShoulder, 0.5},
+        });
+}
+
+void subgradeTemplateDefaultsBuildUrbanRoadClassProfiles()
+{
+    using namespace roadproto::domain::cross_section;
+
+    const auto arterial = SubgradeTemplateDefaults::create(RoadGrade::UrbanArterial);
+    CHECK(arterial.properties.roadGrade == RoadGrade::UrbanArterial);
+    checkSubgradeSideProfile(
+        subgradeComponentsForSide(arterial, SubgradeSide::Left),
+        {
+            {SubgradeComponentType::Median, 1.5},
+            {SubgradeComponentType::CurbStrip, 0.5},
+            {SubgradeComponentType::TravelLane, 3.5},
+            {SubgradeComponentType::TravelLane, 3.5},
+            {SubgradeComponentType::SideMedian, 1.5},
+            {SubgradeComponentType::BikeLane, 2.5},
+            {SubgradeComponentType::Sidewalk, 3.0},
+        });
+
+    const auto subArterial = SubgradeTemplateDefaults::create(RoadGrade::UrbanSubArterial);
+    CHECK(subArterial.properties.roadGrade == RoadGrade::UrbanSubArterial);
+    checkSubgradeSideProfile(
+        subgradeComponentsForSide(subArterial, SubgradeSide::Left),
+        {
+            {SubgradeComponentType::CurbStrip, 0.25},
+            {SubgradeComponentType::TravelLane, 3.5},
+            {SubgradeComponentType::TravelLane, 3.5},
+            {SubgradeComponentType::BikeLane, 2.5},
+            {SubgradeComponentType::Sidewalk, 3.0},
+        });
+
+    const auto branch = SubgradeTemplateDefaults::create(RoadGrade::UrbanBranch);
+    CHECK(branch.properties.roadGrade == RoadGrade::UrbanBranch);
+    checkSubgradeSideProfile(
+        subgradeComponentsForSide(branch, SubgradeSide::Left),
+        {
+            {SubgradeComponentType::TravelLane, 3.25},
+            {SubgradeComponentType::CurbStrip, 0.25},
+            {SubgradeComponentType::Sidewalk, 2.0},
+        });
+}
+
+void subgradeTemplateComponentDisplayNamesAreChinese()
+{
+    using namespace roadproto::domain::cross_section;
+
+    CHECK(std::wstring(subgradeComponentTypeDisplayName(SubgradeComponentType::TravelLane)) == L"行车道");
+    CHECK(std::wstring(subgradeComponentTypeDisplayName(SubgradeComponentType::HardShoulder)) == L"硬路肩");
+    CHECK(std::wstring(subgradeComponentTypeDisplayName(SubgradeComponentType::EarthShoulder)) == L"土路肩");
+}
+
+void subgradeTemplateRulesUseWideningTableAndPavementThicknessGate()
+{
+    using namespace roadproto::domain::cross_section;
+
+    SubgradeTemplateComponent component;
+    component.width = 3.75;
+    component.pavementLayerLinked = false;
+    component.pavementLayerThickness = 0.28;
+    component.wideningTable.push_back({100.0, 0.50});
+
+    CHECK(std::fabs(SubgradeTemplateRules::widthAtStation(component, 100.0) - 4.25) < 1.0e-9);
+    CHECK(std::fabs(SubgradeTemplateRules::widthAtStation(component, 110.0) - 3.75) < 1.0e-9);
+    CHECK(std::fabs(SubgradeTemplateRules::effectivePavementThickness(component)) < 1.0e-9);
+
+    component.pavementLayerLinked = true;
+    CHECK(std::fabs(SubgradeTemplateRules::effectivePavementThickness(component) - 0.28) < 1.0e-9);
+}
+
+void subgradeTemplateVariableSlopeUsesOnlySlopeTable()
+{
+    using namespace roadproto::domain::cross_section;
+
+    SubgradeTemplateComponent component;
+    component.fixedSlope = 0.08;
+    component.slopeMode = SubgradeSlopeMode::VariableByStation;
+    component.variableSlopeTable.push_back({100.0, 0.02});
+
+    CHECK(std::fabs(SubgradeTemplateRules::slopeAtStation(component, 100.0) - 0.02) < 1.0e-9);
+    CHECK(std::fabs(SubgradeTemplateRules::slopeAtStation(component, 110.0)) < 1.0e-9);
+}
+
+void subgradeTemplateCreateServiceBuildsDefaultTemplate()
+{
+    using namespace roadproto::application::cross_section;
+    using roadproto::domain::cross_section::RoadGrade;
+
+    SubgradeTemplateCreateInput input;
+    input.name = L"\u57ce\u5e02\u5feb\u901f\u8def\u6a21\u677f";
+    input.displayScale = 50.0;
+    input.roadGrade = RoadGrade::UrbanExpressway;
+
+    const SubgradeTemplateCreateService service;
+    const auto result = service.create(input);
+
+    CHECK(result.succeeded);
+    CHECK(result.templateData.properties.name == L"\u57ce\u5e02\u5feb\u901f\u8def\u6a21\u677f");
+    CHECK(std::fabs(result.templateData.properties.displayScale - 50.0) < 1.0e-9);
+    CHECK(result.templateData.properties.roadGrade == RoadGrade::UrbanExpressway);
+    CHECK(result.templateData.components.size() == 10);
+}
+
+void crossSectionModuleRegistersSubgradeTemplateCommandsAndRibbonPanel()
+{
+    roadproto::core::CommandRegistry commands;
+    roadproto::ui::RibbonModel ribbon;
+
+    auto module = roadproto::modules::cross_section::createCrossSectionModule();
+    module.registerCommands(commands);
+    module.registerRibbon(ribbon);
+
+    const auto createCommand = commands.find(L"RD_SECTION_SUBGRADE_TEMPLATE_CREATE");
+    CHECK(createCommand.has_value());
+    if (createCommand.has_value()) {
+        CHECK(createCommand->moduleCode == L"CROSS_SECTION");
+        CHECK(createCommand->displayName == L"\u521b\u5efa\u8def\u57fa\u6a21\u677f");
+        CHECK(createCommand->businessDocPath == L"docs/business/cross_section/\u8def\u57fa\u6a21\u677f_\u521b\u5efa.md");
+        CHECK(createCommand->ribbonAttachable);
+        CHECK(createCommand->isPrototype);
+        CHECK(createCommand->reusable);
+    }
+
+    const auto editCommand = commands.find(L"RD_SECTION_SUBGRADE_TEMPLATE_EDIT_HANDLE");
+    CHECK(editCommand.has_value());
+    if (editCommand.has_value()) {
+        CHECK(editCommand->moduleCode == L"CROSS_SECTION");
+        CHECK(!editCommand->ribbonAttachable);
+        CHECK(!editCommand->reusable);
+    }
+
+    const auto applyCommand = commands.find(L"RD_SECTION_SUBGRADE_TEMPLATE_APPLY_DIALOG_FILE");
+    CHECK(applyCommand.has_value());
+    if (applyCommand.has_value()) {
+        CHECK(applyCommand->moduleCode == L"CROSS_SECTION");
+        CHECK(!applyCommand->ribbonAttachable);
+        CHECK(!applyCommand->reusable);
+    }
+
+    CHECK(ribbon.tab().panels.size() == 1);
+    CHECK(ribbon.tab().panels.front().moduleCode == L"CROSS_SECTION");
+    CHECK(ribbon.tab().panels.front().title == L"\u6a2a\u65ad\u9762\u8bbe\u8ba1");
+}
+
+void startupRegistrationIncludesCrossSectionModule()
+{
+    roadproto::core::ModuleRegistry modules;
+    roadproto::app::registerCrossSectionModuleForStartup(modules);
+
+    CHECK(modules.contains(L"CROSS_SECTION"));
+
+    const auto module = modules.find(L"CROSS_SECTION");
+    CHECK(module.has_value());
+    if (!module.has_value()) {
+        return;
+    }
+
+    roadproto::core::CommandRegistry commands;
+    roadproto::ui::RibbonModel ribbon;
+    module->registerCommands(commands);
+    module->registerRibbon(ribbon);
+
+    CHECK(commands.contains(L"RD_SECTION_SUBGRADE_TEMPLATE_CREATE"));
+    CHECK(ribbon.tab().panels.size() == 1);
+    CHECK(ribbon.tab().panels.front().moduleCode == L"CROSS_SECTION");
+}
+
+void managedRibbonExtensionRegistersSubgradeTemplateEntryPoints()
+{
+    const auto sourcePath = findRepositoryRootForTests()
+        / "src"
+        / "ui"
+        / "wpf"
+        / "RoadProto.Terrain.UI"
+        / "AutoCad"
+        / "RoadProtoRibbonExtension.cs";
+    CHECK(std::filesystem::exists(sourcePath));
+
+    const auto source = readTextFileForTests(sourcePath);
+    CHECK(!source.empty());
+    CHECK(source.find("CrossSectionPanelId") != std::string::npos);
+    CHECK(source.find("RD_SECTION_SUBGRADE_TEMPLATE_CREATE") != std::string::npos);
+    CHECK(source.find("RD_SECTION_SUBGRADE_TEMPLATE_EDIT_HANDLE") != std::string::npos);
+    CHECK(source.find("RD_SECTION_SUBGRADE_TEMPLATE_EDIT_HANDLE {handle}\\n") != std::string::npos);
+    CHECK(source.find("DNSUBGRADETEMPLATEENTITY") != std::string::npos);
+    CHECK(source.find("SubgradeTemplateDialogCommands") != std::string::npos);
+}
+
+void subgradeTemplateWindowSourceKeepsControlsReadable()
+{
+    const auto root = findRepositoryRootForTests();
+    const auto xamlPath = root
+        / "src"
+        / "ui"
+        / "wpf"
+        / "RoadProto.Terrain.UI"
+        / "SubgradeTemplateWindow.xaml";
+    const auto codePath = xamlPath;
+    auto codeSourcePath = codePath;
+    codeSourcePath += ".cs";
+
+    const auto xaml = readTextFileForTests(xamlPath);
+    const auto source = readTextFileForTests(codeSourcePath);
+
+    CHECK(!xaml.empty());
+    CHECK(!source.empty());
+    CHECK(xaml.find("ClipToBounds=\"True\"") != std::string::npos);
+    CHECK(xaml.find("坡度变化数据表") != std::string::npos);
+    CHECK(source.find("CreateModeDefaultRoadGrade") != std::string::npos);
+    CHECK(source.find("private bool IsCreateMode") != std::string::npos);
+    CHECK(source.find("IsCreateMode ? CreateModeDefaultRoadGrade : _request.RoadGrade") != std::string::npos);
+    CHECK(source.find("!IsCreateMode && RequestHasPersistedComponents") != std::string::npos);
+    CHECK(source.find("BuildDefaults(initialRoadGrade)") != std::string::npos);
+    CHECK(source.find("RequestHasPersistedComponents") != std::string::npos);
+    CHECK(source.find("MoveSelectionToward") != std::string::npos);
+    CHECK(source.find("PreviewComponentHitTarget") != std::string::npos);
+    CHECK(source.find("IsHitTestVisible = false") != std::string::npos);
+    CHECK(source.find("UpdateSlopeModeInputState") != std::string::npos);
+    CHECK(source.find("WidthText") != std::string::npos);
+    CHECK(source.find("SlopeText") != std::string::npos);
+    CHECK(source.find("SubgradeRoadGrade.FirstClass") != std::string::npos);
+    CHECK(source.find("SubgradeRoadGrade.UrbanArterial") != std::string::npos);
+    CHECK(source.find("SubgradeRoadGrade.UrbanBranch") != std::string::npos);
+}
+
+void subgradeTemplateBridgeWritesEnumCodesAsText()
+{
+    const auto sourcePath = findRepositoryRootForTests()
+        / "src"
+        / "cad_adapter"
+        / "objectarx"
+        / "cross_section"
+        / "SubgradeTemplateDialogBridge.cpp";
+    CHECK(std::filesystem::exists(sourcePath));
+
+    const auto source = readTextFileForTests(sourcePath);
+    CHECK(!source.empty());
+    CHECK(source.find("void writeKeyValue(std::ostream& stream, const std::wstring& key, const wchar_t* value)") != std::string::npos);
+    CHECK(source.find("std::wstring(value == nullptr ? L\"\" : value)") != std::string::npos);
+}
+
+void managedRibbonExtensionRegistersVerticalCurveContextMenu()
+{
+    const auto sourcePath = findRepositoryRootForTests()
+        / "src"
+        / "ui"
+        / "wpf"
+        / "RoadProto.Terrain.UI"
+        / "AutoCad"
+        / "RoadProtoRibbonExtension.cs";
+    CHECK(std::filesystem::exists(sourcePath));
+
+    const auto source = readTextFileForTests(sourcePath);
+    CHECK(!source.empty());
+    CHECK(source.find("AddObjectContextMenuExtension") != std::string::npos);
+    CHECK(source.find("RemoveObjectContextMenuExtension") != std::string::npos);
+    CHECK(source.find("RD_PROFILE_VERTICAL_CURVE_CONTEXT_ADD_PVI") != std::string::npos);
+    CHECK(source.find("RD_PROFILE_VERTICAL_CURVE_CONTEXT_DELETE_PVI") != std::string::npos);
+    CHECK(source.find("新增竖曲线变坡点") != std::string::npos);
+    CHECK(source.find("删除竖曲线变坡点") != std::string::npos);
 }
 
 void relationManagerMarksDependentsForRebuild()
@@ -864,6 +1429,863 @@ void alignmentGripEditServiceMovesSharedControlAndPiGripOnce()
     CHECK(std::fabs(alignment.controlPoints[1].y - 40.0) < 1e-9);
 }
 
+void profileDmxFileParsesStationsAndKeepsDuplicates()
+{
+    using namespace roadproto::domain::profile;
+
+    const auto parsed = ProfileDmxFile::parseText(
+        L"  // comment\n"
+        L"0.00000000 21.25100000\n"
+        L"2.70000000 19.95400000\n"
+        L"2.70000000 19.93400000\n"
+        L"37123.456_2 36.12000000\n");
+
+    CHECK(parsed.succeeded);
+    CHECK(parsed.samples.size() == 4);
+    CHECK(parsed.invalidLineCount == 0);
+    CHECK(!parsed.samples[0].breakChainIndex.has_value());
+    CHECK(std::fabs(parsed.samples[1].station - 2.7) < 1e-9);
+    CHECK(std::fabs(parsed.samples[2].station - 2.7) < 1e-9);
+    CHECK(std::fabs(parsed.samples[1].elevation - 19.954) < 1e-9);
+    CHECK(std::fabs(parsed.samples[2].elevation - 19.934) < 1e-9);
+    CHECK(parsed.samples[3].rawStationText == L"37123.456_2");
+    CHECK(parsed.samples[3].breakChainIndex.has_value());
+    CHECK(*parsed.samples[3].breakChainIndex == 2);
+}
+
+void profileDmxFileRejectsTooFewValidSamples()
+{
+    using namespace roadproto::domain::profile;
+
+    const auto parsed = ProfileDmxFile::parseText(
+        L"0.00000000 21.25100000\n"
+        L"bad line\n");
+
+    CHECK(!parsed.succeeded);
+    CHECK(parsed.samples.size() == 1);
+    CHECK(parsed.invalidLineCount == 1);
+    CHECK(!parsed.errorMessage.empty());
+}
+
+void profileDmxFileRejectsInvalidRowsEvenWithEnoughSamples()
+{
+    using namespace roadproto::domain::profile;
+
+    const auto parsed = ProfileDmxFile::parseText(
+        L"0.00000000 21.25100000\n"
+        L"bad line\n"
+        L"10.00000000 22.25100000\n");
+
+    CHECK(!parsed.succeeded);
+    CHECK(parsed.samples.size() == 2);
+    CHECK(parsed.invalidLineCount == 1);
+    CHECK(!parsed.errorMessage.empty());
+}
+
+void profileDmxFileRejectsNonFiniteRows()
+{
+    using namespace roadproto::domain::profile;
+
+    const auto parsed = ProfileDmxFile::parseText(
+        L"0.00000000 21.25100000\n"
+        L"nan 22.00000000\n"
+        L"10.00000000 inf\n"
+        L"20.00000000 23.25100000\n");
+
+    CHECK(!parsed.succeeded);
+    CHECK(parsed.samples.size() == 2);
+    CHECK(parsed.invalidLineCount == 2);
+    CHECK(!parsed.errorMessage.empty());
+    CHECK(std::fabs(parsed.samples[0].station - 0.0) < 1e-9);
+    CHECK(std::fabs(parsed.samples[1].station - 20.0) < 1e-9);
+}
+
+void profileDmxFileIgnoresBlankLines()
+{
+    using namespace roadproto::domain::profile;
+
+    const auto parsed = ProfileDmxFile::parseText(
+        L"\n"
+        L"   \n"
+        L"0.00000000 21.25100000\n"
+        L"\t \n"
+        L"10.00000000 22.25100000\n"
+        L"\n");
+
+    CHECK(parsed.succeeded);
+    CHECK(parsed.samples.size() == 2);
+    CHECK(parsed.invalidLineCount == 0);
+    CHECK(std::fabs(parsed.samples[1].station - 10.0) < 1e-9);
+}
+
+void profileDmxFileSkipsStationHeader()
+{
+    using namespace roadproto::domain::profile;
+
+    const auto parsed = ProfileDmxFile::parseText(
+        L"ZH H\n"
+        L"0.00000000 21.25100000\n"
+        L"10.00000000 22.25100000\n");
+
+    CHECK(parsed.succeeded);
+    CHECK(parsed.samples.size() == 2);
+    CHECK(parsed.invalidLineCount == 0);
+    CHECK(std::fabs(parsed.samples[0].elevation - 21.251) < 1e-9);
+}
+
+void profileDmxFileParsesTextWithLeadingBom()
+{
+    using namespace roadproto::domain::profile;
+
+    const auto parsed = ProfileDmxFile::parseText(
+        L"\ufeff0.00000000 21.25100000\n"
+        L"10.00000000 22.25100000\n");
+
+    CHECK(parsed.succeeded);
+    CHECK(parsed.samples.size() == 2);
+    CHECK(parsed.invalidLineCount == 0);
+    CHECK(std::fabs(parsed.samples.front().station - 0.0) < 1e-9);
+}
+
+void profileDmxFileParsesTextWithLeadingUtf8BomBytes()
+{
+    using namespace roadproto::domain::profile;
+
+    std::wstring content;
+    content.push_back(static_cast<wchar_t>(0x00EF));
+    content.push_back(static_cast<wchar_t>(0x00BB));
+    content.push_back(static_cast<wchar_t>(0x00BF));
+    content += L"0.00000000 21.25100000\n10.00000000 22.25100000\n";
+
+    const auto parsed = ProfileDmxFile::parseText(content);
+
+    CHECK(parsed.succeeded);
+    CHECK(parsed.samples.size() == 2);
+    CHECK(parsed.invalidLineCount == 0);
+    CHECK(std::fabs(parsed.samples.front().station - 0.0) < 1e-9);
+}
+
+void profileDmxFileReadsTempFile()
+{
+    using namespace roadproto::domain::profile;
+
+    const auto uniqueSuffix = std::to_wstring(std::chrono::steady_clock::now().time_since_epoch().count());
+    const auto path = std::filesystem::temp_directory_path() / (L"roadproto_profile_read_test_" + uniqueSuffix + L".dmx");
+    {
+        std::ofstream stream(path, std::ios::binary | std::ios::trunc);
+        stream << "\xEF\xBB\xBF";
+        stream << "// comment\n";
+        stream << "0.00000000 21.25100000\n";
+        stream << "10.00000000 22.25100000\n";
+    }
+
+    const auto parsed = ProfileDmxFile::read(path.wstring());
+    CHECK(parsed.succeeded);
+    CHECK(parsed.samples.size() == 2);
+    CHECK(parsed.invalidLineCount == 0);
+    CHECK(std::fabs(parsed.samples[1].station - 10.0) < 1e-9);
+
+    std::filesystem::remove(path);
+}
+
+void profileGradeGraphLayoutMapsStationAndElevation()
+{
+    using namespace roadproto::domain::profile;
+
+    ProfileGradeGraphData graph;
+    graph.properties.gridSpacing = 10.0;
+    graph.properties.verticalScale = 10.0;
+    graph.groundSamples = {
+        ProfileGroundSample{100.0, 23.5},
+        ProfileGroundSample{120.0, 36.0},
+    };
+
+    const auto layout = ProfileGradeGraphLayout::calculate(graph);
+    CHECK(layout.succeeded);
+    CHECK(std::fabs(layout.minStation - 100.0) < 1e-9);
+    CHECK(std::fabs(layout.maxStation - 120.0) < 1e-9);
+    CHECK(std::fabs(layout.baseElevation - 20.0) < 1e-9);
+    CHECK(layout.mappedPoints.size() == 2);
+    CHECK(std::fabs(layout.mappedPoints[0].station - 100.0) < 1e-9);
+    CHECK(std::fabs(layout.mappedPoints[0].elevation - 23.5) < 1e-9);
+    CHECK(std::fabs(layout.mappedPoints[0].x - 0.0) < 1e-9);
+    CHECK(std::fabs(layout.mappedPoints[0].y - 35.0) < 1e-9);
+    CHECK(std::fabs(layout.mappedPoints[1].x - 20.0) < 1e-9);
+    CHECK(std::fabs(layout.mappedPoints[1].y - 160.0) < 1e-9);
+    CHECK(std::fabs(ProfileGradeGraphLayout::mapX(layout, 115.0) - 15.0) < 1e-9);
+    CHECK(std::fabs(ProfileGradeGraphLayout::mapY(graph, layout, 23.5) - 35.0) < 1e-9);
+}
+
+void profileGradeGraphLayoutMappedPointsPreserveInputOrderAndDuplicateStations()
+{
+    using namespace roadproto::domain::profile;
+
+    ProfileGradeGraphData graph;
+    graph.properties.gridSpacing = 10.0;
+    graph.properties.verticalScale = 10.0;
+    graph.groundSamples = {
+        ProfileGroundSample{100.0, 20.0},
+        ProfileGroundSample{110.0, 21.0},
+        ProfileGroundSample{110.0, 22.0},
+    };
+
+    const auto layout = ProfileGradeGraphLayout::calculate(graph);
+    CHECK(layout.succeeded);
+    CHECK(layout.mappedPoints.size() == 3);
+    CHECK(std::fabs(layout.mappedPoints[0].station - 100.0) < 1e-9);
+    CHECK(std::fabs(layout.mappedPoints[1].station - 110.0) < 1e-9);
+    CHECK(std::fabs(layout.mappedPoints[2].station - 110.0) < 1e-9);
+    CHECK(std::fabs(layout.mappedPoints[0].x - 0.0) < 1e-9);
+    CHECK(std::fabs(layout.mappedPoints[1].x - 10.0) < 1e-9);
+    CHECK(std::fabs(layout.mappedPoints[2].x - 10.0) < 1e-9);
+    CHECK(std::fabs(layout.mappedPoints[2].y - 20.0) < 1e-9);
+}
+
+void profileGradeGraphLayoutRejectsZeroStationSpan()
+{
+    using namespace roadproto::domain::profile;
+
+    ProfileGradeGraphData graph;
+    graph.groundSamples = {
+        ProfileGroundSample{100.0, 23.5},
+        ProfileGroundSample{100.0, 36.0},
+    };
+
+    const auto layout = ProfileGradeGraphLayout::calculate(graph);
+    CHECK(!layout.succeeded);
+    CHECK(!layout.errorMessage.empty());
+}
+
+void profileGradeGraphLayoutRejectsUnsupportedVerticalScale()
+{
+    using namespace roadproto::domain::profile;
+
+    ProfileGradeGraphData graph;
+    graph.properties.verticalScale = 2.0;
+    graph.groundSamples = {
+        ProfileGroundSample{100.0, 23.5},
+        ProfileGroundSample{120.0, 36.0},
+    };
+
+    const auto layout = ProfileGradeGraphLayout::calculate(graph);
+    CHECK(!layout.succeeded);
+    CHECK(!layout.errorMessage.empty());
+}
+
+void profileGradeGraphLayoutRejectsNonPositiveGridSpacing()
+{
+    using namespace roadproto::domain::profile;
+
+    ProfileGradeGraphData zeroGridGraph;
+    zeroGridGraph.properties.gridSpacing = 0.0;
+    zeroGridGraph.groundSamples = {
+        ProfileGroundSample{100.0, 23.5},
+        ProfileGroundSample{120.0, 36.0},
+    };
+
+    const auto zeroGridLayout = ProfileGradeGraphLayout::calculate(zeroGridGraph);
+    CHECK(!zeroGridLayout.succeeded);
+    CHECK(!zeroGridLayout.errorMessage.empty());
+
+    ProfileGradeGraphData negativeGridGraph;
+    negativeGridGraph.properties.gridSpacing = -1.0;
+    negativeGridGraph.groundSamples = {
+        ProfileGroundSample{100.0, 23.5},
+        ProfileGroundSample{120.0, 36.0},
+    };
+
+    const auto negativeGridLayout = ProfileGradeGraphLayout::calculate(negativeGridGraph);
+    CHECK(!negativeGridLayout.succeeded);
+    CHECK(!negativeGridLayout.errorMessage.empty());
+}
+
+void profileGradeGraphLayoutRejectsNonPositiveVerticalScale()
+{
+    using namespace roadproto::domain::profile;
+
+    ProfileGradeGraphData zeroScaleGraph;
+    zeroScaleGraph.properties.verticalScale = 0.0;
+    zeroScaleGraph.groundSamples = {
+        ProfileGroundSample{100.0, 23.5},
+        ProfileGroundSample{120.0, 36.0},
+    };
+
+    const auto zeroScaleLayout = ProfileGradeGraphLayout::calculate(zeroScaleGraph);
+    CHECK(!zeroScaleLayout.succeeded);
+    CHECK(!zeroScaleLayout.errorMessage.empty());
+
+    ProfileGradeGraphData negativeScaleGraph;
+    negativeScaleGraph.properties.verticalScale = -1.0;
+    negativeScaleGraph.groundSamples = {
+        ProfileGroundSample{100.0, 23.5},
+        ProfileGroundSample{120.0, 36.0},
+    };
+
+    const auto negativeScaleLayout = ProfileGradeGraphLayout::calculate(negativeScaleGraph);
+    CHECK(!negativeScaleLayout.succeeded);
+    CHECK(!negativeScaleLayout.errorMessage.empty());
+}
+
+void profileGradeGraphLayoutRejectsNonFiniteProperties()
+{
+    using namespace roadproto::domain::profile;
+
+    ProfileGradeGraphData nanGridGraph;
+    nanGridGraph.properties.gridSpacing = std::numeric_limits<double>::quiet_NaN();
+    nanGridGraph.groundSamples = {
+        ProfileGroundSample{100.0, 23.5},
+        ProfileGroundSample{120.0, 36.0},
+    };
+
+    const auto nanGridLayout = ProfileGradeGraphLayout::calculate(nanGridGraph);
+    CHECK(!nanGridLayout.succeeded);
+    CHECK(!nanGridLayout.errorMessage.empty());
+
+    ProfileGradeGraphData infScaleGraph;
+    infScaleGraph.properties.verticalScale = std::numeric_limits<double>::infinity();
+    infScaleGraph.groundSamples = {
+        ProfileGroundSample{100.0, 23.5},
+        ProfileGroundSample{120.0, 36.0},
+    };
+
+    const auto infScaleLayout = ProfileGradeGraphLayout::calculate(infScaleGraph);
+    CHECK(!infScaleLayout.succeeded);
+    CHECK(!infScaleLayout.errorMessage.empty());
+}
+
+void profileGradeGraphLayoutUsesGridIntervalForFlatProfileHeight()
+{
+    using namespace roadproto::domain::profile;
+
+    ProfileGradeGraphData graph;
+    graph.properties.gridSpacing = 10.0;
+    graph.properties.verticalScale = 10.0;
+    graph.groundSamples = {
+        ProfileGroundSample{100.0, 20.0},
+        ProfileGroundSample{120.0, 20.0},
+    };
+
+    const auto layout = ProfileGradeGraphLayout::calculate(graph);
+    CHECK(layout.succeeded);
+    CHECK(std::fabs(layout.graphHeight - 100.0) < 1e-9);
+}
+
+void profileGradeGraphLayoutRejectsNonFiniteGeometry()
+{
+    using namespace roadproto::domain::profile;
+
+    ProfileGradeGraphData graph;
+    graph.groundSamples = {
+        ProfileGroundSample{100.0, 23.5},
+        ProfileGroundSample{std::numeric_limits<double>::infinity(), 36.0},
+    };
+
+    const auto layout = ProfileGradeGraphLayout::calculate(graph);
+    CHECK(!layout.succeeded);
+    CHECK(!layout.errorMessage.empty());
+}
+
+void profileGradeGraphLayoutRejectsNonFiniteSamples()
+{
+    using namespace roadproto::domain::profile;
+
+    ProfileGradeGraphData nanStationGraph;
+    nanStationGraph.groundSamples = {
+        ProfileGroundSample{100.0, 23.5},
+        ProfileGroundSample{std::numeric_limits<double>::quiet_NaN(), 36.0},
+    };
+
+    const auto nanStationLayout = ProfileGradeGraphLayout::calculate(nanStationGraph);
+    CHECK(!nanStationLayout.succeeded);
+    CHECK(!nanStationLayout.errorMessage.empty());
+
+    ProfileGradeGraphData nanElevationGraph;
+    nanElevationGraph.groundSamples = {
+        ProfileGroundSample{100.0, 23.5},
+        ProfileGroundSample{120.0, std::numeric_limits<double>::quiet_NaN()},
+    };
+
+    const auto nanElevationLayout = ProfileGradeGraphLayout::calculate(nanElevationGraph);
+    CHECK(!nanElevationLayout.succeeded);
+    CHECK(!nanElevationLayout.errorMessage.empty());
+}
+
+void profileGradeGraphDataDefaultsToDmxFileSource()
+{
+    using namespace roadproto::domain::profile;
+
+    ProfileGradeGraphData graph;
+    CHECK(graph.sourceType == ProfileGroundSourceType::DmxFile);
+}
+
+void profileGradeGraphPropertiesDefaultGroundLinePrecision()
+{
+    using namespace roadproto::domain::profile;
+
+    ProfileGradeGraphProperties properties;
+    CHECK(std::fabs(properties.groundLinePrecision - 10.0) < 1e-9);
+}
+
+void profileGradeGraphLayoutMapYUsesDefaultVerticalScale()
+{
+    using namespace roadproto::domain::profile;
+
+    ProfileGradeGraphLayoutResult layout;
+    layout.baseElevation = 20.0;
+
+    CHECK(std::fabs(ProfileGradeGraphLayout::mapY(layout, 23.5) - 35.0) < 1e-9);
+}
+
+void profileGradeGraphLayoutMapYRejectsUnsupportedGraphVerticalScale()
+{
+    using namespace roadproto::domain::profile;
+
+    ProfileGradeGraphData graph;
+    graph.properties.verticalScale = -1.0;
+
+    ProfileGradeGraphLayoutResult layout;
+    layout.baseElevation = 20.0;
+
+    CHECK(!std::isfinite(ProfileGradeGraphLayout::mapY(graph, layout, 23.5)));
+}
+
+void profileGradeGraphCreateServiceBuildsDefaultGraphData()
+{
+    using namespace roadproto::application::profile;
+    using namespace roadproto::domain::profile;
+
+    ProfileGradeGraphCreateInput input;
+    input.sourceType = ProfileGroundSourceType::DmxFile;
+    input.roadName = L"K1";
+    input.roadCenterlineHandle = L"ABC";
+    input.terrainTinHandle = L"TIN42";
+    input.dmxFilePath = L"C:\\temp\\k1.dmx";
+    input.groundSamples = {
+        ProfileGroundSample{100.0, 23.5},
+        ProfileGroundSample{120.0, 36.0},
+    };
+
+    const ProfileGradeGraphCreateService service;
+    const auto result = service.build(input);
+
+    CHECK(result.succeeded);
+    CHECK(result.errorMessage.empty());
+    CHECK(result.graph.sourceType == ProfileGroundSourceType::DmxFile);
+    CHECK(result.graph.roadCenterlineHandle == L"ABC");
+    CHECK(result.graph.terrainTinHandle == L"TIN42");
+    CHECK(result.graph.dmxFilePath == L"C:\\temp\\k1.dmx");
+    CHECK(result.graph.groundSamples.size() == 2);
+    CHECK(std::fabs(result.graph.groundSamples[0].station - 100.0) < 1e-9);
+    CHECK(std::fabs(result.graph.groundSamples[1].elevation - 36.0) < 1e-9);
+    CHECK(result.graph.properties.graphName == L"K1\u62c9\u5761\u56fe");
+    CHECK(result.graph.properties.groundLineColorIndex == 4);
+    CHECK(std::fabs(result.graph.properties.groundLineWidth - 1.0) < 1e-9);
+    CHECK(std::fabs(result.graph.properties.groundLinePrecision - 10.0) < 1e-9);
+    CHECK(std::fabs(result.graph.properties.verticalScale - 10.0) < 1e-9);
+    CHECK(std::fabs(result.graph.properties.gridSpacing - 10.0) < 1e-9);
+}
+
+void profileGradeGraphCreateServiceUsesDefaultRoadName()
+{
+    using namespace roadproto::application::profile;
+    using namespace roadproto::domain::profile;
+
+    ProfileGradeGraphCreateInput input;
+    input.groundSamples = {
+        ProfileGroundSample{100.0, 23.5},
+        ProfileGroundSample{120.0, 36.0},
+    };
+
+    const ProfileGradeGraphCreateService service;
+    const auto result = service.build(input);
+
+    CHECK(result.succeeded);
+    CHECK(result.graph.properties.graphName == L"\u9053\u8def\u62c9\u5761\u56fe");
+}
+
+void profileGradeGraphCreateServiceRejectsTooFewSamples()
+{
+    using namespace roadproto::application::profile;
+    using namespace roadproto::domain::profile;
+
+    ProfileGradeGraphCreateInput input;
+    input.groundSamples = {
+        ProfileGroundSample{100.0, 23.5},
+    };
+
+    const ProfileGradeGraphCreateService service;
+    const auto result = service.build(input);
+
+    CHECK(!result.succeeded);
+    CHECK(!result.errorMessage.empty());
+}
+
+void profileGradeGraphCreateServiceRejectsInvalidLayoutSamples()
+{
+    using namespace roadproto::application::profile;
+    using namespace roadproto::domain::profile;
+
+    ProfileGradeGraphCreateInput sameStationInput;
+    sameStationInput.groundSamples = {
+        ProfileGroundSample{100.0, 23.5},
+        ProfileGroundSample{100.0, 36.0},
+    };
+
+    const ProfileGradeGraphCreateService service;
+    const auto sameStationResult = service.build(sameStationInput);
+    CHECK(!sameStationResult.succeeded);
+    CHECK(!sameStationResult.errorMessage.empty());
+
+    ProfileGradeGraphCreateInput nonFiniteInput;
+    nonFiniteInput.groundSamples = {
+        ProfileGroundSample{100.0, 23.5},
+        ProfileGroundSample{std::numeric_limits<double>::quiet_NaN(), 36.0},
+    };
+
+    const auto nonFiniteResult = service.build(nonFiniteInput);
+    CHECK(!nonFiniteResult.succeeded);
+    CHECK(!nonFiniteResult.errorMessage.empty());
+}
+
+void profileVerticalCurveModelDefaultsToDesignLine()
+{
+    using namespace roadproto::domain::profile;
+
+    ProfileVerticalCurveData data;
+    CHECK(data.version == 1);
+    CHECK(data.properties.name == L"\u7ad6\u66f2\u7ebf");
+    CHECK(data.properties.designLineColorIndex == 4);
+    CHECK(data.properties.tangentLineColorIndex == 7);
+    CHECK(data.properties.keyPointColorIndex == 2);
+    CHECK(std::fabs(data.properties.designLineWidth - 0.35) < 1e-9);
+    CHECK(data.properties.sampleInterval == 5.0);
+    CHECK(data.properties.showLabels);
+    CHECK(data.properties.showTangentLines);
+    CHECK(data.controlPoints.empty());
+    CHECK(data.pvis.empty());
+
+    VerticalCurveControlPoint controlPoint;
+    CHECK(controlPoint.role == VerticalCurvePointRole::Pvi);
+    CHECK(std::fabs(controlPoint.station) < 1e-9);
+    CHECK(std::fabs(controlPoint.elevation) < 1e-9);
+
+    VerticalCurvePvi pvi;
+    CHECK(std::fabs(pvi.station) < 1e-9);
+    CHECK(std::fabs(pvi.elevation) < 1e-9);
+    CHECK(std::fabs(pvi.radius - 1000.0) < 1e-9);
+    CHECK(!pvi.radiusLocked);
+}
+
+void profileVerticalCurveCalculatorInterpolatesStraightLine()
+{
+    using namespace roadproto::domain::profile;
+
+    ProfileVerticalCurveData data;
+    data.controlPoints = {
+        {VerticalCurvePointRole::Start, 100.0, 20.0},
+        {VerticalCurvePointRole::End, 200.0, 30.0},
+    };
+
+    const auto built = ProfileVerticalCurveCalculator::rebuild(data);
+    CHECK(built.succeeded);
+    CHECK(built.elements.empty());
+    const auto elevation = ProfileVerticalCurveCalculator::elevationAt(built, 150.0);
+    CHECK(elevation.succeeded);
+    CHECK(std::fabs(elevation.value - 25.0) < 1e-9);
+    const auto grade = ProfileVerticalCurveCalculator::gradeAt(built, 150.0);
+    CHECK(grade.succeeded);
+    CHECK(std::fabs(grade.value - 0.1) < 1e-9);
+}
+
+void profileVerticalCurveCalculatorBuildsSingleCrestCurve()
+{
+    using namespace roadproto::domain::profile;
+
+    ProfileVerticalCurveData data;
+    data.controlPoints = {
+        {VerticalCurvePointRole::Start, 0.0, 0.0},
+        {VerticalCurvePointRole::Pvi, 100.0, 10.0},
+        {VerticalCurvePointRole::End, 200.0, 10.0},
+    };
+    data.pvis = {
+        VerticalCurvePvi{100.0, 10.0, 1000.0},
+    };
+
+    const auto built = ProfileVerticalCurveCalculator::rebuild(data);
+    CHECK(built.succeeded);
+    CHECK(built.elements.size() == 1);
+    CHECK(built.elements[0].type == VerticalCurveType::Crest);
+    CHECK(std::fabs(built.elements[0].i1 - 0.1) < 1e-9);
+    CHECK(std::fabs(built.elements[0].i2 - 0.0) < 1e-9);
+    CHECK(std::fabs(built.elements[0].gradeDifference + 0.1) < 1e-9);
+    CHECK(std::fabs(built.elements[0].length - 100.0) < 1e-9);
+    CHECK(std::fabs(built.elements[0].tangentLength - 50.0) < 1e-9);
+    CHECK(std::fabs(built.elements[0].bvcStation - 50.0) < 1e-9);
+    CHECK(std::fabs(built.elements[0].evcStation - 150.0) < 1e-9);
+    CHECK(built.elements[0].highLowPoint.has_value());
+    CHECK(built.elements[0].highLowPoint->isHighPoint);
+}
+
+void profileVerticalCurveCalculatorKeepsOriginalPviIndexAfterSorting()
+{
+    using namespace roadproto::domain::profile;
+
+    ProfileVerticalCurveData data;
+    data.controlPoints = {
+        {VerticalCurvePointRole::Start, 0.0, 0.0},
+        {VerticalCurvePointRole::End, 300.0, 0.0},
+    };
+    data.pvis = {
+        VerticalCurvePvi{200.0, 30.0, 100.0},
+        VerticalCurvePvi{100.0, 20.0, 100.0},
+    };
+
+    const auto built = ProfileVerticalCurveCalculator::rebuild(data);
+    CHECK(built.succeeded);
+    CHECK(built.elements.size() == 2);
+
+    const auto station100 = std::find_if(built.elements.begin(), built.elements.end(), [](const auto& element) {
+        return std::fabs(element.pviStation - 100.0) < 1e-9;
+    });
+    const auto station200 = std::find_if(built.elements.begin(), built.elements.end(), [](const auto& element) {
+        return std::fabs(element.pviStation - 200.0) < 1e-9;
+    });
+
+    CHECK(station100 != built.elements.end());
+    CHECK(station200 != built.elements.end());
+    if (station100 != built.elements.end()) {
+        CHECK(station100->pviIndex == 1);
+    }
+    if (station200 != built.elements.end()) {
+        CHECK(station200->pviIndex == 0);
+    }
+}
+
+void profileVerticalCurveCalculatorRejectsCurveBeyondAdjacentTangents()
+{
+    using namespace roadproto::domain::profile;
+
+    ProfileVerticalCurveData data;
+    data.controlPoints = {
+        {VerticalCurvePointRole::Start, 0.0, 0.0},
+        {VerticalCurvePointRole::Pvi, 100.0, 10.0},
+        {VerticalCurvePointRole::End, 200.0, 10.0},
+    };
+    data.pvis = {
+        VerticalCurvePvi{100.0, 10.0, 5000.0},
+    };
+
+    const auto built = ProfileVerticalCurveCalculator::rebuild(data);
+    CHECK(!built.succeeded);
+    CHECK(!built.errorMessage.empty());
+}
+
+void profileVerticalCurveCalculatorUpdateRadiusRollsBackInvalidCurve()
+{
+    using namespace roadproto::domain::profile;
+
+    ProfileVerticalCurveData data;
+    data.controlPoints = {
+        {VerticalCurvePointRole::Start, 0.0, 0.0},
+        {VerticalCurvePointRole::Pvi, 100.0, 10.0},
+        {VerticalCurvePointRole::End, 200.0, 10.0},
+    };
+    data.pvis = {
+        VerticalCurvePvi{100.0, 10.0, 1000.0},
+    };
+
+    const auto edit = ProfileVerticalCurveCalculator::updateRadius(data, 0, 5000.0);
+    CHECK(!edit.succeeded);
+    CHECK(!edit.changed);
+    CHECK(std::fabs(data.pvis[0].radius - 1000.0) < 1e-9);
+}
+
+void profileVerticalCurveCalculatorSamplesBeyondGradeGraphRange()
+{
+    using namespace roadproto::domain::profile;
+
+    ProfileVerticalCurveData data;
+    data.controlPoints = {
+        {VerticalCurvePointRole::Start, -20.0, 10.0},
+        {VerticalCurvePointRole::End, 120.0, 24.0},
+    };
+    data.properties.sampleInterval = 25.0;
+
+    const auto samples = ProfileVerticalCurveCalculator::sample(data, data.properties.sampleInterval);
+    CHECK(samples.succeeded);
+    CHECK(samples.points.size() >= 2);
+    CHECK(std::fabs(samples.points.front().station + 20.0) < 1e-9);
+    CHECK(std::fabs(samples.points.back().station - 120.0) < 1e-9);
+}
+
+void profileVerticalCurveCalculatorRejectsNonAdvancingSampleInterval()
+{
+    using namespace roadproto::domain::profile;
+
+    ProfileVerticalCurveData data;
+    data.controlPoints = {
+        {VerticalCurvePointRole::Start, 1.0e16, 10.0},
+        {VerticalCurvePointRole::End, 1.0e16 + 1024.0, 20.0},
+    };
+
+    const auto samples = ProfileVerticalCurveCalculator::sample(data, 0.1);
+    CHECK(!samples.succeeded);
+    CHECK(!samples.errorMessage.empty());
+}
+
+void profileVerticalCurveCreateServiceBuildsDefaultLineFromGraphSamples()
+{
+    using namespace roadproto::application::profile;
+    using namespace roadproto::domain::profile;
+
+    ProfileVerticalCurveCreateInput input;
+    input.profileGraphHandle = L"ABCD";
+    input.groundSamples = {
+        ProfileGroundSample{100.0, 23.5},
+        ProfileGroundSample{120.0, 24.5},
+        ProfileGroundSample{150.0, 26.0},
+    };
+
+    const ProfileVerticalCurveCreateService service;
+    const auto result = service.buildDefaultFromGraph(input);
+
+    CHECK(result.succeeded);
+    CHECK(result.errorMessage.empty());
+    CHECK(result.data.profileGraphHandle == L"ABCD");
+    CHECK(result.data.controlPoints.size() == 2);
+    CHECK(result.data.controlPoints[0].role == VerticalCurvePointRole::Start);
+    CHECK(std::fabs(result.data.controlPoints[0].station - 100.0) < 1e-9);
+    CHECK(std::fabs(result.data.controlPoints[0].elevation - 23.5) < 1e-9);
+    CHECK(result.data.controlPoints[1].role == VerticalCurvePointRole::End);
+    CHECK(std::fabs(result.data.controlPoints[1].station - 150.0) < 1e-9);
+    CHECK(std::fabs(result.data.controlPoints[1].elevation - 26.0) < 1e-9);
+    CHECK(result.data.pvis.empty());
+}
+
+void profileVerticalCurveCreateServiceRejectsTooFewGroundSamples()
+{
+    using namespace roadproto::application::profile;
+    using namespace roadproto::domain::profile;
+
+    ProfileVerticalCurveCreateInput input;
+    input.profileGraphHandle = L"ABCD";
+    input.groundSamples = {
+        ProfileGroundSample{100.0, 23.5},
+    };
+
+    const ProfileVerticalCurveCreateService service;
+    const auto result = service.buildDefaultFromGraph(input);
+
+    CHECK(!result.succeeded);
+    CHECK(!result.errorMessage.empty());
+}
+
+void profileVerticalCurveEditServiceAddsAndDeletesPvi()
+{
+    using namespace roadproto::application::profile;
+    using namespace roadproto::domain::profile;
+
+    ProfileVerticalCurveData data;
+    data.controlPoints = {
+        {VerticalCurvePointRole::Start, 0.0, 0.0},
+        {VerticalCurvePointRole::End, 200.0, 10.0},
+    };
+
+    const ProfileVerticalCurveEditService service;
+    const auto added = service.addPvi(data, 100.0, 12.0, 800.0);
+    CHECK(added.succeeded);
+    CHECK(added.changed);
+    CHECK(data.pvis.size() == 1);
+    CHECK(data.controlPoints.size() == 3);
+
+    const auto deleted = service.deletePvi(data, 0);
+    CHECK(deleted.succeeded);
+    CHECK(deleted.changed);
+    CHECK(data.pvis.empty());
+    CHECK(data.controlPoints.size() == 2);
+}
+
+void profileVerticalCurveEditServiceAppliesDialogEdit()
+{
+    using namespace roadproto::application::profile;
+    using namespace roadproto::domain::profile;
+
+    ProfileVerticalCurveData data;
+    data.controlPoints = {
+        {VerticalCurvePointRole::Start, 0.0, 0.0},
+        {VerticalCurvePointRole::Pvi, 100.0, 10.0},
+        {VerticalCurvePointRole::End, 200.0, 10.0},
+    };
+    data.pvis = {VerticalCurvePvi{100.0, 10.0, 1000.0}};
+
+    ProfileVerticalCurveDialogEdit edit;
+    edit.name = L"VC-1";
+    edit.startStation = 0.0;
+    edit.startElevation = 1.0;
+    edit.endStation = 210.0;
+    edit.endElevation = 11.0;
+    edit.pvis = {VerticalCurvePvi{105.0, 12.0, 900.0}};
+
+    const ProfileVerticalCurveEditService service;
+    const auto result = service.applyDialogEdit(data, edit);
+    CHECK(result.succeeded);
+    CHECK(result.changed);
+    CHECK(data.properties.name == L"VC-1");
+    CHECK(std::fabs(data.controlPoints.front().elevation - 1.0) < 1e-9);
+    CHECK(std::fabs(data.controlPoints.back().station - 210.0) < 1e-9);
+    CHECK(std::fabs(data.pvis[0].radius - 900.0) < 1e-9);
+}
+
+void profileVerticalCurveDisplayPlannerColorsStraightAndCurveSegments()
+{
+    using roadproto::domain::profile::ProfileVerticalCurveData;
+    using roadproto::domain::profile::ProfileVerticalCurveDisplayPlanner;
+    using roadproto::domain::profile::VerticalCurveDisplaySegmentRole;
+    using roadproto::domain::profile::VerticalCurvePointRole;
+    using roadproto::domain::profile::VerticalCurvePvi;
+
+    ProfileVerticalCurveData data;
+    data.controlPoints = {
+        {VerticalCurvePointRole::Start, 0.0, 0.0},
+        {VerticalCurvePointRole::Pvi, 100.0, 10.0},
+        {VerticalCurvePointRole::End, 200.0, 10.0},
+    };
+    data.pvis = {VerticalCurvePvi{100.0, 10.0, 1000.0}};
+    data.properties.sampleInterval = 25.0;
+
+    const auto plan = ProfileVerticalCurveDisplayPlanner::build(data);
+    CHECK(plan.succeeded);
+
+    int straightCount = 0;
+    int curveCount = 0;
+    int tangentCount = 0;
+    bool hasBvcBoundary = false;
+    bool hasEvcBoundary = false;
+    for (const auto& segment : plan.segments) {
+        if (segment.role == VerticalCurveDisplaySegmentRole::StraightDesignLine) {
+            ++straightCount;
+            CHECK(segment.colorIndex == 4);
+            CHECK(segment.endStation <= 50.0 || segment.startStation >= 150.0);
+        } else if (segment.role == VerticalCurveDisplaySegmentRole::CurveDesignLine) {
+            ++curveCount;
+            CHECK(segment.colorIndex == 2);
+            CHECK(segment.startStation >= 50.0);
+            CHECK(segment.endStation <= 150.0);
+            hasBvcBoundary = hasBvcBoundary || std::fabs(segment.startStation - 50.0) < 1.0e-9;
+            hasEvcBoundary = hasEvcBoundary || std::fabs(segment.endStation - 150.0) < 1.0e-9;
+        } else if (segment.role == VerticalCurveDisplaySegmentRole::CurveTangentLine) {
+            ++tangentCount;
+            CHECK(segment.colorIndex == 7);
+        }
+    }
+
+    CHECK(straightCount > 0);
+    CHECK(curveCount > 0);
+    CHECK(tangentCount == 2);
+    CHECK(hasBvcBoundary);
+    CHECK(hasEvcBoundary);
+}
+
 void alignmentCommandMetadataUsesExpectedNames()
 {
     roadproto::core::CommandRegistry commands;
@@ -891,6 +2313,22 @@ int main()
 {
     commandRegistryStoresMetadataAndRejectsDuplicates();
     moduleRegistryRegistersCommandsAndRibbonPanels();
+    profileModuleRegistersCommandsAndRibbonPanel();
+    startupRegistrationIncludesProfileModule();
+    subgradeTemplateDefaultsBuildExpressway();
+    subgradeTemplateDefaultsBuildUrbanExpressway();
+    subgradeTemplateDefaultsBuildHighwayGradesFromRoadClassProfiles();
+    subgradeTemplateDefaultsBuildUrbanRoadClassProfiles();
+    subgradeTemplateComponentDisplayNamesAreChinese();
+    subgradeTemplateRulesUseWideningTableAndPavementThicknessGate();
+    subgradeTemplateVariableSlopeUsesOnlySlopeTable();
+    subgradeTemplateCreateServiceBuildsDefaultTemplate();
+    crossSectionModuleRegistersSubgradeTemplateCommandsAndRibbonPanel();
+    startupRegistrationIncludesCrossSectionModule();
+    managedRibbonExtensionRegistersSubgradeTemplateEntryPoints();
+    subgradeTemplateWindowSourceKeepsControlsReadable();
+    subgradeTemplateBridgeWritesEnumCodesAsText();
+    managedRibbonExtensionRegistersVerticalCurveContextMenu();
     relationManagerMarksDependentsForRebuild();
     terrainSampleServiceCreatesRelationUpdateScenario();
     terrainTextElevationParserRecognizesSupportedForms();
@@ -914,6 +2352,46 @@ int main()
     icdAlignmentFileMapsEngineeringCoordinatesToCadCoordinates();
     alignmentGripEditServiceRebuildsDraggedPiPreview();
     alignmentGripEditServiceMovesSharedControlAndPiGripOnce();
+    profileDmxFileParsesStationsAndKeepsDuplicates();
+    profileDmxFileRejectsTooFewValidSamples();
+    profileDmxFileRejectsInvalidRowsEvenWithEnoughSamples();
+    profileDmxFileRejectsNonFiniteRows();
+    profileDmxFileIgnoresBlankLines();
+    profileDmxFileSkipsStationHeader();
+    profileDmxFileParsesTextWithLeadingBom();
+    profileDmxFileParsesTextWithLeadingUtf8BomBytes();
+    profileDmxFileReadsTempFile();
+    profileGradeGraphLayoutMapsStationAndElevation();
+    profileGradeGraphLayoutMappedPointsPreserveInputOrderAndDuplicateStations();
+    profileGradeGraphLayoutRejectsZeroStationSpan();
+    profileGradeGraphLayoutRejectsUnsupportedVerticalScale();
+    profileGradeGraphLayoutRejectsNonPositiveGridSpacing();
+    profileGradeGraphLayoutRejectsNonPositiveVerticalScale();
+    profileGradeGraphLayoutRejectsNonFiniteProperties();
+    profileGradeGraphLayoutUsesGridIntervalForFlatProfileHeight();
+    profileGradeGraphLayoutRejectsNonFiniteGeometry();
+    profileGradeGraphLayoutRejectsNonFiniteSamples();
+    profileGradeGraphDataDefaultsToDmxFileSource();
+    profileGradeGraphPropertiesDefaultGroundLinePrecision();
+    profileGradeGraphLayoutMapYUsesDefaultVerticalScale();
+    profileGradeGraphLayoutMapYRejectsUnsupportedGraphVerticalScale();
+    profileGradeGraphCreateServiceBuildsDefaultGraphData();
+    profileGradeGraphCreateServiceUsesDefaultRoadName();
+    profileGradeGraphCreateServiceRejectsTooFewSamples();
+    profileGradeGraphCreateServiceRejectsInvalidLayoutSamples();
+    profileVerticalCurveModelDefaultsToDesignLine();
+    profileVerticalCurveCalculatorInterpolatesStraightLine();
+    profileVerticalCurveCalculatorBuildsSingleCrestCurve();
+    profileVerticalCurveCalculatorKeepsOriginalPviIndexAfterSorting();
+    profileVerticalCurveCalculatorRejectsCurveBeyondAdjacentTangents();
+    profileVerticalCurveCalculatorUpdateRadiusRollsBackInvalidCurve();
+    profileVerticalCurveCalculatorSamplesBeyondGradeGraphRange();
+    profileVerticalCurveCalculatorRejectsNonAdvancingSampleInterval();
+    profileVerticalCurveCreateServiceBuildsDefaultLineFromGraphSamples();
+    profileVerticalCurveCreateServiceRejectsTooFewGroundSamples();
+    profileVerticalCurveEditServiceAddsAndDeletesPvi();
+    profileVerticalCurveEditServiceAppliesDialogEdit();
+    profileVerticalCurveDisplayPlannerColorsStraightAndCurveSegments();
     alignmentCommandMetadataUsesExpectedNames();
 
     if (g_failures != 0) {

@@ -428,7 +428,8 @@ ProfileGradeGraphLayoutResult ProfileGradeGraphLayout::calculate(const ProfileGr
     result.maxElevation = elevationRange.second->elevation;
     result.baseElevation = std::floor(result.minElevation / gridSpacing) * gridSpacing;
     result.graphWidth = result.maxStation - result.minStation;
-    result.graphHeight = (result.maxElevation - result.baseElevation) * verticalScale;
+    const auto elevationSpanForHeight = std::max(gridSpacing, result.maxElevation - result.baseElevation);
+    result.graphHeight = elevationSpanForHeight * verticalScale;
     result.succeeded = result.graphWidth >= 0.0 && result.graphHeight >= 0.0;
     if (!result.succeeded) {
         result.errorMessage = L"纵断面拉坡图范围无效。";

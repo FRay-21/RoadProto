@@ -363,6 +363,79 @@
 - WPF Bridge 当前采用临时请求/响应文件，后续可替换为更正式的进程内 Bridge。
 - 道路等级第一版仅保存属性，不驱动规范参数推荐；数模关联仅保存 handle，暂不执行纵断面取高。
 
+## v0.1.9
+
+- 日期：2026-05-11
+- ARX 文件：`RoadProto_v0.1.9_20260511_ProfileGradeGraph.arx`
+- 托管 Ribbon 插件：`RoadProto.Terrain.UI.dll`
+- 阶段：纵断面拉坡图原型
+- 是否可作为稳定测试版本：是。核心测试、ARX Debug/Release 构建和托管 Ribbon Debug/Release 构建已验证；完整 AutoCAD 图形界面的 Ribbon 点击、文件对话框、双击 WPF 弹窗、数模取高和 DWG 保存重开仍需人工点验。
+
+### 新增内容
+
+- 新增 `PROFILE` 纵断面设计模块，注册 `RD_PROFILE_GRADE_GRAPH_CREATE`、`RD_PROFILE_GRADE_GRAPH_EDIT_HANDLE` 和 `RD_PROFILE_APPLY_DIALOG_FILE`。
+- 新增 `ProfileDmxFile`，支持 `.dmx` 纵地面线文件读取、注释跳过、断链写法兼容、重复桩号保留和非法输入拒绝。
+- 新增 `ProfileGradeGraphModel`、`ProfileGradeGraphLayout` 和 `ProfileGradeGraphCreateService`，沉淀拉坡图数据模型、默认属性、纵向比例、网格范围和图面坐标映射。
+- 新增 `DnProfileGradeGraphEntity` 自定义实体，支持标题、表头、网格线、高程/桩号标注、地面线折线、DWG 持久化、几何范围和变换。
+- 新增 `RD_PROFILE_GRADE_GRAPH_CREATE` 流程：选择道路中线，优先使用关联数模采样高程；无可用数模时选择 `.dmx` 文件；点取插入点后创建纵断面拉坡图实体。
+- 新增 WPF 纵断面拉坡图属性窗口，支持修改名称、地面线颜色、线宽、精度、纵向比例和网格间距。
+- 新增 DMX 来源“更新地面线”能力，实体保存 DMX 文件路径并可在属性窗口中重新读取；数模来源更新按钮置灰。
+- 托管 Ribbon 新增 `纵断面设计` 面板和 `纵断面拉坡图` 按钮，并监听 `DNPROFILEGRADEGRAPHENTITY` 双击事件转发到 handle 编辑命令。
+
+### 修改内容
+
+- 更新 README 当前版本、命令说明、Ribbon 说明、加载示例和测试覆盖说明。
+- 更新纵断面设计模块文档、纵断面拉坡图创建业务文档、属性编辑业务文档、复用能力目录和测试说明。
+- 更新构建版本信息为 `v0.1.9_20260511_ProfileGradeGraph`。
+- 数模来源地面线改为按“地面线精度”沿道路中线重新取样；属性窗口修改精度后会按保存的道路中线和数模 handle 重新采样。
+- 地面线宽度校验与 AutoCAD lineweight 显示范围对齐，WPF 与 C++ 均限制为 `(0, 2.11]mm`。
+- 修正道路中线 WPF 属性窗口“选择数模”流程：WPF 不再直接调用 AutoCAD `Editor.GetEntity`，改为写出 `PickTerrain` 动作并关闭窗口，由 C++ ObjectARX Adapter 执行数模选择、类型校验、清空隐含选择集，再重新打开 WPF 窗口，避免在 WPF 模态窗口内重入 CAD Editor 导致崩溃。
+- 修正 WPF Bridge request 路径传递：`RD_ALIGN_SHOW_WPF_DIALOG` 和 `RD_PROFILE_SHOW_WPF_DIALOG` 不再通过命令行 `GetString` 读取 request 文件路径，改为读取 C++ 写出的 pending 文件，避免后续 `RD_*_APPLY_DIALOG_FILE` 命令被误读为 request 路径并报“路径中具有非法字符”。
+- 修正 WPF Bridge response 路径解析：`RD_ALIGN_APPLY_DIALOG_FILE` 和 `RD_PROFILE_APPLY_DIALOG_FILE` 在 C++ 端会去除命令参数首尾空白与包裹引号，避免临时响应文件路径被当作含引号文件名而读取失败。
+
+### 构建验证
+
+- 核心测试：`RoadProtoCoreTests.vcxproj` Debug 构建通过，`RoadProtoCoreTests.exe` 输出 `All RoadProto core tests passed.`。
+- Debug ARX：`artifacts/x64/Debug/RoadProto_v0.1.9_20260511_ProfileGradeGraph.arx` 构建通过，0 警告，0 错误。
+- Debug 托管 Ribbon：`artifacts/managed/Debug/net48/RoadProto.Terrain.UI.dll` 构建通过，0 警告，0 错误。
+- Release ARX：`artifacts/x64/Release/RoadProto_v0.1.9_20260511_ProfileGradeGraph.arx` 构建通过，0 警告，0 错误。
+- Release 托管 Ribbon：`artifacts/managed/Release/net48/RoadProto.Terrain.UI.dll` 构建通过，0 警告，0 错误。
+
+### 已知问题
+
+- 数模来源的更新按钮已置灰，路线移动或数模更新后的自动重建尚未接入统一实体关系管理机制。
+- `.dmx` 断链号当前只用于兼容读取，布局计算仍使用桩号数值部分。
+- WPF Bridge 当前采用临时请求/响应文件，后续可替换为更正式的进程内 Bridge。
+- Core Console 无法覆盖完整鼠标双击、文件对话框和 WPF 弹窗；这些路径需要在 AutoCAD 图形界面中人工验证。
+
+## v0.1.9 profile vertical curve follow-up - 2026-05-12
+
+- 新增竖曲线领域模型、默认创建服务、对称二次抛物线计算器和编辑服务。
+- 新增 `DnProfileVerticalCurveEntity`，独立关联纵断面拉坡图 handle，支持 DWG 持久化、拉坡图 frame 坐标映射、曲线绘制、几何范围、起终点/PVI/半径夹点。
+- 新增 `RD_PROFILE_VERTICAL_CURVE_CREATE`、`RD_PROFILE_VERTICAL_CURVE_EDIT_HANDLE`、`RD_PROFILE_VERTICAL_CURVE_APPLY_DIALOG_FILE`、`RD_PROFILE_VERTICAL_CURVE_ADD_PVI` 和 `RD_PROFILE_VERTICAL_CURVE_DELETE_PVI`。
+- 新增 WPF 竖曲线编辑窗口和 `ProfileVerticalCurveDialogBridge`，支持编辑名称、起终点桩号/高程、PVI 桩号/高程和半径。
+- 托管 Ribbon `纵断面设计` 面板新增 `创建竖曲线` 按钮；双击 `DNPROFILEVERTICALCURVEENTITY` 可进入 WPF 编辑窗口。
+- 增强竖曲线实体图面反算：按拉坡图 `xAxis/yAxis` 二维基向量求逆，支持拉坡图被旋转或缩放后的夹点和点取反算。
+- 响应文件解析改为严格数值解析，并限制 PVI 数量，避免坏响应文件写坏竖曲线实体。
+- 更新竖曲线创建、编辑、夹点与右键编辑业务文档，新增竖曲线复用说明，并同步模块、复用目录、测试说明和 README。
+- 构建验证：核心测试 Debug 构建通过并输出 `All RoadProto core tests passed.`；Debug ARX 构建通过，0 警告，0 错误；Debug 托管 Ribbon 构建通过，0 警告，0 错误。
+- 当前仍沿用 `RoadProto_v0.1.9_20260511_ProfileGradeGraph.arx` 输出名；后续正式 release 再统一更新 ARX 版本号和阶段名。
+
+## v0.1.9 vertical curve context menu follow-up - 2026-05-12
+
+- 修正竖曲线实体右键无法新增或删除变坡点的问题：托管 Ribbon 插件现在注册 AutoCAD 对象快捷菜单，并在当前隐含选择包含 `DNPROFILEVERTICALCURVEENTITY` 时显示 `新增竖曲线变坡点` 和 `删除竖曲线变坡点`。
+- 右键菜单项通过 `RD_PROFILE_VERTICAL_CURVE_CONTEXT_ADD_PVI` 和 `RD_PROFILE_VERTICAL_CURVE_CONTEXT_DELETE_PVI` 转发到 C++ 侧 `RD_PROFILE_VERTICAL_CURVE_ADD_PVI` / `RD_PROFILE_VERTICAL_CURVE_DELETE_PVI`，继续由 application/domain 层完成校验和回写。
+- 核心测试新增托管 Ribbon 扩展右键菜单注册约定检查，防止后续只保留命令而漏挂菜单。
+- 更新竖曲线夹点与右键编辑业务文档、纵断面模块文档和测试说明。
+
+## v0.1.9 vertical curve display follow-up - 2026-05-12
+
+- 新增 `ProfileVerticalCurveDisplayPlanner`，在 domain 层生成竖曲线图形分段计划，区分直坡设计段、曲线设计段和曲线理论切线。
+- `DnProfileVerticalCurveEntity` 改为按分段绘制：直坡设计段使用青色，曲线设计段使用黄色，BVC/PVC - PVI - EVC/PVT 理论切线使用白色细线。
+- 竖曲线显示默认色调整为直坡青色、理论切线白色，关键点标记仍沿用黄色。
+- 核心测试新增竖曲线显示分段规则用例，覆盖 BVC/EVC 边界拆分、直坡/曲线颜色和两段理论切线。
+- 更新竖曲线创建业务文档、复用说明、模块文档、README 和测试说明。
+
 ## 记录模板
 
 ```markdown
@@ -449,3 +522,39 @@
 - 收敛模块文档职责：`docs/modules/alignment.md` 与 `docs/modules/terrain.md` 只保留模块职责、命令清单、代码落点和功能文档索引，具体操作流程和业务规则迁回功能业务文档。
 - 更新 `docs/modules/alignment.md`、`docs/modules/terrain.md`、`docs/modules/module_index.md`、README、复用说明、业务文档模板和开发规则，使业务文档索引与命令注册保持一致。
 - 验证：业务文档结构检查通过，核心测试 Debug 构建通过并输出 `All RoadProto core tests passed.`；Debug ARX 构建通过，0 警告，0 错误；Release ARX 构建通过，0 警告，0 错误。
+
+## v0.1.10 - 2026-05-12
+
+- 版本标识：`v0.1.10_20260512_SubgradeTemplate`。
+- ARX 文件：`RoadProto_v0.1.10_20260512_SubgradeTemplate.arx`。
+- 新增横断面设计模块 `CROSS_SECTION`，在 Ribbon 中提供 `横断面设计` 面板和 `创建路基模板` 入口。
+- 新增 `RD_SECTION_SUBGRADE_TEMPLATE_CREATE` 命令：运行后只要求用户点取图纸插入点，创建独立路基模板实体；暂不选择或绑定既有道路中线。
+- 新增 `RD_SECTION_SUBGRADE_TEMPLATE_EDIT_HANDLE` 与 `RD_SECTION_SUBGRADE_TEMPLATE_APPLY_DIALOG_FILE` 内部桥接命令，支持双击实体后重新打开 WPF 对话框编辑参数并回写图面实体。
+- 新增 `SubgradeTemplateModel` 与 `SubgradeTemplateCreateService`，沉淀道路等级、左右侧部件、宽度/加宽表、高差、坡度模式、颜色、显示比例、路面结构层预留字段和默认值规则。
+- 新增 `DnSubgradeTemplateEntity` 自定义实体，支持 DWG 持久化、图面绘制中线和左右侧横断面部件、实体变换、范围计算和后续关联字段预留。
+- 新增 WPF 路基模板参数窗口、预览图、部件选择/新增/删除、左右切换按钮、宽度加宽表与变化坡度二级表格窗口。
+- 新增业务文档 `docs/business/cross_section/路基模板_创建.md`、`路基模板_编辑.md`、`路基模板_WPF桥接回写.md`，新增模块文档 `docs/modules/cross_section.md`，新增复用说明 `docs/reuse/subgrade_template.md`。
+- 更新 README、模块索引、复用能力目录、核心测试说明和构建版本信息，使主目录代码、文档与构建产物保持同步。
+- 验证：核心测试 Debug 构建通过，核心测试可执行文件输出 `All RoadProto core tests passed.`；WPF Debug/Release 构建通过，0 警告，0 错误；ARX Debug/Release 构建通过，0 警告，0 错误。
+
+## v0.1.10 subgrade template polish - 2026-05-13
+
+- 修正创建路基模板参数窗口的默认体验，保持新建命令初始道路等级为高速公路。
+- 为二级、三级、四级道路补充默认模板：左右对称，两条 `3.75` 行车道、`3` 硬路肩和 `0.75` 土路肩。
+- WPF 预览区域启用裁剪，避免部件数量增多或标注变长时遮挡右侧参数 UI；预览中增加部件宽度和坡度显示。
+- 坡度方式为变化值时，固定坡度输入置灰并不再作为规则兜底；二级窗口名称统一为“坡度变化数据表”。
+- `DnSubgradeTemplateEntity` 图面部件标注改为中文，并继续通过实体持久化数据驱动双击编辑窗口，保证再次打开显示上次保存的配置。
+- 核心测试新增二级/三级/四级道路默认组成、中文部件名、变化坡度规则和 WPF 源码可读性检查。
+## 2026-05-13 开发更新
+
+- 路基模板创建和编辑体验优化：空白新建请求默认高速公路，已有实体编辑请求保留实体已保存参数，双击编辑命令发送带换行的实体句柄。
+- 为一级道路、二级道路、三级道路、四级道路、城市主干道、城市次干道和城市支路补充初始部件配置。
+- WPF 预览图增加透明命中区域支持直接点选部件，左、右按钮改为按横断面几何顺序移动。
+- 增加默认部件、WPF 源码行为和托管桥接请求往返读取的验证。
+
+## 2026-05-13 路基模板双击编辑桥接修正
+
+- 修正路基模板 C++ 桥接文件写入枚举字段时的重载解析问题：`roadGradeCode`、`subgradeSideCode`、`subgradeComponentTypeCode` 和 `subgradeSlopeModeCode` 返回的字符串指针现在按文本写入，不再被误选为布尔重载写成 `1`。
+- 该问题会导致 WPF 双击编辑窗口把已有实体参数误解析为一级道路、右侧、行车道和变化坡度，出现预览与 DWG 实体不一致。
+- 更新路基模板创建、编辑和 WPF 桥接业务文档，移除说明段落中的英文表述。
+- 增加核心测试检查桥接写入重载，防止枚举文本再次被误写为布尔值。

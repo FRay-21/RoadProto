@@ -1,0 +1,34 @@
+#pragma once
+
+#include "domain/cross_section/SubgradeTemplateModel.h"
+
+#include "gept3dar.h"
+
+#include <string>
+
+namespace roadproto::cad_adapter::objectarx::cross_section {
+
+struct SubgradeTemplateDialogRequest {
+    std::wstring handle;
+    std::wstring responsePath;
+    AcGePoint3d insertionPoint;
+    roadproto::domain::cross_section::SubgradeTemplateData data;
+};
+
+struct SubgradeTemplateDialogResponse {
+    bool accepted = false;
+    std::wstring handle;
+    AcGePoint3d insertionPoint;
+    roadproto::domain::cross_section::SubgradeTemplateData data;
+};
+
+bool queueSubgradeTemplateWpfDialog(
+    const SubgradeTemplateDialogRequest& request,
+    std::wstring& errorMessage);
+
+bool readSubgradeTemplateDialogResponse(
+    const std::wstring& responsePath,
+    SubgradeTemplateDialogResponse& response,
+    std::wstring& errorMessage);
+
+} // namespace roadproto::cad_adapter::objectarx::cross_section

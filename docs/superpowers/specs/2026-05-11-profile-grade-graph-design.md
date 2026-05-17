@@ -122,6 +122,7 @@ ZH H
   - `1:10` -> `10`
   - `1:100` -> `100`
 - `baseElevation = floor(minElevation / gridSpacing) * gridSpacing`。
+- 当地面线高程刚好落在同一网格线上导致图形高度差为 `0` 时，图框高度至少保留一个高程网格间距，保证平地面线也有可见网格。
 
 默认值：
 

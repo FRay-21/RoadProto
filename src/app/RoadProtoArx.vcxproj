@@ -55,6 +55,8 @@
   <ItemGroup>
     <ClCompile Include="arx_entry\RoadProtoArxEntry.cpp" />
     <ClCompile Include="startup\ApplicationContext.cpp" />
+    <ClCompile Include="startup\CrossSectionStartupRegistration.cpp" />
+    <ClCompile Include="startup\ProfileStartupRegistration.cpp" />
     <ClCompile Include="startup\Startup.cpp" />
     <ClCompile Include="..\core\command\CommandRegistry.cpp" />
     <ClCompile Include="..\core\module\ModuleRegistry.cpp" />
@@ -69,6 +71,11 @@
     <ClCompile Include="..\domain\alignment\HorizontalAlignmentBuilder.cpp" />
     <ClCompile Include="..\domain\alignment\IcdAlignmentFile.cpp" />
     <ClCompile Include="..\domain\alignment\StationFormatter.cpp" />
+    <ClCompile Include="..\domain\cross_section\SubgradeTemplateModel.cpp" />
+    <ClCompile Include="..\domain\profile\ProfileDmxFile.cpp" />
+    <ClCompile Include="..\domain\profile\ProfileGradeGraphLayout.cpp" />
+    <ClCompile Include="..\domain\profile\ProfileVerticalCurveCalculator.cpp" />
+    <ClCompile Include="..\domain\profile\ProfileVerticalCurveDisplayPlanner.cpp" />
     <ClCompile Include="..\domain\relation\EntityRelationManager.cpp" />
     <ClCompile Include="..\domain\terrain\TerrainMeshFile.cpp" />
     <ClCompile Include="..\domain\terrain\TerrainPointNormalizer.cpp" />
@@ -76,12 +83,18 @@
     <ClCompile Include="..\domain\terrain\TerrainTextElevationParser.cpp" />
     <ClCompile Include="..\domain\terrain\TerrainTinBuilder.cpp" />
     <ClCompile Include="..\application\alignment\AlignmentCreateService.cpp" />
+    <ClCompile Include="..\application\cross_section\SubgradeTemplateCreateService.cpp" />
+    <ClCompile Include="..\application\profile\ProfileGradeGraphCreateService.cpp" />
+    <ClCompile Include="..\application\profile\ProfileVerticalCurveCreateService.cpp" />
+    <ClCompile Include="..\application\profile\ProfileVerticalCurveEditService.cpp" />
     <ClCompile Include="..\application\terrain\TerrainTinCreateService.cpp" />
     <ClCompile Include="..\application\terrain\TerrainUpdateSampleService.cpp" />
     <ClCompile Include="..\application\intersection\IntersectionInfoService.cpp" />
     <ClCompile Include="..\modules\alignment\AlignmentModule.cpp" />
+    <ClCompile Include="..\modules\cross_section\CrossSectionModule.cpp" />
     <ClCompile Include="..\modules\terrain\TerrainModule.cpp" />
     <ClCompile Include="..\modules\intersection\IntersectionModule.cpp" />
+    <ClCompile Include="..\modules\profile\ProfileModule.cpp" />
     <ClCompile Include="..\ui\ribbon\RibbonModel.cpp" />
     <ClCompile Include="..\ui\ribbon\RibbonRegistrationService.cpp" />
     <ClCompile Include="..\cad_adapter\objectarx\ObjectArxCommandRegistrar.cpp" />
@@ -90,12 +103,23 @@
     <ClCompile Include="..\cad_adapter\objectarx\alignment\AlignmentDialogBridge.cpp" />
     <ClCompile Include="..\cad_adapter\objectarx\alignment\DnRoadCenterlineEntity.cpp" />
     <ClCompile Include="..\cad_adapter\objectarx\alignment\ObjectArxAlignmentCommand.cpp" />
+    <ClCompile Include="..\cad_adapter\objectarx\cross_section\DnSubgradeTemplateEntity.cpp" />
+    <ClCompile Include="..\cad_adapter\objectarx\cross_section\ObjectArxSubgradeTemplateCommand.cpp" />
+    <ClCompile Include="..\cad_adapter\objectarx\cross_section\SubgradeTemplateDialogBridge.cpp" />
+    <ClCompile Include="..\cad_adapter\objectarx\profile\DnProfileGradeGraphEntity.cpp" />
+    <ClCompile Include="..\cad_adapter\objectarx\profile\DnProfileVerticalCurveEntity.cpp" />
+    <ClCompile Include="..\cad_adapter\objectarx\profile\ObjectArxProfileGradeGraphCommand.cpp" />
+    <ClCompile Include="..\cad_adapter\objectarx\profile\ObjectArxProfileVerticalCurveCommand.cpp" />
+    <ClCompile Include="..\cad_adapter\objectarx\profile\ProfileGradeGraphDialogBridge.cpp" />
+    <ClCompile Include="..\cad_adapter\objectarx\profile\ProfileVerticalCurveDialogBridge.cpp" />
     <ClCompile Include="..\cad_adapter\objectarx\terrain\DnTerrainTinEntity.cpp" />
     <ClCompile Include="..\cad_adapter\objectarx\terrain\ObjectArxTerrainTinCommand.cpp" />
     <ClCompile Include="..\cad_adapter\objectarx\terrain\TerrainTinCreateDialog.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="startup\ApplicationContext.h" />
+    <ClInclude Include="startup\CrossSectionStartupRegistration.h" />
+    <ClInclude Include="startup\ProfileStartupRegistration.h" />
     <ClInclude Include="startup\Startup.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

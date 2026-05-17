@@ -51,6 +51,55 @@
    - 版本记录：`docs/dev/version_log.md`
    - README 或本文件
 
+## Worktree 主目录同步规则
+
+本项目经常使用 `.worktrees/<分支名>` 做隔离开发。主项目目录 `F:\0_GPT_道路设计原型功能项目` 是用户日常查看、加载、继续开发的基准目录。无论本次开发发生在主目录还是 worktree 内，收尾前都必须保证主项目目录保留最新、同相对路径、内容一致的文档和所有代码副本，避免主目录代码或文档落后于实际开发分支。
+
+必须同步到主项目目录的范围包括：
+
+- `AGENTS.md`
+- `README.md`
+- `.gitignore`
+- `RoadProto.sln`
+- `build/`
+- `src/`
+- `tests/`
+- `third_party/`
+- `assets/`
+- `docs/business/`
+- `docs/modules/`
+- `docs/reuse/`
+- `docs/dev/`
+- `docs/architecture/`
+- `docs/rules/`
+- `samples/README.md`
+- 其他用户明确要求可见的说明文档或代码文件
+
+不属于同步范围的本地状态和构建缓存包括：
+
+- `.git/`
+- `.vs/`
+- `.worktrees/`
+- `artifacts/`，除非按下面“Worktree 构建产物同步规则”同步可加载产物
+- `bin/`
+- `obj/`
+- 其他临时缓存、IDE 状态和本机私有配置
+
+约定：在 worktree 中形成或更新的正式代码与文档，仍以 worktree 分支提交并推送到 Git 的版本作为正式留档；但主项目目录必须同步保留一份最新可见副本。每次收尾前都要完成“worktree 提交/推送一份、主目录同步保留一份”的双份同步。若用户要求后续“基于主目录更新”，则必须先把 worktree 的最新文档和所有代码同步回主目录，再从主目录继续开发或重新创建 worktree。
+
+## Worktree 构建产物同步规则
+
+在 `.worktrees/<分支名>` 内构建时，ARX / 托管 DLL 默认输出到该 worktree 的 `artifacts/` 目录。若用户需要在主项目常用目录直接加载、查看或分发，收尾前必须把最新构建产物同步到主项目目录 `F:\0_GPT_道路设计原型功能项目`。
+
+必须同步的默认位置：
+
+- ARX：从 `.worktrees/<分支名>/artifacts/x64/<Configuration>/` 复制到 `F:\0_GPT_道路设计原型功能项目\artifacts\x64\<Configuration>\`
+- 托管 WPF 插件：从 `.worktrees/<分支名>/artifacts/managed/<Configuration>/net48/` 复制到 `F:\0_GPT_道路设计原型功能项目\artifacts\managed\<Configuration>\net48\`
+- 若存在同名 PDB，可一并同步，方便后续调试和异常定位。
+- 同步完成后，必须在回复中明确给出主项目下的 ARX 路径和托管 DLL 路径。
+
+这条规则只补充构建产物的复制位置；代码和文档同步必须遵守上面的“Worktree 主目录同步规则”。不要把构建缓存、IDE 状态或临时文件混入源代码同步。
+
 ## 项目硬性规则
 
 - 不要把所有逻辑堆在 ARX 入口文件。

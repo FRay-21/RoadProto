@@ -9,10 +9,14 @@ using Autodesk.AutoCAD.EditorInput;
 using Autodesk.AutoCAD.Geometry;
 using Autodesk.AutoCAD.Runtime;
 using Autodesk.Windows;
+using AutoCadApplication = Autodesk.AutoCAD.ApplicationServices.Application;
+using AutoCadContextMenuExtension = Autodesk.AutoCAD.Windows.ContextMenuExtension;
+using AutoCadMenuItem = Autodesk.AutoCAD.Windows.MenuItem;
 using CoreApplication = Autodesk.AutoCAD.ApplicationServices.Core.Application;
 
 [assembly: ExtensionApplication(typeof(RoadProto.Terrain.UI.AutoCad.RoadProtoRibbonExtension))]
 [assembly: CommandClass(typeof(RoadProto.Terrain.UI.AutoCad.RoadProtoRibbonExtension))]
+[assembly: CommandClass(typeof(RoadProto.Terrain.UI.AutoCad.SubgradeTemplateDialogCommands))]
 
 namespace RoadProto.Terrain.UI.AutoCad;
 
@@ -29,15 +33,28 @@ public sealed class RoadProtoRibbonExtension : IExtensionApplication
     private const string AlignmentCurveEditButtonId = "ROADPROTO_RD_ALIGN_CURVE_PARAM_EDIT";
     private const string AlignmentExportIcdButtonId = "ROADPROTO_RD_ALIGN_CENTERLINE_EXPORT_ICD";
     private const string AlignmentImportIcdButtonId = "ROADPROTO_RD_ALIGN_CENTERLINE_IMPORT_ICD";
+    private const string ProfilePanelId = "ROADPROTO_PROFILE_PANEL";
+    private const string ProfileGradeGraphButtonId = "ROADPROTO_RD_PROFILE_GRADE_GRAPH_CREATE";
+    private const string ProfileVerticalCurveButtonId = "ROADPROTO_RD_PROFILE_VERTICAL_CURVE_CREATE";
+    private const string CrossSectionPanelId = "ROADPROTO_CROSS_SECTION_PANEL";
+    private const string SubgradeTemplateButtonId = "ROADPROTO_RD_SECTION_SUBGRADE_TEMPLATE_CREATE";
     private const string TerrainTinDxfName = "DNTERRAINTINENTITY";
     private const string RoadCenterlineDxfName = "DNROADCENTERLINEENTITY";
+    private const string ProfileGradeGraphDxfName = "DNPROFILEGRADEGRAPHENTITY";
+    private const string ProfileVerticalCurveDxfName = "DNPROFILEVERTICALCURVEENTITY";
+    private const string SubgradeTemplateDxfName = "DNSUBGRADETEMPLATEENTITY";
     private static ObjectId _lastDoubleClickObjectId = ObjectId.Null;
     private static DateTime _lastDoubleClickUtc = DateTime.MinValue;
     private static bool _doubleClickHookAttached;
+    private static AutoCadContextMenuExtension? _profileVerticalCurveContextMenu;
+    private static RXClass? _profileVerticalCurveContextMenuClass;
+    private static AutoCadMenuItem? _profileVerticalCurveAddPviMenuItem;
+    private static AutoCadMenuItem? _profileVerticalCurveDeletePviMenuItem;
 
     public void Initialize()
     {
         AttachDoubleClickHook();
+        AttachProfileVerticalCurveContextMenu();
         if (!TryCreateRibbon())
         {
             ComponentManager.ItemInitialized += OnComponentItemInitialized;
@@ -47,6 +64,7 @@ public sealed class RoadProtoRibbonExtension : IExtensionApplication
     public void Terminate()
     {
         ComponentManager.ItemInitialized -= OnComponentItemInitialized;
+        DetachProfileVerticalCurveContextMenu();
         DetachDoubleClickHook();
     }
 
@@ -54,6 +72,20 @@ public sealed class RoadProtoRibbonExtension : IExtensionApplication
     public void ShowRibbon()
     {
         TryCreateRibbon();
+    }
+
+    [CommandMethod("RD_PROFILE_VERTICAL_CURVE_CONTEXT_ADD_PVI")]
+    public void ContextAddProfileVerticalCurvePvi()
+    {
+        CoreApplication.DocumentManager.MdiActiveDocument?
+            .SendStringToExecute("RD_PROFILE_VERTICAL_CURVE_ADD_PVI ", true, false, true);
+    }
+
+    [CommandMethod("RD_PROFILE_VERTICAL_CURVE_CONTEXT_DELETE_PVI")]
+    public void ContextDeleteProfileVerticalCurvePvi()
+    {
+        CoreApplication.DocumentManager.MdiActiveDocument?
+            .SendStringToExecute("RD_PROFILE_VERTICAL_CURVE_DELETE_PVI ", true, false, true);
     }
 
     private static void OnComponentItemInitialized(object? sender, RibbonItemEventArgs e)
@@ -181,6 +213,57 @@ public sealed class RoadProtoRibbonExtension : IExtensionApplication
                 "RD_ALIGN_CENTERLINE_IMPORT_ICD "));
         }
 
+        var profilePanel = tab.Panels.FirstOrDefault(item => item.Source.Id == ProfilePanelId);
+        if (profilePanel == null)
+        {
+            var source = new RibbonPanelSource
+            {
+                Id = ProfilePanelId,
+                Title = "纵断面设计",
+            };
+            profilePanel = new RibbonPanel { Source = source };
+            tab.Panels.Add(profilePanel);
+        }
+
+        if (!profilePanel.Source.Items.OfType<RibbonButton>().Any(item => item.Id == ProfileGradeGraphButtonId))
+        {
+            profilePanel.Source.Items.Add(CreateProfileCommandButton(
+                ProfileGradeGraphButtonId,
+                "纵断面拉坡图",
+                "选择道路中线并创建纵断面拉坡图",
+                "RD_PROFILE_GRADE_GRAPH_CREATE "));
+        }
+
+        if (!profilePanel.Source.Items.OfType<RibbonButton>().Any(item => item.Id == ProfileVerticalCurveButtonId))
+        {
+            profilePanel.Source.Items.Add(CreateProfileCommandButton(
+                ProfileVerticalCurveButtonId,
+                "创建竖曲线",
+                "选择纵断面拉坡图并创建竖曲线",
+                "RD_PROFILE_VERTICAL_CURVE_CREATE "));
+        }
+
+        var crossSectionPanel = tab.Panels.FirstOrDefault(item => item.Source.Id == CrossSectionPanelId);
+        if (crossSectionPanel == null)
+        {
+            var source = new RibbonPanelSource
+            {
+                Id = CrossSectionPanelId,
+                Title = "\u6a2a\u65ad\u9762\u8bbe\u8ba1",
+            };
+            crossSectionPanel = new RibbonPanel { Source = source };
+            tab.Panels.Add(crossSectionPanel);
+        }
+
+        if (!crossSectionPanel.Source.Items.OfType<RibbonButton>().Any(item => item.Id == SubgradeTemplateButtonId))
+        {
+            crossSectionPanel.Source.Items.Add(CreateCrossSectionCommandButton(
+                SubgradeTemplateButtonId,
+                "\u521b\u5efa\u8def\u57fa\u6a21\u677f",
+                "\u70b9\u53d6\u63d2\u5165\u70b9\u5e76\u521b\u5efa\u72ec\u7acb\u8def\u57fa\u6a21\u677f",
+                "RD_SECTION_SUBGRADE_TEMPLATE_CREATE "));
+        }
+
         tab.IsActive = true;
 
         return true;
@@ -208,6 +291,90 @@ public sealed class RoadProtoRibbonExtension : IExtensionApplication
         _doubleClickHookAttached = false;
     }
 
+    private static void AttachProfileVerticalCurveContextMenu()
+    {
+        if (_profileVerticalCurveContextMenu != null)
+        {
+            return;
+        }
+
+        var entityClass = RXObject.GetClass(typeof(Entity));
+        if (entityClass == null)
+        {
+            WriteEditorMessage("\nRoadProto 竖曲线右键菜单注册失败: 无法获取 AcDbEntity 类。");
+            return;
+        }
+
+        var addItem = new AutoCadMenuItem("新增竖曲线变坡点");
+        addItem.Click += (_, _) => SendActiveDocumentCommand("RD_PROFILE_VERTICAL_CURVE_CONTEXT_ADD_PVI ");
+
+        var deleteItem = new AutoCadMenuItem("删除竖曲线变坡点");
+        deleteItem.Click += (_, _) => SendActiveDocumentCommand("RD_PROFILE_VERTICAL_CURVE_CONTEXT_DELETE_PVI ");
+
+        var menu = new AutoCadContextMenuExtension
+        {
+            Title = "RoadProto 竖曲线",
+        };
+        menu.MenuItems.Add(addItem);
+        menu.MenuItems.Add(deleteItem);
+        menu.Popup += OnProfileVerticalCurveContextMenuPopup;
+
+        AutoCadApplication.AddObjectContextMenuExtension(entityClass, menu);
+        _profileVerticalCurveContextMenuClass = entityClass;
+        _profileVerticalCurveContextMenu = menu;
+        _profileVerticalCurveAddPviMenuItem = addItem;
+        _profileVerticalCurveDeletePviMenuItem = deleteItem;
+    }
+
+    private static void DetachProfileVerticalCurveContextMenu()
+    {
+        if (_profileVerticalCurveContextMenu == null || _profileVerticalCurveContextMenuClass == null)
+        {
+            return;
+        }
+
+        _profileVerticalCurveContextMenu.Popup -= OnProfileVerticalCurveContextMenuPopup;
+        AutoCadApplication.RemoveObjectContextMenuExtension(
+            _profileVerticalCurveContextMenuClass,
+            _profileVerticalCurveContextMenu);
+        _profileVerticalCurveContextMenu = null;
+        _profileVerticalCurveContextMenuClass = null;
+        _profileVerticalCurveAddPviMenuItem = null;
+        _profileVerticalCurveDeletePviMenuItem = null;
+    }
+
+    private static void OnProfileVerticalCurveContextMenuPopup(object? sender, EventArgs e)
+    {
+        var isProfileVerticalCurveSelection = TryGetImpliedProfileVerticalCurve(out _);
+        SetProfileVerticalCurveContextMenuItemState(_profileVerticalCurveAddPviMenuItem, isProfileVerticalCurveSelection);
+        SetProfileVerticalCurveContextMenuItemState(_profileVerticalCurveDeletePviMenuItem, isProfileVerticalCurveSelection);
+    }
+
+    private static void SetProfileVerticalCurveContextMenuItemState(AutoCadMenuItem? item, bool isVisible)
+    {
+        if (item == null)
+        {
+            return;
+        }
+
+        item.Visible = isVisible;
+        item.Enabled = isVisible;
+    }
+
+    private static bool TryGetImpliedProfileVerticalCurve(out ObjectId entityId)
+    {
+        var document = CoreApplication.DocumentManager.MdiActiveDocument;
+        var implied = document?.Editor.SelectImplied();
+        if (implied?.Status == PromptStatus.OK
+            && TryFindEntityByDxfName(implied.Value, ProfileVerticalCurveDxfName, out entityId))
+        {
+            return true;
+        }
+
+        entityId = ObjectId.Null;
+        return false;
+    }
+
     private static void OnBeginDoubleClick(object? sender, BeginDoubleClickEventArgs e)
     {
         try
@@ -232,6 +399,33 @@ public sealed class RoadProtoRibbonExtension : IExtensionApplication
                 if (!SuppressDuplicateDoubleClick(roadCenterlineId))
                 {
                     QueueRoadCenterlineEditByHandle(document, roadCenterlineId);
+                }
+                return;
+            }
+
+            if (TryFindEntityByDxfName(document, e.Location, ProfileGradeGraphDxfName, out var profileGradeGraphId))
+            {
+                if (!SuppressDuplicateDoubleClick(profileGradeGraphId))
+                {
+                    QueueProfileGradeGraphEditByHandle(document, profileGradeGraphId);
+                }
+                return;
+            }
+
+            if (TryFindEntityByDxfName(document, e.Location, ProfileVerticalCurveDxfName, out var profileVerticalCurveId))
+            {
+                if (!SuppressDuplicateDoubleClick(profileVerticalCurveId))
+                {
+                    QueueProfileVerticalCurveEditByHandle(document, profileVerticalCurveId);
+                }
+                return;
+            }
+
+            if (TryFindEntityByDxfName(document, e.Location, SubgradeTemplateDxfName, out var subgradeTemplateId))
+            {
+                if (!SuppressDuplicateDoubleClick(subgradeTemplateId))
+                {
+                    QueueSubgradeTemplateEditByHandle(document, subgradeTemplateId);
                 }
             }
         }
@@ -403,6 +597,45 @@ public sealed class RoadProtoRibbonExtension : IExtensionApplication
         document.SendStringToExecute($"RD_ALIGN_CENTERLINE_EDIT_HANDLE {handle} ", true, false, true);
     }
 
+    private static void QueueProfileGradeGraphEditByHandle(Document document, ObjectId entityId)
+    {
+        var handle = entityId.Handle.ToString();
+        if (string.IsNullOrWhiteSpace(handle))
+        {
+            return;
+        }
+
+        document.SendStringToExecute($"RD_PROFILE_GRADE_GRAPH_EDIT_HANDLE {handle} ", true, false, true);
+    }
+
+    private static void QueueProfileVerticalCurveEditByHandle(Document document, ObjectId entityId)
+    {
+        var handle = entityId.Handle.ToString();
+        if (string.IsNullOrWhiteSpace(handle))
+        {
+            return;
+        }
+
+        document.SendStringToExecute($"RD_PROFILE_VERTICAL_CURVE_EDIT_HANDLE {handle} ", true, false, true);
+    }
+
+    private static void QueueSubgradeTemplateEditByHandle(Document document, ObjectId entityId)
+    {
+        var handle = entityId.Handle.ToString();
+        if (string.IsNullOrWhiteSpace(handle))
+        {
+            return;
+        }
+
+        document.SendStringToExecute($"RD_SECTION_SUBGRADE_TEMPLATE_EDIT_HANDLE {handle}\n", true, false, true);
+    }
+
+    private static void SendActiveDocumentCommand(string command)
+    {
+        CoreApplication.DocumentManager.MdiActiveDocument?
+            .SendStringToExecute(command, true, false, true);
+    }
+
     private static void WriteEditorMessage(string message)
     {
         try
@@ -436,6 +669,44 @@ public sealed class RoadProtoRibbonExtension : IExtensionApplication
     private static RibbonButton CreateAlignmentCommandButton(string id, string text, string toolTip, string command)
     {
         var icon = CreateAlignmentIcon();
+        return new RibbonButton
+        {
+            Id = id,
+            Text = text,
+            ShowText = true,
+            ShowImage = true,
+            Image = icon,
+            LargeImage = icon,
+            Size = RibbonItemSize.Standard,
+            Orientation = Orientation.Horizontal,
+            ToolTip = toolTip,
+            CommandParameter = command,
+            CommandHandler = new SendCommandHandler(),
+        };
+    }
+
+    private static RibbonButton CreateProfileCommandButton(string id, string text, string toolTip, string command)
+    {
+        var icon = CreateProfileIcon();
+        return new RibbonButton
+        {
+            Id = id,
+            Text = text,
+            ShowText = true,
+            ShowImage = true,
+            Image = icon,
+            LargeImage = icon,
+            Size = RibbonItemSize.Standard,
+            Orientation = Orientation.Horizontal,
+            ToolTip = toolTip,
+            CommandParameter = command,
+            CommandHandler = new SendCommandHandler(),
+        };
+    }
+
+    private static RibbonButton CreateCrossSectionCommandButton(string id, string text, string toolTip, string command)
+    {
+        var icon = CreateCrossSectionIcon();
         return new RibbonButton
         {
             Id = id,
@@ -490,6 +761,61 @@ public sealed class RoadProtoRibbonExtension : IExtensionApplication
             new SolidColorBrush(Color.FromRgb(250, 216, 61)),
             null,
             Geometry.Parse("M 7,16 L 10,18 L 7,20 Z M 14,4 L 17,6 L 14,8 Z")));
+        drawingGroup.Freeze();
+        return new DrawingImage(drawingGroup);
+    }
+
+    private static ImageSource CreateProfileIcon()
+    {
+        var drawingGroup = new DrawingGroup();
+        var gridPen = new Pen(new SolidColorBrush(Color.FromRgb(160, 168, 181)), 0.7);
+        var groundPen = new Pen(new SolidColorBrush(Color.FromRgb(52, 174, 91)), 1.4);
+        var gradePen = new Pen(new SolidColorBrush(Color.FromRgb(245, 112, 48)), 1.8);
+
+        drawingGroup.Children.Add(new GeometryDrawing(
+            null,
+            gridPen,
+            Geometry.Parse("M 4,5 L 4,21 M 10,5 L 10,21 M 16,5 L 16,21 M 22,5 L 22,21 M 2,9 L 23,9 M 2,15 L 23,15 M 2,21 L 23,21")));
+        drawingGroup.Children.Add(new GeometryDrawing(
+            null,
+            groundPen,
+            Geometry.Parse("M 2,14 C 5,11 8,16 11,13 S 17,8 22,12")));
+        drawingGroup.Children.Add(new GeometryDrawing(
+            null,
+            gradePen,
+            Geometry.Parse("M 3,19 L 9,16 L 14,17 L 21,7")));
+        drawingGroup.Children.Add(new GeometryDrawing(
+            new SolidColorBrush(Color.FromRgb(28, 115, 220)),
+            null,
+            Geometry.Parse("M 8,15 L 10,16 L 8,17 Z M 13,16 L 15,17 L 13,18 Z M 20,6 L 22,7 L 20,8 Z")));
+        drawingGroup.Freeze();
+        return new DrawingImage(drawingGroup);
+    }
+
+    private static ImageSource CreateCrossSectionIcon()
+    {
+        var drawingGroup = new DrawingGroup();
+        var centerPen = new Pen(new SolidColorBrush(Color.FromRgb(80, 88, 101)), 1.2)
+        {
+            DashStyle = DashStyles.Dash,
+        };
+
+        drawingGroup.Children.Add(new GeometryDrawing(
+            null,
+            centerPen,
+            Geometry.Parse("M 12,3 L 12,22")));
+        drawingGroup.Children.Add(new GeometryDrawing(
+            new SolidColorBrush(Color.FromRgb(0, 120, 0)),
+            null,
+            Geometry.Parse("M 7,11 L 12,11 L 12,15 L 7,15 Z M 12,11 L 17,11 L 17,15 L 12,15 Z")));
+        drawingGroup.Children.Add(new GeometryDrawing(
+            new SolidColorBrush(Color.FromRgb(0, 90, 180)),
+            null,
+            Geometry.Parse("M 3,13 L 7,11 L 7,15 L 3,17 Z M 17,11 L 21,13 L 21,17 L 17,15 Z")));
+        drawingGroup.Children.Add(new GeometryDrawing(
+            new SolidColorBrush(Color.FromRgb(120, 120, 120)),
+            null,
+            Geometry.Parse("M 1,16 L 3,13 L 3,17 L 1,19 Z M 21,13 L 23,16 L 23,19 L 21,17 Z")));
         drawingGroup.Freeze();
         return new DrawingImage(drawingGroup);
     }

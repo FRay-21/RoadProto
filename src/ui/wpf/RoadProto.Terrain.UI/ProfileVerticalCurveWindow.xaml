@@ -1,0 +1,133 @@
+<Window x:Class="RoadProto.Terrain.UI.ProfileVerticalCurveWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="编辑竖曲线"
+        Width="560"
+        Height="500"
+        MinWidth="520"
+        MinHeight="460"
+        WindowStartupLocation="CenterScreen"
+        Background="#F3F5F7">
+    <Window.Resources>
+        <Style x:Key="Card" TargetType="Border">
+            <Setter Property="Background" Value="White" />
+            <Setter Property="CornerRadius" Value="8" />
+            <Setter Property="Padding" Value="18" />
+            <Setter Property="BorderBrush" Value="#D8DEE6" />
+            <Setter Property="BorderThickness" Value="1" />
+        </Style>
+        <Style TargetType="TextBlock">
+            <Setter Property="FontFamily" Value="Microsoft YaHei UI" />
+            <Setter Property="Foreground" Value="#1F2933" />
+        </Style>
+        <Style TargetType="Button">
+            <Setter Property="MinHeight" Value="32" />
+            <Setter Property="Padding" Value="14,5" />
+            <Setter Property="Margin" Value="0,0,10,0" />
+        </Style>
+        <Style TargetType="TextBox">
+            <Setter Property="MinHeight" Value="30" />
+            <Setter Property="Padding" Value="8,4" />
+        </Style>
+    </Window.Resources>
+
+    <Grid Margin="22">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <StackPanel Grid.Row="0" Margin="0,0,0,14">
+            <TextBlock Text="编辑竖曲线" FontSize="24" FontWeight="SemiBold" />
+            <TextBlock Text="纵断面设计线" Margin="0,5,0,0" Foreground="#5D6875" />
+        </StackPanel>
+
+        <Border Grid.Row="1" Style="{StaticResource Card}">
+            <ScrollViewer VerticalScrollBarVisibility="Auto">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="92" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="92" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+
+                    <TextBlock Grid.Row="0" Grid.Column="0" Text="名称" VerticalAlignment="Center" Margin="0,0,10,12" />
+                    <TextBox x:Name="NameTextBox" Grid.Row="0" Grid.Column="1" Grid.ColumnSpan="3" Margin="0,0,0,12" />
+
+                    <TextBlock Grid.Row="1" Grid.Column="0" Text="起点桩号" VerticalAlignment="Center" Margin="0,0,10,12" />
+                    <TextBox x:Name="StartStationTextBox" Grid.Row="1" Grid.Column="1" Margin="0,0,14,12" />
+                    <TextBlock Grid.Row="1" Grid.Column="2" Text="起点高程" VerticalAlignment="Center" Margin="0,0,10,12" />
+                    <TextBox x:Name="StartElevationTextBox" Grid.Row="1" Grid.Column="3" Margin="0,0,0,12" />
+
+                    <TextBlock Grid.Row="2" Grid.Column="0" Text="终点桩号" VerticalAlignment="Center" Margin="0,0,10,12" />
+                    <TextBox x:Name="EndStationTextBox" Grid.Row="2" Grid.Column="1" Margin="0,0,14,12" />
+                    <TextBlock Grid.Row="2" Grid.Column="2" Text="终点高程" VerticalAlignment="Center" Margin="0,0,10,12" />
+                    <TextBox x:Name="EndElevationTextBox" Grid.Row="2" Grid.Column="3" Margin="0,0,0,12" />
+
+                    <TextBlock Grid.Row="3" Grid.Column="0" Text="拉坡图" VerticalAlignment="Center" Margin="0,0,10,16" />
+                    <TextBox x:Name="ProfileGraphHandleTextBox"
+                             Grid.Row="3"
+                             Grid.Column="1"
+                             Grid.ColumnSpan="3"
+                             IsReadOnly="True"
+                             Margin="0,0,0,16" />
+
+                    <Border Grid.Row="4"
+                            Grid.ColumnSpan="4"
+                            Height="1"
+                            Background="#D8DEE6"
+                            Margin="0,0,0,14" />
+
+                    <Grid Grid.Row="5" Grid.ColumnSpan="4" Margin="0,0,0,12">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock x:Name="PviStatusTextBlock"
+                                   FontWeight="SemiBold"
+                                   VerticalAlignment="Center" />
+                        <StackPanel Grid.Column="1" Orientation="Horizontal">
+                            <Button x:Name="PreviousPviButton" Content="上一个" Click="PreviousPviButton_Click" />
+                            <Button x:Name="NextPviButton" Content="下一个" Click="NextPviButton_Click" Margin="0" />
+                        </StackPanel>
+                    </Grid>
+
+                    <TextBlock Grid.Row="6" Grid.Column="0" Text="PVI 桩号" VerticalAlignment="Center" Margin="0,0,10,12" />
+                    <TextBox x:Name="PviStationTextBox" Grid.Row="6" Grid.Column="1" Margin="0,0,14,12" />
+                    <TextBlock Grid.Row="6" Grid.Column="2" Text="PVI 高程" VerticalAlignment="Center" Margin="0,0,10,12" />
+                    <TextBox x:Name="PviElevationTextBox" Grid.Row="6" Grid.Column="3" Margin="0,0,0,12" />
+
+                    <TextBlock Grid.Row="7" Grid.Column="0" Text="半径" VerticalAlignment="Center" Margin="0,0,10,0" />
+                    <TextBox x:Name="PviRadiusTextBox" Grid.Row="7" Grid.Column="1" Grid.ColumnSpan="3" />
+                </Grid>
+            </ScrollViewer>
+        </Border>
+
+        <Border Grid.Row="2" Style="{StaticResource Card}" Margin="0,16,0,0">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <TextBlock x:Name="ErrorTextBlock" Foreground="#B42318" TextWrapping="Wrap" VerticalAlignment="Center" />
+                <StackPanel Grid.Column="1" Orientation="Horizontal">
+                    <Button Content="确定" Click="OkButton_Click" />
+                    <Button Content="取消" Click="CancelButton_Click" Margin="0" />
+                </StackPanel>
+            </Grid>
+        </Border>
+    </Grid>
+</Window>

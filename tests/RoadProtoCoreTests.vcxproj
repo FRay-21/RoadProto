@@ -51,6 +51,8 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="core_tests.cpp" />
+    <ClCompile Include="..\src\app\startup\CrossSectionStartupRegistration.cpp" />
+    <ClCompile Include="..\src\app\startup\ProfileStartupRegistration.cpp" />
     <ClCompile Include="..\src\core\command\CommandRegistry.cpp" />
     <ClCompile Include="..\src\core\module\ModuleRegistry.cpp" />
     <ClCompile Include="..\src\domain\common\EntityId.cpp" />
@@ -60,13 +62,27 @@
     <ClCompile Include="..\src\domain\alignment\HorizontalAlignmentBuilder.cpp" />
     <ClCompile Include="..\src\domain\alignment\IcdAlignmentFile.cpp" />
     <ClCompile Include="..\src\domain\alignment\StationFormatter.cpp" />
+    <ClCompile Include="..\src\domain\cross_section\SubgradeTemplateModel.cpp" />
+    <ClCompile Include="..\src\domain\profile\ProfileDmxFile.cpp" />
+    <ClCompile Include="..\src\domain\profile\ProfileGradeGraphLayout.cpp" />
+    <ClCompile Include="..\src\domain\profile\ProfileVerticalCurveCalculator.cpp" />
+    <ClCompile Include="..\src\domain\profile\ProfileVerticalCurveDisplayPlanner.cpp" />
     <ClCompile Include="..\src\domain\relation\EntityRelationManager.cpp" />
     <ClCompile Include="..\src\domain\terrain\TerrainMeshFile.cpp" />
     <ClCompile Include="..\src\domain\terrain\TerrainPointNormalizer.cpp" />
     <ClCompile Include="..\src\domain\terrain\TerrainSurfaceQuery.cpp" />
     <ClCompile Include="..\src\domain\terrain\TerrainTextElevationParser.cpp" />
     <ClCompile Include="..\src\domain\terrain\TerrainTinBuilder.cpp" />
+    <ClCompile Include="..\src\application\profile\ProfileGradeGraphCreateService.cpp" />
+    <ClCompile Include="..\src\application\profile\ProfileVerticalCurveCreateService.cpp" />
+    <ClCompile Include="..\src\application\profile\ProfileVerticalCurveEditService.cpp" />
+    <ClCompile Include="..\src\application\cross_section\SubgradeTemplateCreateService.cpp" />
     <ClCompile Include="..\src\application\terrain\TerrainUpdateSampleService.cpp" />
+    <ClCompile Include="..\src\modules\cross_section\CrossSectionModule.cpp" />
+    <ClCompile Include="..\src\modules\profile\ProfileModule.cpp" />
+    <ClCompile Include="..\src\cad_adapter\objectarx\cross_section\ObjectArxSubgradeTemplateCommand.cpp" />
+    <ClCompile Include="..\src\cad_adapter\objectarx\profile\ObjectArxProfileGradeGraphCommand.cpp" />
+    <ClCompile Include="..\src\cad_adapter\objectarx\profile\ObjectArxProfileVerticalCurveCommand.cpp" />
     <ClCompile Include="..\src\ui\ribbon\RibbonModel.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

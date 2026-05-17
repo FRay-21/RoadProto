@@ -13,6 +13,11 @@ enum class AlignmentDialogMode {
     Full,
 };
 
+enum class AlignmentDialogAction {
+    None,
+    PickTerrain,
+};
+
 struct AlignmentDialogRequest {
     AlignmentDialogMode mode = AlignmentDialogMode::Full;
     std::wstring handle;
@@ -22,6 +27,7 @@ struct AlignmentDialogRequest {
 };
 
 struct AlignmentDialogResponse {
+    AlignmentDialogAction action = AlignmentDialogAction::None;
     bool accepted = false;
     AlignmentDialogMode mode = AlignmentDialogMode::Full;
     std::wstring handle;

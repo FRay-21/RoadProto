@@ -21,6 +21,8 @@ artifacts\x64\Debug\RoadProtoCoreTests.exe
 - TIN 三角形查找与重心插值高程查询。
 - RMesh `.rmesh` 地形数模文件的写入、读取、Unicode 元数据回读和非法文件拒绝。
 - 回旋线公式、道路主点切线长、旧切线长保护、单交点五单元构建、多交点连续平曲线链构建、桩号格式化和无效平曲线参数拒绝。
+- 纵断面拉坡图领域规则：DMX 文件读取、断链桩号兼容、重复桩号保留、布局范围、纵向比例校验和创建服务默认属性。
+- 纵断面竖曲线领域规则：默认设计线创建、PVI 对称二次抛物线、BVC/EVC、高低点、任意桩号高程和坡度、PVI 增删、半径更新和命令元数据。
 
 V0.1.6 继续保留 `TerrainMeshFile` 领域层测试，用于保证 `DN_TERRAIN_TIN_EXPORT` / `DN_TERRAIN_TIN_IMPORT` 依赖的跨 DWG 数模文件数据不会在读写中丢失。
 
@@ -44,3 +46,61 @@ AutoCAD 图形界面需要手工验证 `RD_ALIGN_CENTERLINE_CREATE`、`RD_ALIGN_
 - 夹点拖动起终点、交点、直缓点、缓圆点、圆曲线中点、圆缓点和缓直点时，道路中线应跟随鼠标连续预览；释放后五单元平曲线基本样式保持稳定。
 - `RD_ALIGN_CENTERLINE_EXPORT_ICD` 可将选中道路中线导出为 `.icd`。
 - `RD_ALIGN_CENTERLINE_IMPORT_ICD` 可导入包含 `1/2/3/4/5/6` 单元的 `.icd` 并生成道路中线实体；ICD 起点工程坐标应正确转换为 CAD 坐标，含 `5/6` 的导入实体应显示、保存、重开和再次导出正常。
+
+## V0.1.9 纵断面拉坡图验证范围
+
+核心测试覆盖 `ProfileDmxFile` 的 `.dmx` 注释跳过、桩号/高程读取、断链写法兼容、重复桩号保留和非法输入拒绝。
+
+核心测试覆盖 `ProfileGradeGraphLayout` 的桩号 X 方向 1:1 映射、纵向比例 1/10/100 映射、网格范围计算、非有限数值拒绝、无效网格间距拒绝和全样本桩号跨度为 0 时拒绝。
+
+核心测试覆盖 `ProfileGradeGraphCreateService` 的默认图名、默认属性、来源信息保存和无效样本拒绝。
+
+AutoCAD 图形界面需要手工验证 `RD_PROFILE_GRADE_GRAPH_CREATE`、`RD_PROFILE_GRADE_GRAPH_EDIT_HANDLE`、`RD_PROFILE_APPLY_DIALOG_FILE` 和 `DnProfileGradeGraphEntity`：
+
+- 选择有关联数模的道路中线后，可沿中线采样并创建纵断面拉坡图。
+- 道路中线没有可用数模时，可选择 `.dmx` 文件并创建纵断面拉坡图。
+- 创建后图中显示拉坡图名称、表头、网格线和青绿色地面线折线。
+- 双击拉坡图可打开 WPF 属性窗口，修改颜色、线宽、精度、纵向比例和网格间距后刷新实体。
+- DMX 来源实体点击“更新地面线”会重新读取保存的 DMX 文件路径；数模来源实体该按钮置灰。
+- 保存 DWG 后重开并 `REGEN`，拉坡图实体和属性保持正常。
+
+## V0.1.9 纵断面竖曲线验证范围
+
+核心测试覆盖 `ProfileVerticalCurveCreateService` 从拉坡图地面线首末点创建默认设计线。
+
+核心测试覆盖 `ProfileVerticalCurveCalculator` 的前后坡、坡度差、凸/凹曲线类型、`L/T/BVC/EVC`、任意桩号设计高程、瞬时坡度、高点或低点计算，以及曲线越过相邻坡段时拒绝。
+
+核心测试覆盖 `ProfileVerticalCurveEditService` 的 PVI 新增、删除、夹点移动和半径更新。
+
+核心测试覆盖 `ProfileVerticalCurveDisplayPlanner` 的图形分段规则：直坡设计段为青色、曲线设计段为黄色，并为每个曲线元素输出两段理论切线。
+
+核心测试覆盖 PROFILE 模块中 `RD_PROFILE_VERTICAL_CURVE_CREATE`、`RD_PROFILE_VERTICAL_CURVE_EDIT_HANDLE`、`RD_PROFILE_VERTICAL_CURVE_APPLY_DIALOG_FILE`、`RD_PROFILE_VERTICAL_CURVE_ADD_PVI` 和 `RD_PROFILE_VERTICAL_CURVE_DELETE_PVI` 的命令元数据。
+
+核心测试覆盖托管 Ribbon 扩展源码中的竖曲线对象右键菜单注册约定：必须注册 AutoCAD 对象快捷菜单，并包含新增/删除 PVI 的上下文转发命令。
+
+AutoCAD 图形界面需要手工验证 `RD_PROFILE_VERTICAL_CURVE_CREATE`、`RD_PROFILE_VERTICAL_CURVE_EDIT_HANDLE`、`RD_PROFILE_VERTICAL_CURVE_APPLY_DIALOG_FILE`、`RD_PROFILE_VERTICAL_CURVE_ADD_PVI`、`RD_PROFILE_VERTICAL_CURVE_DELETE_PVI` 和 `DnProfileVerticalCurveEntity`：
+
+- 选择纵断面拉坡图后，可创建默认连接地面线起终点的竖曲线实体。
+- 竖曲线在拉坡图坐标系中显示，保存 DWG 后重开并 `REGEN` 仍保持可见。
+- 竖曲线直坡设计段为青色，曲线段为黄色，BVC/PVI/EVC 理论切线可见。
+- 双击竖曲线可打开 WPF 编辑窗口，修改起终点、PVI 高程和半径后刷新实体。
+- 起点、终点、PVI 和半径夹点可拖动，拖动后图形刷新且无索引错位。
+- 选中竖曲线实体后右键，可看到 `新增竖曲线变坡点` 和 `删除竖曲线变坡点` 菜单项。
+- 通过右键菜单或命令行执行新增 PVI 和删除最近 PVI，可正确更新实体。
+
+## V0.1.10 路基模板验证范围
+
+核心测试覆盖 `SubgradeTemplateDefaults` 的高速公路、城市快速路以及二级、三级、四级道路默认部件、颜色约定、显示比例、变宽表宽度计算、坡度变化表取值、路面结构层厚度启用规则和 `SubgradeTemplateCreateService` 默认创建结果。
+
+核心测试覆盖 `CROSS_SECTION` 模块中 `RD_SECTION_SUBGRADE_TEMPLATE_CREATE`、`RD_SECTION_SUBGRADE_TEMPLATE_EDIT_HANDLE` 和 `RD_SECTION_SUBGRADE_TEMPLATE_APPLY_DIALOG_FILE` 的命令元数据、模块启动注册和托管 Ribbon 源码中的 `DNSUBGRADETEMPLATEENTITY` 双击编辑入口。
+
+AutoCAD 图形界面需要手工验证 `RD_SECTION_SUBGRADE_TEMPLATE_CREATE`、`RD_SECTION_SUBGRADE_TEMPLATE_EDIT_HANDLE`、`RD_SECTION_SUBGRADE_TEMPLATE_APPLY_DIALOG_FILE` 和 `DnSubgradeTemplateEntity`：
+
+- 点击 `RoadProto / 横断面设计 / 创建路基模板` 后，命令只要求点取插入点，不要求选择道路中线。
+- 参数窗口可修改模板名称、显示比例、道路等级和左右侧部件参数。
+- 预览图中线清晰可见，部件宽度和坡度文字不遮挡右侧 UI，点选部件、左右按钮、新增和删除部件可正常工作。
+- 变宽表和坡度变化数据表二级窗口可新增、删除和保存桩号数据；坡度选择变化值时固定坡度输入置灰。
+- 勾选路面结构层关联后才启用厚度输入。
+- 确认后图中生成 `DnSubgradeTemplateEntity`，显示中线和左右侧路基部件，部件标注使用中文。
+- 双击实体可重新打开同一参数窗口，并显示上次保存的配置；修改后实体刷新。
+- 保存 DWG 后重开并 `REGEN`，路基模板实体和参数保持正常。

@@ -1,6 +1,8 @@
 #include "app/startup/Startup.h"
 
 #include "app/startup/ApplicationContext.h"
+#include "app/startup/CrossSectionStartupRegistration.h"
+#include "app/startup/ProfileStartupRegistration.h"
 #include "core/version/VersionInfo.h"
 #include "modules/alignment/AlignmentModule.h"
 #include "modules/intersection/IntersectionModule.h"
@@ -15,6 +17,8 @@ void registerBuiltInModules(core::ModuleRegistry& moduleRegistry)
 {
     moduleRegistry.registerModule(modules::terrain::createTerrainModule());
     moduleRegistry.registerModule(modules::alignment::createAlignmentModule());
+    registerProfileModuleForStartup(moduleRegistry);
+    registerCrossSectionModuleForStartup(moduleRegistry);
     moduleRegistry.registerModule(modules::intersection::createIntersectionModule());
 }
 

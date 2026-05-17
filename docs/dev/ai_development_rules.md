@@ -18,6 +18,10 @@
 - 本机编译优先使用 VS2026 Insiders：`D:\Program Files\Microsoft Visual Studio\18\Insiders\Common7\IDE`；命令行优先使用 `D:\Program Files\Microsoft Visual Studio\18\Insiders\MSBuild\Current\Bin\amd64\MSBuild.exe`。
 - Git 仓库 URL 固定为 `https://github.com/FrFrFr123/RoadProto.git`；当前 PowerShell 若找不到 `git`，优先使用 VS2026 Insiders 自带 Git：`D:\Program Files\Microsoft Visual Studio\18\Insiders\Common7\IDE\CommonExtensions\Microsoft\TeamFoundation\Team Explorer\Git\cmd\git.exe`。
 - 编译工具链可以更新，AutoCAD 2021 / ObjectARX 2021 目标不能随意升级。
+- 如果当前开发目录位于 `.worktrees/<分支名>`，新增或更新的正式文档和所有代码必须在收尾前按相同相对路径同步一份到主项目目录 `F:\0_GPT_道路设计原型功能项目`。同步范围包括 `AGENTS.md`、`README.md`、`.gitignore`、`RoadProto.sln`、`build/`、`src/`、`tests/`、`third_party/`、`assets/`、`docs/`、`samples/` 和用户明确要求可见的说明文档或代码文件。
+- 主项目目录是用户日常查看、加载和继续开发的基准目录，必须保持最新文档和所有代码的可见副本。禁止只更新 worktree 而让主目录长期停留在旧代码或旧文档。
+- 不同步 `.git/`、`.vs/`、`.worktrees/`、`bin/`、`obj/`、构建缓存和本机私有配置；`artifacts/` 只按构建产物同步规则复制可加载 ARX / DLL / PDB。
+- Worktree 内的提交并推送版本仍作为正式 Git 留档；主项目目录必须保留同路径、内容一致的最新副本。若用户要求后续基于主目录更新，必须先把 worktree 最新文档和所有代码同步回主目录，再继续开发。
 
 ## 新增功能流程
 

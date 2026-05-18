@@ -539,6 +539,23 @@ void roadModelTemplateResolverUsesHigherPriorityRows()
         CHECK(station40->templateHandle == L"HIGH");
     }
 
+    RoadModelTemplateAssignment earlier;
+    earlier.startStation = 0.0;
+    earlier.endStation = 100.0;
+    earlier.templateHandle = L"EARLIER";
+
+    RoadModelTemplateAssignment later;
+    later.startStation = 0.0;
+    later.endStation = 100.0;
+    later.templateHandle = L"LATER";
+
+    RoadModelTemplateResolver overlappingResolver({earlier, later});
+    const auto* overlappingStation = overlappingResolver.resolve(50.0);
+    CHECK(overlappingStation != nullptr);
+    if (overlappingStation != nullptr) {
+        CHECK(overlappingStation->templateHandle == L"EARLIER");
+    }
+
     CHECK(resolver.resolve(120.0) == nullptr);
     CHECK(resolver.resolve(100.0 + 1.0e-10) == nullptr);
 }
@@ -561,30 +578,6 @@ void roadModelTemplateResolverRejectsInvalidRows()
     missingHandle.endStation = 100.0;
     CHECK(!RoadModelRules::validateAssignments({missingHandle}, errorMessage));
     CHECK(!errorMessage.empty());
-}
-
-void roadModelSamplerAndBuilderStayTaskOneStubs()
-{
-    using namespace roadproto::domain::cross_section;
-
-    RoadModelConfig config;
-    config.roadCenterlineHandle = L"CENTERLINE";
-
-    roadproto::domain::alignment::AlignmentSamplePoint sample;
-    sample.station = 42.0;
-
-    const auto sampledStations = RoadModelStationSampler::collectStations(config, {sample});
-    CHECK(sampledStations.empty());
-
-    RoadModelBuildInput input;
-    input.config = config;
-    input.alignmentSamples.push_back(sample);
-
-    const RoadModelBuilder builder;
-    const auto result = builder.build(input);
-    CHECK(!result.succeeded);
-    CHECK(result.sampledStations.empty());
-    CHECK(result.data.config.roadCenterlineHandle == L"CENTERLINE");
 }
 
 void crossSectionModuleRegistersSubgradeTemplateCommandsAndRibbonPanel()
@@ -2404,7 +2397,6 @@ int main()
     subgradeTemplateCreateServiceBuildsDefaultTemplate();
     roadModelTemplateResolverUsesHigherPriorityRows();
     roadModelTemplateResolverRejectsInvalidRows();
-    roadModelSamplerAndBuilderStayTaskOneStubs();
     crossSectionModuleRegistersSubgradeTemplateCommandsAndRibbonPanel();
     startupRegistrationIncludesCrossSectionModule();
     managedRibbonExtensionRegistersSubgradeTemplateEntryPoints();

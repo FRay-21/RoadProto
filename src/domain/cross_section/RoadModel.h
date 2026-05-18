@@ -27,6 +27,7 @@ struct RoadModelConfig {
     std::wstring roadCenterlineHandle;
     std::wstring profileVerticalCurveHandle;
     double sampleInterval = 10.0;
+    // Assignments are ordered from high to low priority; resolve returns the first matching row.
     std::vector<RoadModelTemplateAssignment> assignments;
 };
 

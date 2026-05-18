@@ -588,6 +588,7 @@ void roadModelStationSamplerIncludesIntervalTemplateAndVerticalCurveStations()
     ProfileVerticalCurveData verticalCurve;
     verticalCurve.controlPoints = {
         {VerticalCurvePointRole::Start, 20.0, 100.0},
+        {VerticalCurvePointRole::Pvi, 50.0, 105.0},
         {VerticalCurvePointRole::End, 90.0, 101.0},
     };
     verticalCurve.pvis = {
@@ -612,13 +613,76 @@ void roadModelStationSamplerIncludesIntervalTemplateAndVerticalCurveStations()
         25.0);
 
     CHECK(std::find_if(stations.begin(), stations.end(), [](double station) { return std::fabs(station - 20.0) < 1e-9; }) != stations.end());
+    CHECK(std::find_if(stations.begin(), stations.end(), [](double station) { return std::fabs(station - 44.6666666667) < 1e-6; }) != stations.end());
     CHECK(std::find_if(stations.begin(), stations.end(), [](double station) { return std::fabs(station - 45.0) < 1e-9; }) != stations.end());
     CHECK(std::find_if(stations.begin(), stations.end(), [](double station) { return std::fabs(station - 50.0) < 1e-9; }) != stations.end());
+    CHECK(std::find_if(stations.begin(), stations.end(), [](double station) { return std::fabs(station - 51.3333333333) < 1e-6; }) != stations.end());
+    CHECK(std::find_if(stations.begin(), stations.end(), [](double station) { return std::fabs(station - 55.3333333333) < 1e-6; }) != stations.end());
     CHECK(std::find_if(stations.begin(), stations.end(), [](double station) { return std::fabs(station - 60.0) < 1e-9; }) != stations.end());
     CHECK(std::find_if(stations.begin(), stations.end(), [](double station) { return std::fabs(station - 70.0) < 1e-9; }) != stations.end());
     CHECK(std::find_if(stations.begin(), stations.end(), [](double station) { return std::fabs(station - 90.0) < 1e-9; }) != stations.end());
     CHECK(std::none_of(stations.begin(), stations.end(), [](double station) { return station < 20.0 || station > 90.0; }));
     CHECK(std::is_sorted(stations.begin(), stations.end()));
+}
+
+void roadModelStationSamplerOnlyKeepsTemplateCoveredStations()
+{
+    using namespace roadproto::domain::cross_section;
+    using namespace roadproto::domain::profile;
+
+    ProfileVerticalCurveData verticalCurve;
+    verticalCurve.controlPoints = {
+        {VerticalCurvePointRole::Start, 0.0, 100.0},
+        {VerticalCurvePointRole::End, 100.0, 101.0},
+    };
+
+    RoadModelTemplateAssignment first;
+    first.startStation = 20.0;
+    first.endStation = 40.0;
+    first.templateHandle = L"T1";
+
+    RoadModelTemplateAssignment second;
+    second.startStation = 60.0;
+    second.endStation = 80.0;
+    second.templateHandle = L"T2";
+
+    const auto stations = RoadModelStationSampler::collectStations(
+        0.0,
+        100.0,
+        verticalCurve,
+        {first, second},
+        10.0);
+
+    CHECK(std::find_if(stations.begin(), stations.end(), [](double station) { return std::fabs(station - 20.0) < 1e-9; }) != stations.end());
+    CHECK(std::find_if(stations.begin(), stations.end(), [](double station) { return std::fabs(station - 30.0) < 1e-9; }) != stations.end());
+    CHECK(std::find_if(stations.begin(), stations.end(), [](double station) { return std::fabs(station - 40.0) < 1e-9; }) != stations.end());
+    CHECK(std::find_if(stations.begin(), stations.end(), [](double station) { return std::fabs(station - 60.0) < 1e-9; }) != stations.end());
+    CHECK(std::find_if(stations.begin(), stations.end(), [](double station) { return std::fabs(station - 70.0) < 1e-9; }) != stations.end());
+    CHECK(std::find_if(stations.begin(), stations.end(), [](double station) { return std::fabs(station - 80.0) < 1e-9; }) != stations.end());
+    CHECK(std::none_of(stations.begin(), stations.end(), [](double station) {
+        return std::fabs(station - 0.0) < 1e-9 ||
+            std::fabs(station - 10.0) < 1e-9 ||
+            std::fabs(station - 50.0) < 1e-9 ||
+            std::fabs(station - 90.0) < 1e-9 ||
+            std::fabs(station - 100.0) < 1e-9;
+    }));
+
+    const auto emptyAssignments = RoadModelStationSampler::collectStations(
+        0.0,
+        100.0,
+        verticalCurve,
+        {},
+        10.0);
+    CHECK(emptyAssignments.empty());
+
+    ProfileVerticalCurveData emptyVerticalCurve;
+    const auto noVerticalRange = RoadModelStationSampler::collectStations(
+        0.0,
+        100.0,
+        emptyVerticalCurve,
+        {first},
+        10.0);
+    CHECK(noVerticalRange.empty());
 }
 
 void crossSectionModuleRegistersSubgradeTemplateCommandsAndRibbonPanel()
@@ -2439,6 +2503,7 @@ int main()
     roadModelTemplateResolverUsesHigherPriorityRows();
     roadModelTemplateResolverRejectsInvalidRows();
     roadModelStationSamplerIncludesIntervalTemplateAndVerticalCurveStations();
+    roadModelStationSamplerOnlyKeepsTemplateCoveredStations();
     crossSectionModuleRegistersSubgradeTemplateCommandsAndRibbonPanel();
     startupRegistrationIncludesCrossSectionModule();
     managedRibbonExtensionRegistersSubgradeTemplateEntryPoints();

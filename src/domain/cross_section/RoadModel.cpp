@@ -59,7 +59,7 @@ std::optional<StationRange> verticalCurveRangeFromControlPoints(
     return range;
 }
 
-StationRange verticalCurveRange(const profile::ProfileVerticalCurveData& verticalCurve, const StationRange& alignmentRange)
+std::optional<StationRange> verticalCurveRange(const profile::ProfileVerticalCurveData& verticalCurve)
 {
     const auto built = profile::ProfileVerticalCurveCalculator::rebuild(verticalCurve);
     if (built.succeeded && built.orderedControlPoints.size() >= 2) {
@@ -72,7 +72,7 @@ StationRange verticalCurveRange(const profile::ProfileVerticalCurveData& vertica
         return *fallbackRange;
     }
 
-    return alignmentRange;
+    return std::nullopt;
 }
 
 std::vector<double> sortedUniqueStations(std::vector<double> stations)
@@ -81,6 +81,33 @@ std::vector<double> sortedUniqueStations(std::vector<double> stations)
     std::vector<double> result;
     for (const double station : stations) {
         if (result.empty() || std::fabs(station - result.back()) > kStationTolerance) {
+            result.push_back(station);
+        }
+    }
+    return result;
+}
+
+bool assignmentCoversStation(const RoadModelTemplateAssignment& assignment, double station)
+{
+    if (!isFinite(assignment.startStation) || !isFinite(assignment.endStation) ||
+        assignment.endStation < assignment.startStation) {
+        return false;
+    }
+
+    return assignment.startStation - kStationTolerance <= station &&
+        station <= assignment.endStation + kStationTolerance;
+}
+
+std::vector<double> filterTemplateCoveredStations(
+    const std::vector<double>& stations,
+    const std::vector<RoadModelTemplateAssignment>& assignments)
+{
+    std::vector<double> result;
+    for (const double station : stations) {
+        const auto covered = std::any_of(assignments.begin(), assignments.end(), [station](const auto& assignment) {
+            return assignmentCoversStation(assignment, station);
+        });
+        if (covered) {
             result.push_back(station);
         }
     }
@@ -148,15 +175,19 @@ std::vector<double> RoadModelStationSampler::collectStations(
     double sampleInterval)
 {
     if (!isFinite(alignmentStart) || !isFinite(alignmentEnd) || alignmentEnd <= alignmentStart ||
-        !RoadModelRules::isSupportedSampleInterval(sampleInterval)) {
+        !RoadModelRules::isSupportedSampleInterval(sampleInterval) || assignments.empty()) {
         return {};
     }
 
     const StationRange alignmentRange{alignmentStart, alignmentEnd};
-    const auto verticalRange = verticalCurveRange(verticalCurve, alignmentRange);
+    const auto verticalRange = verticalCurveRange(verticalCurve);
+    if (!verticalRange.has_value()) {
+        return {};
+    }
+
     const StationRange effectiveRange{
-        std::max(alignmentRange.start, verticalRange.start),
-        std::min(alignmentRange.end, verticalRange.end)};
+        std::max(alignmentRange.start, verticalRange->start),
+        std::min(alignmentRange.end, verticalRange->end)};
     if (effectiveRange.end <= effectiveRange.start) {
         return {};
     }
@@ -215,7 +246,7 @@ std::vector<double> RoadModelStationSampler::collectStations(
         }
     }
 
-    return sortedUniqueStations(std::move(stations));
+    return filterTemplateCoveredStations(sortedUniqueStations(std::move(stations)), assignments);
 }
 
 RoadModelBuildResult RoadModelBuilder::build(const RoadModelBuildInput& input)

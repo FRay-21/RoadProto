@@ -1,4 +1,6 @@
 using RoadProto.Terrain.UI.Bridge;
+using System.Globalization;
+using System.Threading;
 
 static void Check(bool condition, string message)
 {
@@ -11,6 +13,39 @@ static void Check(bool condition, string message)
 static string NewTempFile()
 {
     return Path.Combine(Path.GetTempPath(), $"RoadProtoManagedBridgeTests_{Guid.NewGuid():N}.response");
+}
+
+static void ExpectThrows<TException>(Action action, string message)
+    where TException : Exception
+{
+    try
+    {
+        action();
+    }
+    catch (TException)
+    {
+        return;
+    }
+
+    throw new InvalidOperationException(message);
+}
+
+static void WithCulture(string cultureName, Action action)
+{
+    var originalCulture = Thread.CurrentThread.CurrentCulture;
+    var originalUICulture = Thread.CurrentThread.CurrentUICulture;
+    try
+    {
+        var culture = CultureInfo.GetCultureInfo(cultureName);
+        Thread.CurrentThread.CurrentCulture = culture;
+        Thread.CurrentThread.CurrentUICulture = culture;
+        action();
+    }
+    finally
+    {
+        Thread.CurrentThread.CurrentCulture = originalCulture;
+        Thread.CurrentThread.CurrentUICulture = originalUICulture;
+    }
 }
 
 static void ResponseWritesPickTerrainAction()
@@ -122,6 +157,149 @@ static void SubgradeRequestReadsPersistedEntityComponents()
     }
 }
 
+static void RoadModelRequestReadsAssignmentsUsingInvariantCultureAndEscaping()
+{
+    var path = NewTempFile();
+    try
+    {
+        File.WriteAllLines(path, new[]
+        {
+            "handle=AA11",
+            "responsePath=C:/temp/road-model.response",
+            "roadCenterlineHandle=CL%251",
+            "profileVerticalCurveHandle=VC%0A2",
+            "sampleInterval=12.5",
+            "assignmentCount=2",
+            "assignment.0.startStation=0.5",
+            "assignment.0.endStation=100.25",
+            "assignment.0.templateHandle=TPL%250",
+            "assignment.0.templateName=主线%25%0A模板",
+            "assignment.1.startStation=100.25",
+            "assignment.1.endStation=180.75",
+            "assignment.1.templateHandle=TPL-2",
+            "assignment.1.templateName=secondary",
+        });
+
+        WithCulture("fr-FR", () =>
+        {
+            var request = RoadModelDialogFile.ReadRequest(path);
+            Check(request.Handle == "AA11", "road model request should keep handle");
+            Check(request.ResponsePath == "C:/temp/road-model.response", "road model request should require response path");
+            Check(request.RoadCenterlineHandle == "CL%1", "road centerline handle should unescape percent");
+            Check(request.ProfileVerticalCurveHandle == "VC\n2", "vertical curve handle should unescape newline");
+            Check(Math.Abs(request.SampleInterval - 12.5) < 1.0e-9, "sample interval should parse with invariant culture");
+            Check(request.Assignments.Count == 2, "assignmentCount should control assignment rows");
+            Check(Math.Abs(request.Assignments[0].StartStation - 0.5) < 1.0e-9, "assignment start station should parse with invariant culture");
+            Check(Math.Abs(request.Assignments[0].EndStation - 100.25) < 1.0e-9, "assignment end station should parse with invariant culture");
+            Check(request.Assignments[0].TemplateHandle == "TPL%0", "template handle should unescape percent");
+            Check(request.Assignments[0].TemplateName == "主线%\n模板", "template name should unescape UTF-8, percent, and newline");
+        });
+    }
+    finally
+    {
+        if (File.Exists(path))
+        {
+            File.Delete(path);
+        }
+    }
+}
+
+static void RoadModelResponseWritesAssignmentsUsingInvariantCultureAndEscaping()
+{
+    var path = NewTempFile();
+    try
+    {
+        WithCulture("de-DE", () =>
+        {
+            var response = new RoadModelDialogResponse
+            {
+                Accepted = true,
+                Handle = "RM-1",
+                RoadCenterlineHandle = "CL\n1",
+                ProfileVerticalCurveHandle = "VC%2",
+                SampleInterval = 7.5,
+            };
+            response.Assignments.Add(new RoadModelTemplateAssignmentDto
+            {
+                StartStation = 0.25,
+                EndStation = 50.75,
+                TemplateHandle = "TPL%1",
+                TemplateName = "左幅\n模板",
+            });
+            response.Assignments.Add(new RoadModelTemplateAssignmentDto
+            {
+                StartStation = 50.75,
+                EndStation = 120.5,
+                TemplateHandle = "TPL-2",
+                TemplateName = "right",
+            });
+
+            RoadModelDialogFile.WriteResponse(path, response);
+        });
+
+        var content = File.ReadAllText(path);
+        Check(content.Contains("accepted=1"), "road model response should record accepted state");
+        Check(content.Contains("sampleInterval=7.5"), "road model response should write invariant decimal separator");
+        Check(!content.Contains("sampleInterval=7,5"), "road model response should not use current culture decimal separator");
+        Check(content.Contains("assignmentCount=2"), "road model response should write assignmentCount");
+        Check(content.Contains("assignment.0.startStation=0.25"), "road model response should write assignment start station");
+        Check(content.Contains("assignment.1.endStation=120.5"), "road model response should write assignment end station");
+        Check(content.Contains("roadCenterlineHandle=CL%0A1"), "road centerline handle should escape newline");
+        Check(content.Contains("profileVerticalCurveHandle=VC%252"), "vertical curve handle should escape percent");
+        Check(content.Contains("assignment.0.templateName=左幅%0A模板"), "template name should escape newline");
+    }
+    finally
+    {
+        if (File.Exists(path))
+        {
+            File.Delete(path);
+        }
+    }
+}
+
+static void RoadModelRequestRejectsMissingOrEmptyResponsePath()
+{
+    var missingPath = NewTempFile();
+    var emptyPath = NewTempFile();
+    try
+    {
+        File.WriteAllLines(missingPath, new[]
+        {
+            "handle=RM-1",
+            "sampleInterval=10",
+            "assignmentCount=0",
+        });
+        File.WriteAllLines(emptyPath, new[]
+        {
+            "handle=RM-1",
+            "responsePath=   ",
+            "sampleInterval=10",
+            "assignmentCount=0",
+        });
+
+        ExpectThrows<InvalidDataException>(
+            () => RoadModelDialogFile.ReadRequest(missingPath),
+            "road model request should reject missing responsePath");
+        ExpectThrows<InvalidDataException>(
+            () => RoadModelDialogFile.ReadRequest(emptyPath),
+            "road model request should reject empty responsePath");
+    }
+    finally
+    {
+        if (File.Exists(missingPath))
+        {
+            File.Delete(missingPath);
+        }
+        if (File.Exists(emptyPath))
+        {
+            File.Delete(emptyPath);
+        }
+    }
+}
+
 ResponseWritesPickTerrainAction();
 SubgradeRequestReadsPersistedEntityComponents();
+RoadModelRequestReadsAssignmentsUsingInvariantCultureAndEscaping();
+RoadModelResponseWritesAssignmentsUsingInvariantCultureAndEscaping();
+RoadModelRequestRejectsMissingOrEmptyResponsePath();
 Console.WriteLine("All RoadProto managed bridge tests passed.");

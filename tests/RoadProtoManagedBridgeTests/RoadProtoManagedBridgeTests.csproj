@@ -9,6 +9,8 @@
   <ItemGroup>
     <Compile Include="..\..\src\ui\wpf\RoadProto.Terrain.UI\Bridge\AlignmentDialogDtos.cs" Link="Bridge\AlignmentDialogDtos.cs" />
     <Compile Include="..\..\src\ui\wpf\RoadProto.Terrain.UI\Bridge\AlignmentDialogFile.cs" Link="Bridge\AlignmentDialogFile.cs" />
+    <Compile Include="..\..\src\ui\wpf\RoadProto.Terrain.UI\Bridge\RoadModelDialogDtos.cs" Link="Bridge\RoadModelDialogDtos.cs" />
+    <Compile Include="..\..\src\ui\wpf\RoadProto.Terrain.UI\Bridge\RoadModelDialogFile.cs" Link="Bridge\RoadModelDialogFile.cs" />
     <Compile Include="..\..\src\ui\wpf\RoadProto.Terrain.UI\Bridge\SubgradeTemplateDialogDtos.cs" Link="Bridge\SubgradeTemplateDialogDtos.cs" />
     <Compile Include="..\..\src\ui\wpf\RoadProto.Terrain.UI\Bridge\SubgradeTemplateDialogFile.cs" Link="Bridge\SubgradeTemplateDialogFile.cs" />
   </ItemGroup>

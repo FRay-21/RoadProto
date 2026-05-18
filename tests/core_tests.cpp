@@ -1353,6 +1353,65 @@ void roadModelWpfBridgeSourceContainsRequiredFields()
     CHECK(code.find("OnPickTemplate") != std::string::npos);
 }
 
+void roadModelNativeDialogBridgeSourceContainsRequiredFields()
+{
+    const auto root = findRepositoryRootForTests();
+    const auto bridgeHeaderPath = root
+        / "src"
+        / "cad_adapter"
+        / "objectarx"
+        / "cross_section"
+        / "RoadModelDialogBridge.h";
+    const auto bridgeSourcePath = root
+        / "src"
+        / "cad_adapter"
+        / "objectarx"
+        / "cross_section"
+        / "RoadModelDialogBridge.cpp";
+    const auto commandSourcePath = root
+        / "src"
+        / "cad_adapter"
+        / "objectarx"
+        / "cross_section"
+        / "ObjectArxRoadModelCommand.cpp";
+
+    CHECK(std::filesystem::exists(bridgeHeaderPath));
+    CHECK(std::filesystem::exists(bridgeSourcePath));
+    CHECK(std::filesystem::exists(commandSourcePath));
+
+    const auto header = readTextFileForTests(bridgeHeaderPath);
+    const auto bridge = readTextFileForTests(bridgeSourcePath);
+    const auto command = readTextFileForTests(commandSourcePath);
+
+    CHECK(header.find("RoadModelDialogRequest") != std::string::npos);
+    CHECK(header.find("RoadModelDialogResponse") != std::string::npos);
+    CHECK(header.find("roadCenterlineHandle") != std::string::npos);
+    CHECK(header.find("profileVerticalCurveHandle") != std::string::npos);
+    CHECK(header.find("sampleInterval") != std::string::npos);
+    CHECK(header.find("assignments") != std::string::npos);
+    CHECK(header.find("queueRoadModelWpfDialog") != std::string::npos);
+    CHECK(header.find("readRoadModelDialogResponse") != std::string::npos);
+
+    CHECK(bridge.find("RoadProtoRoadModelDialog_") != std::string::npos);
+    CHECK(bridge.find("RD_SECTION_ROAD_MODEL_SHOW_WPF_DIALOG") != std::string::npos);
+    CHECK(bridge.find("assignmentCount") != std::string::npos);
+    CHECK(bridge.find("assignment.\" + std::to_wstring(i)") != std::string::npos);
+    CHECK(bridge.find(".startStation") != std::string::npos);
+    CHECK(bridge.find(".endStation") != std::string::npos);
+    CHECK(bridge.find(".templateHandle") != std::string::npos);
+    CHECK(bridge.find(".templateName") != std::string::npos);
+    CHECK(bridge.find("kMaxDialogAssignments") != std::string::npos);
+    CHECK(bridge.find("std::isfinite") != std::string::npos);
+
+    CHECK(command.find("RoadModelDialogBridge.h") != std::string::npos);
+    CHECK(command.find("queueRoadModelWpfDialog") != std::string::npos);
+    CHECK(command.find("readRoadModelDialogResponse") != std::string::npos);
+    CHECK(command.find("runRoadModelCreateCommand") != std::string::npos);
+    CHECK(command.find("runRoadModelEditCommand") != std::string::npos);
+    CHECK(command.find("runRoadModelEditHandleCommand") != std::string::npos);
+    CHECK(command.find("runRoadModelApplyDialogFileCommand") != std::string::npos);
+}
+
 void subgradeTemplateWindowSourceKeepsControlsReadable()
 {
     const auto root = findRepositoryRootForTests();
@@ -3101,6 +3160,7 @@ int main()
     managedRibbonExtensionRegistersSubgradeTemplateEntryPoints();
     managedRibbonExtensionRegistersRoadModelEntryPoints();
     roadModelWpfBridgeSourceContainsRequiredFields();
+    roadModelNativeDialogBridgeSourceContainsRequiredFields();
     subgradeTemplateWindowSourceKeepsControlsReadable();
     subgradeTemplateBridgeWritesEnumCodesAsText();
     managedRibbonExtensionRegistersVerticalCurveContextMenu();

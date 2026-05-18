@@ -13,10 +13,16 @@ public static class RoadModelDialogFile
     public static RoadModelDialogRequest ReadRequest(string path)
     {
         var values = ReadValues(path);
+        var responsePath = Get(values, "responsePath");
+        if (string.IsNullOrWhiteSpace(responsePath))
+        {
+            throw new InvalidDataException("Road model dialog request must include responsePath.");
+        }
+
         var request = new RoadModelDialogRequest
         {
             Handle = Get(values, "handle"),
-            ResponsePath = Get(values, "responsePath"),
+            ResponsePath = responsePath,
             RoadCenterlineHandle = Get(values, "roadCenterlineHandle"),
             ProfileVerticalCurveHandle = Get(values, "profileVerticalCurveHandle"),
             SampleInterval = GetDouble(values, "sampleInterval", 10.0),

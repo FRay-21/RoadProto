@@ -580,6 +580,47 @@ void roadModelTemplateResolverRejectsInvalidRows()
     CHECK(!errorMessage.empty());
 }
 
+void roadModelStationSamplerIncludesIntervalTemplateAndVerticalCurveStations()
+{
+    using namespace roadproto::domain::cross_section;
+    using namespace roadproto::domain::profile;
+
+    ProfileVerticalCurveData verticalCurve;
+    verticalCurve.controlPoints = {
+        {VerticalCurvePointRole::Start, 20.0, 100.0},
+        {VerticalCurvePointRole::End, 90.0, 101.0},
+    };
+    verticalCurve.pvis = {
+        {50.0, 105.0, 40.0, false},
+    };
+
+    RoadModelTemplateAssignment first;
+    first.startStation = 0.0;
+    first.endStation = 60.0;
+    first.templateHandle = L"T1";
+
+    RoadModelTemplateAssignment second;
+    second.startStation = 70.0;
+    second.endStation = 120.0;
+    second.templateHandle = L"T2";
+
+    const auto stations = RoadModelStationSampler::collectStations(
+        0.0,
+        100.0,
+        verticalCurve,
+        {first, second},
+        25.0);
+
+    CHECK(std::find_if(stations.begin(), stations.end(), [](double station) { return std::fabs(station - 20.0) < 1e-9; }) != stations.end());
+    CHECK(std::find_if(stations.begin(), stations.end(), [](double station) { return std::fabs(station - 45.0) < 1e-9; }) != stations.end());
+    CHECK(std::find_if(stations.begin(), stations.end(), [](double station) { return std::fabs(station - 50.0) < 1e-9; }) != stations.end());
+    CHECK(std::find_if(stations.begin(), stations.end(), [](double station) { return std::fabs(station - 60.0) < 1e-9; }) != stations.end());
+    CHECK(std::find_if(stations.begin(), stations.end(), [](double station) { return std::fabs(station - 70.0) < 1e-9; }) != stations.end());
+    CHECK(std::find_if(stations.begin(), stations.end(), [](double station) { return std::fabs(station - 90.0) < 1e-9; }) != stations.end());
+    CHECK(std::none_of(stations.begin(), stations.end(), [](double station) { return station < 20.0 || station > 90.0; }));
+    CHECK(std::is_sorted(stations.begin(), stations.end()));
+}
+
 void crossSectionModuleRegistersSubgradeTemplateCommandsAndRibbonPanel()
 {
     roadproto::core::CommandRegistry commands;
@@ -2397,6 +2438,7 @@ int main()
     subgradeTemplateCreateServiceBuildsDefaultTemplate();
     roadModelTemplateResolverUsesHigherPriorityRows();
     roadModelTemplateResolverRejectsInvalidRows();
+    roadModelStationSamplerIncludesIntervalTemplateAndVerticalCurveStations();
     crossSectionModuleRegistersSubgradeTemplateCommandsAndRibbonPanel();
     startupRegistrationIncludesCrossSectionModule();
     managedRibbonExtensionRegistersSubgradeTemplateEntryPoints();

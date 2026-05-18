@@ -91,13 +91,16 @@ private:
 class RoadModelStationSampler {
 public:
     static std::vector<double> collectStations(
-        const RoadModelConfig& config,
-        const std::vector<alignment::AlignmentSamplePoint>& alignmentSamples);
+        double alignmentStart,
+        double alignmentEnd,
+        const profile::ProfileVerticalCurveData& verticalCurve,
+        const std::vector<RoadModelTemplateAssignment>& assignments,
+        double sampleInterval);
 };
 
 class RoadModelBuilder {
 public:
-    RoadModelBuildResult build(const RoadModelBuildInput& input) const;
+    static RoadModelBuildResult build(const RoadModelBuildInput& input);
 };
 
 } // namespace roadproto::domain::cross_section

@@ -1412,6 +1412,73 @@ void roadModelNativeDialogBridgeSourceContainsRequiredFields()
     CHECK(command.find("runRoadModelApplyDialogFileCommand") != std::string::npos);
 }
 
+void roadModelEntitySourceContainsRequiredObjectArxContracts()
+{
+    const auto root = findRepositoryRootForTests();
+    const auto headerPath = root
+        / "src"
+        / "cad_adapter"
+        / "objectarx"
+        / "cross_section"
+        / "DnRoadModelEntity.h";
+    const auto sourcePath = root
+        / "src"
+        / "cad_adapter"
+        / "objectarx"
+        / "cross_section"
+        / "DnRoadModelEntity.cpp";
+    const auto entryPath = root
+        / "src"
+        / "app"
+        / "arx_entry"
+        / "RoadProtoArxEntry.cpp";
+    const auto projectPath = root / "src" / "app" / "RoadProtoArx.vcxproj";
+
+    CHECK(std::filesystem::exists(headerPath));
+    CHECK(std::filesystem::exists(sourcePath));
+    CHECK(std::filesystem::exists(entryPath));
+    CHECK(std::filesystem::exists(projectPath));
+
+    const auto header = readTextFileForTests(headerPath);
+    const auto source = readTextFileForTests(sourcePath);
+    const auto entry = readTextFileForTests(entryPath);
+    const auto project = readTextFileForTests(projectPath);
+
+    CHECK(header.find("class DnRoadModelEntity : public AcDbEntity") != std::string::npos);
+    CHECK(header.find("ACRX_DECLARE_MEMBERS(DnRoadModelEntity)") != std::string::npos);
+    CHECK(header.find("RoadModelData data_") != std::string::npos);
+    CHECK(header.find("setRoadModelData") != std::string::npos);
+    CHECK(header.find("roadModelData") != std::string::npos);
+    CHECK(header.find("dwgInFields") != std::string::npos);
+    CHECK(header.find("dwgOutFields") != std::string::npos);
+    CHECK(header.find("subWorldDraw") != std::string::npos);
+    CHECK(header.find("subGetGeomExtents") != std::string::npos);
+    CHECK(header.find("subTransformBy") != std::string::npos);
+    CHECK(header.find("initializeRoadModelEntityClass") != std::string::npos);
+    CHECK(header.find("uninitializeRoadModelEntityClass") != std::string::npos);
+
+    CHECK(source.find("ACRX_DXF_DEFINE_MEMBERS") != std::string::npos);
+    CHECK(source.find("DNROADMODELENTITY") != std::string::npos);
+    CHECK(source.find("RoadModelData") != std::string::npos);
+    CHECK(source.find("componentLines") != std::string::npos);
+    CHECK(source.find("subWorldDraw") != std::string::npos);
+    CHECK(source.find("subGetGeomExtents") != std::string::npos);
+    CHECK(source.find("subTransformBy") != std::string::npos);
+    CHECK(source.find("initializeRoadModelEntityClass") != std::string::npos);
+    CHECK(source.find("uninitializeRoadModelEntityClass") != std::string::npos);
+    CHECK(source.find("readWideString") != std::string::npos);
+    CHECK(source.find("acutDelString") != std::string::npos);
+    CHECK(source.find("eInvalidInput") != std::string::npos);
+    CHECK(source.find("eMakeMeProxy") != std::string::npos);
+    CHECK(source.find("recordGraphicsModified") != std::string::npos);
+    CHECK(source.find("setTrueColor") != std::string::npos);
+
+    CHECK(entry.find("DnRoadModelEntity.h") != std::string::npos);
+    CHECK(entry.find("initializeRoadModelEntityClass") != std::string::npos);
+    CHECK(entry.find("uninitializeRoadModelEntityClass") != std::string::npos);
+    CHECK(project.find("DnRoadModelEntity.cpp") != std::string::npos);
+}
+
 void subgradeTemplateWindowSourceKeepsControlsReadable()
 {
     const auto root = findRepositoryRootForTests();
@@ -3161,6 +3228,7 @@ int main()
     managedRibbonExtensionRegistersRoadModelEntryPoints();
     roadModelWpfBridgeSourceContainsRequiredFields();
     roadModelNativeDialogBridgeSourceContainsRequiredFields();
+    roadModelEntitySourceContainsRequiredObjectArxContracts();
     subgradeTemplateWindowSourceKeepsControlsReadable();
     subgradeTemplateBridgeWritesEnumCodesAsText();
     managedRibbonExtensionRegistersVerticalCurveContextMenu();

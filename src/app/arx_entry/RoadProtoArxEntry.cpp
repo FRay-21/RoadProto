@@ -4,6 +4,7 @@
 #include "cad_adapter/objectarx/ObjectArxCommandRegistrar.h"
 #include "cad_adapter/objectarx/ObjectArxEditor.h"
 #include "cad_adapter/objectarx/ObjectArxRibbonAdapter.h"
+#include "cad_adapter/objectarx/cross_section/DnRoadModelEntity.h"
 #include "cad_adapter/objectarx/cross_section/DnSubgradeTemplateEntity.h"
 #include "cad_adapter/objectarx/profile/DnProfileGradeGraphEntity.h"
 #include "cad_adapter/objectarx/profile/DnProfileVerticalCurveEntity.h"
@@ -30,6 +31,7 @@ extern "C" __declspec(dllexport) AcRx::AppRetCode acrxEntryPoint(AcRx::AppMsgCod
         cad_adapter::objectarx::initializeProfileGradeGraphEntityClass();
         cad_adapter::objectarx::initializeProfileVerticalCurveEntityClass();
         cad_adapter::objectarx::initializeSubgradeTemplateEntityClass();
+        cad_adapter::objectarx::initializeRoadModelEntityClass();
 
         if (!app::initialize(g_editor)) {
             return AcRx::kRetError;
@@ -52,9 +54,10 @@ extern "C" __declspec(dllexport) AcRx::AppRetCode acrxEntryPoint(AcRx::AppMsgCod
         auto& context = app::ApplicationContext::instance();
         cad_adapter::objectarx::unregisterCommands(context.config().commandGroupName);
         app::shutdown();
+        cad_adapter::objectarx::uninitializeRoadModelEntityClass();
+        cad_adapter::objectarx::uninitializeSubgradeTemplateEntityClass();
         cad_adapter::objectarx::uninitializeProfileVerticalCurveEntityClass();
         cad_adapter::objectarx::uninitializeProfileGradeGraphEntityClass();
-        cad_adapter::objectarx::uninitializeSubgradeTemplateEntityClass();
         cad_adapter::objectarx::uninitializeRoadCenterlineEntityClass();
         cad_adapter::objectarx::uninitializeTerrainTinEntityClass();
         return AcRx::kRetOK;

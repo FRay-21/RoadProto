@@ -719,6 +719,114 @@ void roadModelStationSamplerSnapsTemplateBoundaryTolerance()
     }));
 }
 
+void roadModelBuilderCreatesThreeDimensionalComponentLines()
+{
+    using namespace roadproto::domain::alignment;
+    using namespace roadproto::domain::cross_section;
+    using namespace roadproto::domain::profile;
+
+    SubgradeTemplateComponent lane;
+    lane.side = SubgradeSide::Right;
+    lane.type = SubgradeComponentType::TravelLane;
+    lane.width = 3.5;
+    lane.fixedSlope = -0.02;
+    lane.color = {1, 2, 3};
+
+    SubgradeTemplateData templateData;
+    templateData.components.push_back(lane);
+
+    RoadModelBuildInput input;
+    input.config.sampleInterval = 10.0;
+    input.config.assignments.push_back({0.0, 20.0, L"T1", L"Template 1"});
+    input.verticalCurve.controlPoints = {
+        {VerticalCurvePointRole::Start, 0.0, 100.0},
+        {VerticalCurvePointRole::End, 20.0, 102.0},
+    };
+    input.alignmentSamples = {
+        {{0.0, 0.0}, 0.0},
+        {{20.0, 0.0}, 20.0},
+    };
+    input.templates = {
+        {L"T1", templateData},
+    };
+
+    const auto result = RoadModelBuilder::build(input);
+
+    CHECK(result.succeeded);
+    CHECK(result.sampledStations.size() == 3);
+    CHECK(result.data.componentLines.size() >= 2);
+    if (!result.data.componentLines.empty()) {
+        const auto& firstLine = result.data.componentLines.front();
+        CHECK(firstLine.points.size() == 3);
+        if (firstLine.points.size() == 3) {
+            CHECK(std::fabs(firstLine.points.front().z - 100.0) < 1e-9);
+            CHECK(std::fabs(firstLine.points.back().z - 102.0) < 1e-9);
+        }
+        CHECK(firstLine.key.templateHandle == L"T1");
+        CHECK(firstLine.color.r == 1);
+    }
+}
+
+void roadModelBuilderDoesNotConnectAcrossTemplateSwitches()
+{
+    using namespace roadproto::domain::alignment;
+    using namespace roadproto::domain::cross_section;
+    using namespace roadproto::domain::profile;
+
+    SubgradeTemplateComponent t1Lane;
+    t1Lane.side = SubgradeSide::Right;
+    t1Lane.type = SubgradeComponentType::TravelLane;
+    t1Lane.width = 3.5;
+    t1Lane.color = {10, 0, 0};
+
+    SubgradeTemplateComponent t2Lane = t1Lane;
+    t2Lane.color = {20, 0, 0};
+
+    SubgradeTemplateData t1;
+    t1.components.push_back(t1Lane);
+    SubgradeTemplateData t2;
+    t2.components.push_back(t2Lane);
+
+    RoadModelBuildInput input;
+    input.config.sampleInterval = 10.0;
+    input.config.assignments = {
+        {0.0, 10.0, L"T1", L"Template 1"},
+        {10.0, 20.0, L"T2", L"Template 2"},
+    };
+    input.verticalCurve.controlPoints = {
+        {VerticalCurvePointRole::Start, 0.0, 100.0},
+        {VerticalCurvePointRole::End, 20.0, 100.0},
+    };
+    input.alignmentSamples = {
+        {{0.0, 0.0}, 0.0},
+        {{20.0, 0.0}, 20.0},
+    };
+    input.templates = {
+        {L"T1", t1},
+        {L"T2", t2},
+    };
+
+    const auto result = RoadModelBuilder::build(input);
+
+    CHECK(result.succeeded);
+    CHECK(result.data.componentLines.size() >= 4);
+
+    const auto hasT1TwoPointLine = std::any_of(
+        result.data.componentLines.begin(),
+        result.data.componentLines.end(),
+        [](const RoadModelComponentLine& line) {
+            return line.key.templateHandle == L"T1" && line.points.size() == 2;
+        });
+    const auto hasT2TwoPointLine = std::any_of(
+        result.data.componentLines.begin(),
+        result.data.componentLines.end(),
+        [](const RoadModelComponentLine& line) {
+            return line.key.templateHandle == L"T2" && line.points.size() == 2;
+        });
+    CHECK(hasT1TwoPointLine);
+    CHECK(hasT2TwoPointLine);
+}
+
 void crossSectionModuleRegistersSubgradeTemplateCommandsAndRibbonPanel()
 {
     roadproto::core::CommandRegistry commands;
@@ -2539,6 +2647,8 @@ int main()
     roadModelStationSamplerIncludesIntervalTemplateAndVerticalCurveStations();
     roadModelStationSamplerOnlyKeepsTemplateCoveredStations();
     roadModelStationSamplerSnapsTemplateBoundaryTolerance();
+    roadModelBuilderCreatesThreeDimensionalComponentLines();
+    roadModelBuilderDoesNotConnectAcrossTemplateSwitches();
     crossSectionModuleRegistersSubgradeTemplateCommandsAndRibbonPanel();
     startupRegistrationIncludesCrossSectionModule();
     managedRibbonExtensionRegistersSubgradeTemplateEntryPoints();

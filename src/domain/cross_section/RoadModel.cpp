@@ -36,6 +36,12 @@ struct ActiveBoundaryPoint {
     RoadModelLineKey key;
     SubgradeTemplateRgbColor color;
     RoadModelPoint3d point;
+    double station = 0.0;
+};
+
+struct RoadModelLineAccumulator {
+    RoadModelComponentLine line;
+    double lastStation = 0.0;
 };
 
 void addStationInRange(std::vector<double>& stations, double station, const StationRange& range)
@@ -270,6 +276,33 @@ const RoadModelTemplateSource* findTemplate(
     return found == templates.end() ? nullptr : &*found;
 }
 
+const RoadModelTemplateSource* findOrNormalizeTemplate(
+    const std::vector<RoadModelTemplateSource>& templates,
+    std::vector<RoadModelTemplateSource>& normalizedTemplates,
+    const std::wstring& templateHandle,
+    std::wstring& errorMessage)
+{
+    if (const auto* cached = findTemplate(normalizedTemplates, templateHandle)) {
+        return cached;
+    }
+
+    const auto* source = findTemplate(templates, templateHandle);
+    if (source == nullptr) {
+        errorMessage = L"Road model template source was not found: " + templateHandle;
+        return nullptr;
+    }
+
+    RoadModelTemplateSource normalized = *source;
+    std::wstring normalizeError;
+    if (!SubgradeTemplateRules::normalize(normalized.data, normalizeError)) {
+        errorMessage = L"Road model template source is invalid (" + templateHandle + L"): " + normalizeError;
+        return nullptr;
+    }
+
+    normalizedTemplates.push_back(std::move(normalized));
+    return &normalizedTemplates.back();
+}
+
 std::vector<const SubgradeTemplateComponent*> componentsForSide(
     const SubgradeTemplateData& data,
     SubgradeSide side)
@@ -325,7 +358,8 @@ void appendTemplateBoundaryPoints(
                         index,
                         0},
                     component.color,
-                    pointAtOffset(frame, centerElevation, side, offset, innerElevationOffset)});
+                    pointAtOffset(frame, centerElevation, side, offset, innerElevationOffset),
+                    frame.station});
             points.push_back(
                 ActiveBoundaryPoint{
                     RoadModelLineKey{
@@ -335,7 +369,8 @@ void appendTemplateBoundaryPoints(
                         index,
                         1},
                     component.color,
-                    pointAtOffset(frame, centerElevation, side, offset + width, outerElevationOffset)});
+                    pointAtOffset(frame, centerElevation, side, offset + width, outerElevationOffset),
+                    frame.station});
 
             offset += width;
             elevationOffset = outerElevationOffset;
@@ -344,25 +379,28 @@ void appendTemplateBoundaryPoints(
 }
 
 void appendBoundaryPoint(
-    std::vector<RoadModelComponentLine>& lines,
+    std::vector<RoadModelLineAccumulator>& accumulators,
     const ActiveBoundaryPoint& previous,
     const ActiveBoundaryPoint& current)
 {
-    for (auto& line : lines) {
-        if (sameLineKey(line.key, current.key) &&
-            !line.points.empty() &&
-            samePoint(line.points.back(), previous.point)) {
-            line.points.push_back(current.point);
+    for (auto& accumulator : accumulators) {
+        if (sameLineKey(accumulator.line.key, current.key) &&
+            !accumulator.line.points.empty() &&
+            std::fabs(accumulator.lastStation - previous.station) <= kStationTolerance &&
+            samePoint(accumulator.line.points.back(), previous.point)) {
+            accumulator.line.points.push_back(current.point);
+            accumulator.lastStation = current.station;
             return;
         }
     }
 
-    RoadModelComponentLine line;
-    line.key = current.key;
-    line.color = current.color;
-    line.points.push_back(previous.point);
-    line.points.push_back(current.point);
-    lines.push_back(std::move(line));
+    RoadModelLineAccumulator accumulator;
+    accumulator.line.key = current.key;
+    accumulator.line.color = current.color;
+    accumulator.line.points.push_back(previous.point);
+    accumulator.line.points.push_back(current.point);
+    accumulator.lastStation = current.station;
+    accumulators.push_back(std::move(accumulator));
 }
 
 } // namespace
@@ -552,6 +590,8 @@ RoadModelBuildResult RoadModelBuilder::build(const RoadModelBuildInput& input)
     result.sampledStations = sampledStations;
 
     RoadModelTemplateResolver resolver(input.config.assignments);
+    std::vector<RoadModelTemplateSource> normalizedTemplates;
+    std::vector<RoadModelLineAccumulator> lineAccumulators;
 
     for (std::size_t i = 1; i < sampledStations.size(); ++i) {
         const double startStation = sampledStations[i - 1];
@@ -568,10 +608,14 @@ RoadModelBuildResult RoadModelBuilder::build(const RoadModelBuildInput& input)
             continue;
         }
 
-        const auto* templateSource = findTemplate(input.templates, assignment->templateHandle);
+        std::wstring templateError;
+        const auto* templateSource = findOrNormalizeTemplate(
+            input.templates,
+            normalizedTemplates,
+            assignment->templateHandle,
+            templateError);
         if (templateSource == nullptr) {
-            result.errorMessage = L"Road model template source was not found.";
-            result.data.componentLines.clear();
+            result.errorMessage = templateError;
             result.sampledStations.clear();
             return result;
         }
@@ -615,9 +659,14 @@ RoadModelBuildResult RoadModelBuilder::build(const RoadModelBuildInput& input)
                     return sameLineKey(point.key, startPoint.key);
                 });
             if (endPoint != endPoints.end()) {
-                appendBoundaryPoint(result.data.componentLines, startPoint, *endPoint);
+                appendBoundaryPoint(lineAccumulators, startPoint, *endPoint);
             }
         }
+    }
+
+    result.data.componentLines.reserve(lineAccumulators.size());
+    for (auto& accumulator : lineAccumulators) {
+        result.data.componentLines.push_back(std::move(accumulator.line));
     }
 
     if (result.data.componentLines.empty()) {

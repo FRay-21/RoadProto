@@ -879,6 +879,52 @@ void roadModelBuilderDoesNotConnectAcrossTemplateGaps()
     CHECK(!hasGapSpanningPair);
 }
 
+void roadModelBuilderDoesNotMergeGapWhenBoundaryPointsCoincide()
+{
+    using namespace roadproto::domain::alignment;
+    using namespace roadproto::domain::cross_section;
+    using namespace roadproto::domain::profile;
+
+    SubgradeTemplateComponent lane;
+    lane.side = SubgradeSide::Right;
+    lane.type = SubgradeComponentType::TravelLane;
+    lane.width = 3.5;
+    lane.color = {1, 0, 0};
+
+    SubgradeTemplateData templateData;
+    templateData.components.push_back(lane);
+
+    RoadModelBuildInput input;
+    input.config.sampleInterval = 10.0;
+    input.config.assignments = {
+        {0.0, 10.0, L"T1", L"Template 1"},
+        {20.0, 30.0, L"T1", L"Template 1"},
+    };
+    input.verticalCurve.controlPoints = {
+        {VerticalCurvePointRole::Start, 0.0, 100.0},
+        {VerticalCurvePointRole::End, 30.0, 100.0},
+    };
+    input.alignmentSamples = {
+        {{0.0, 0.0}, 0.0},
+        {{10.0, 0.0}, 10.0},
+        {{15.0, 0.0}, 15.0},
+        {{10.0, 0.0}, 20.0},
+        {{0.0, 0.0}, 30.0},
+    };
+    input.templates = {
+        {L"T1", templateData},
+    };
+
+    const auto result = RoadModelBuilder::build(input);
+
+    CHECK(result.succeeded);
+    for (const auto& line : result.data.componentLines) {
+        if (line.key.templateHandle == L"T1") {
+            CHECK(line.points.size() == 2);
+        }
+    }
+}
+
 void roadModelBuilderSplitsLowerPriorityTemplateAroundOverride()
 {
     using namespace roadproto::domain::alignment;
@@ -1018,6 +1064,44 @@ void roadModelBuilderRejectsInvalidAlignmentSamples()
     const auto unorderedStations = RoadModelBuilder::build(input);
     CHECK(!unorderedStations.succeeded);
     CHECK(!unorderedStations.errorMessage.empty());
+}
+
+void roadModelBuilderRejectsInvalidTemplateSource()
+{
+    using namespace roadproto::domain::alignment;
+    using namespace roadproto::domain::cross_section;
+    using namespace roadproto::domain::profile;
+
+    SubgradeTemplateComponent lane;
+    lane.side = SubgradeSide::Right;
+    lane.type = SubgradeComponentType::TravelLane;
+    lane.width = 3.5;
+    lane.height = std::numeric_limits<double>::quiet_NaN();
+
+    SubgradeTemplateData templateData;
+    templateData.components.push_back(lane);
+
+    RoadModelBuildInput input;
+    input.config.sampleInterval = 10.0;
+    input.config.assignments = {
+        {0.0, 20.0, L"T1", L"Template 1"},
+    };
+    input.verticalCurve.controlPoints = {
+        {VerticalCurvePointRole::Start, 0.0, 100.0},
+        {VerticalCurvePointRole::End, 20.0, 100.0},
+    };
+    input.alignmentSamples = {
+        {{0.0, 0.0}, 0.0},
+        {{20.0, 0.0}, 20.0},
+    };
+    input.templates = {
+        {L"T1", templateData},
+    };
+
+    const auto result = RoadModelBuilder::build(input);
+
+    CHECK(!result.succeeded);
+    CHECK(!result.errorMessage.empty());
 }
 
 void crossSectionModuleRegistersSubgradeTemplateCommandsAndRibbonPanel()
@@ -2843,8 +2927,10 @@ int main()
     roadModelBuilderCreatesThreeDimensionalComponentLines();
     roadModelBuilderDoesNotConnectAcrossTemplateSwitches();
     roadModelBuilderDoesNotConnectAcrossTemplateGaps();
+    roadModelBuilderDoesNotMergeGapWhenBoundaryPointsCoincide();
     roadModelBuilderSplitsLowerPriorityTemplateAroundOverride();
     roadModelBuilderRejectsInvalidAlignmentSamples();
+    roadModelBuilderRejectsInvalidTemplateSource();
     crossSectionModuleRegistersSubgradeTemplateCommandsAndRibbonPanel();
     startupRegistrationIncludesCrossSectionModule();
     managedRibbonExtensionRegistersSubgradeTemplateEntryPoints();

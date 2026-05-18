@@ -1472,10 +1472,28 @@ void roadModelEntitySourceContainsRequiredObjectArxContracts()
     CHECK(source.find("eMakeMeProxy") != std::string::npos);
     CHECK(source.find("recordGraphicsModified") != std::string::npos);
     CHECK(source.find("setTrueColor") != std::string::npos);
+    CHECK(source.find("isFiniteRoadModelPoint") != std::string::npos);
+    CHECK(source.find("validateRoadModelDataForPersistence") != std::string::npos);
+    CHECK(source.find("isValidSubgradeSideValue") != std::string::npos);
+    CHECK(source.find("isValidSubgradeComponentTypeValue") != std::string::npos);
+    CHECK(source.find("std::isfinite(data.config.sampleInterval)") != std::string::npos);
+    CHECK(source.find("std::isfinite(row.startStation)") != std::string::npos);
+    CHECK(source.find("std::isfinite(row.endStation)") != std::string::npos);
+    CHECK(source.find("version < 0") != std::string::npos);
+    CHECK(source.find("!isValidSubgradeSideValue(side)") != std::string::npos);
+    CHECK(source.find("!isValidSubgradeComponentTypeValue(type)") != std::string::npos);
+    CHECK(source.find("if (!isFiniteRoadModelPoint(line.points[i - 1])") != std::string::npos);
+    CHECK(source.find("if (!isFiniteRoadModelPoint(point))") != std::string::npos);
+    CHECK(source.find("if (!isFiniteRoadModelPoint(point))") != source.rfind("if (!isFiniteRoadModelPoint(point))"));
+    CHECK(source.find("transformedPointIsFinite") != std::string::npos);
 
     CHECK(entry.find("DnRoadModelEntity.h") != std::string::npos);
     CHECK(entry.find("initializeRoadModelEntityClass") != std::string::npos);
     CHECK(entry.find("uninitializeRoadModelEntityClass") != std::string::npos);
+    CHECK(entry.find("uninitializeCustomEntityClasses") != std::string::npos);
+    CHECK(entry.find("if (!app::initialize(g_editor))") != std::string::npos);
+    CHECK(entry.find("uninitializeCustomEntityClasses();\n            return AcRx::kRetError;") != std::string::npos);
+    CHECK(entry.find("if (!commandsRegistered)") != std::string::npos);
     CHECK(project.find("DnRoadModelEntity.cpp") != std::string::npos);
 }
 

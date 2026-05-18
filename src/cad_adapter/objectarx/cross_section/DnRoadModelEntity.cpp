@@ -6,6 +6,7 @@
 #include "rxregsvc.h"
 
 #include <algorithm>
+#include <cmath>
 #include <limits>
 #include <utility>
 
@@ -60,6 +61,16 @@ bool canWriteInt32(std::size_t value)
     return value <= static_cast<std::size_t>(std::numeric_limits<Adesk::Int32>::max());
 }
 
+bool isFiniteRoadModelPoint(const RoadModelPoint3d& point)
+{
+    return std::isfinite(point.x) && std::isfinite(point.y) && std::isfinite(point.z);
+}
+
+bool transformedPointIsFinite(const AcGePoint3d& point)
+{
+    return std::isfinite(point.x) && std::isfinite(point.y) && std::isfinite(point.z);
+}
+
 void readPoint(AcDbDwgFiler* filer, RoadModelPoint3d& point)
 {
     filer->readDouble(&point.x);
@@ -89,11 +100,44 @@ AcCmEntityColor roadModelLineColor(const roadproto::domain::cross_section::Subgr
         static_cast<Adesk::UInt8>(std::clamp(color.b, 0, 255)));
 }
 
-bool validatePersistedSizes(const RoadModelData& data)
+bool isValidSubgradeSideValue(Adesk::Int32 value)
+{
+    return value == static_cast<Adesk::Int32>(SubgradeSide::Left)
+        || value == static_cast<Adesk::Int32>(SubgradeSide::Right);
+}
+
+bool isValidSubgradeComponentTypeValue(Adesk::Int32 value)
+{
+    return value == static_cast<Adesk::Int32>(SubgradeComponentType::Median)
+        || value == static_cast<Adesk::Int32>(SubgradeComponentType::TravelLane)
+        || value == static_cast<Adesk::Int32>(SubgradeComponentType::HardShoulder)
+        || value == static_cast<Adesk::Int32>(SubgradeComponentType::EarthShoulder)
+        || value == static_cast<Adesk::Int32>(SubgradeComponentType::SideMedian)
+        || value == static_cast<Adesk::Int32>(SubgradeComponentType::Sidewalk)
+        || value == static_cast<Adesk::Int32>(SubgradeComponentType::BikeLane)
+        || value == static_cast<Adesk::Int32>(SubgradeComponentType::CurbStrip);
+}
+
+bool isValidLineKey(const RoadModelLineKey& key)
+{
+    return canWriteInt32(key.componentIndex)
+        && canWriteInt32(key.boundaryIndex)
+        && isValidSubgradeSideValue(static_cast<Adesk::Int32>(key.side))
+        && isValidSubgradeComponentTypeValue(static_cast<Adesk::Int32>(key.componentType));
+}
+
+bool validateRoadModelDataForPersistence(const RoadModelData& data)
 {
     if (data.config.assignments.size() > static_cast<std::size_t>(kMaxAssignments)
-        || data.componentLines.size() > static_cast<std::size_t>(kMaxComponentLines)) {
+        || data.componentLines.size() > static_cast<std::size_t>(kMaxComponentLines)
+        || !std::isfinite(data.config.sampleInterval)) {
         return false;
+    }
+
+    for (const auto& row : data.config.assignments) {
+        if (!std::isfinite(row.startStation) || !std::isfinite(row.endStation)) {
+            return false;
+        }
     }
 
     std::size_t totalPoints = 0;
@@ -103,9 +147,13 @@ bool validatePersistedSizes(const RoadModelData& data)
         }
         totalPoints += line.points.size();
         if (totalPoints > static_cast<std::size_t>(kMaxTotalPoints)
-            || !canWriteInt32(line.key.componentIndex)
-            || !canWriteInt32(line.key.boundaryIndex)) {
+            || !isValidLineKey(line.key)) {
             return false;
+        }
+        for (const auto& point : line.points) {
+            if (!isFiniteRoadModelPoint(point)) {
+                return false;
+            }
         }
     }
 
@@ -143,7 +191,9 @@ Acad::ErrorStatus readComponentLine(
     filer->readInt32(&type);
     filer->readInt32(&componentIndex);
     filer->readInt32(&boundaryIndex);
-    if (componentIndex < 0 || boundaryIndex < 0) {
+    if (componentIndex < 0 || boundaryIndex < 0
+        || !isValidSubgradeSideValue(side)
+        || !isValidSubgradeComponentTypeValue(type)) {
         return Acad::eInvalidInput;
     }
 
@@ -172,6 +222,9 @@ Acad::ErrorStatus readComponentLine(
     for (Adesk::Int32 i = 0; i < pointCount; ++i) {
         RoadModelPoint3d point;
         readPoint(filer, point);
+        if (!isFiniteRoadModelPoint(point)) {
+            return Acad::eInvalidInput;
+        }
         line.points.push_back(point);
     }
 
@@ -225,6 +278,9 @@ Acad::ErrorStatus DnRoadModelEntity::dwgInFields(AcDbDwgFiler* filer)
 
     Adesk::Int16 version = 0;
     filer->readInt16(&version);
+    if (version < 0) {
+        return Acad::eInvalidInput;
+    }
     if (version > kEntityVersion) {
         return Acad::eMakeMeProxy;
     }
@@ -243,6 +299,9 @@ Acad::ErrorStatus DnRoadModelEntity::dwgInFields(AcDbDwgFiler* filer)
     for (Adesk::Int32 i = 0; i < assignmentCount; ++i) {
         RoadModelTemplateAssignment row;
         readAssignment(filer, row);
+        if (!std::isfinite(row.startStation) || !std::isfinite(row.endStation)) {
+            return Acad::eInvalidInput;
+        }
         readData.config.assignments.push_back(std::move(row));
     }
 
@@ -261,6 +320,10 @@ Acad::ErrorStatus DnRoadModelEntity::dwgInFields(AcDbDwgFiler* filer)
         readData.componentLines.push_back(std::move(line));
     }
 
+    if (!validateRoadModelDataForPersistence(readData)) {
+        return Acad::eInvalidInput;
+    }
+
     data_ = std::move(readData);
     return filer->filerStatus();
 }
@@ -272,7 +335,7 @@ Acad::ErrorStatus DnRoadModelEntity::dwgOutFields(AcDbDwgFiler* filer) const
     if (status != Acad::eOk) {
         return status;
     }
-    if (!validatePersistedSizes(data_)) {
+    if (!validateRoadModelDataForPersistence(data_)) {
         return Acad::eInvalidInput;
     }
 
@@ -309,6 +372,9 @@ Adesk::Boolean DnRoadModelEntity::subWorldDraw(AcGiWorldDraw* worldDraw)
 
         worldDraw->subEntityTraits().setTrueColor(roadModelLineColor(line.color));
         for (std::size_t i = 1; i < line.points.size(); ++i) {
+            if (!isFiniteRoadModelPoint(line.points[i - 1]) || !isFiniteRoadModelPoint(line.points[i])) {
+                continue;
+            }
             AcGePoint3d segment[2] = {
                 AcGePoint3d(line.points[i - 1].x, line.points[i - 1].y, line.points[i - 1].z),
                 AcGePoint3d(line.points[i].x, line.points[i].y, line.points[i].z)};
@@ -326,6 +392,9 @@ Acad::ErrorStatus DnRoadModelEntity::subGetGeomExtents(AcDbExtents& extents) con
     bool hasPoint = false;
     for (const auto& line : data_.componentLines) {
         for (const auto& point : line.points) {
+            if (!isFiniteRoadModelPoint(point)) {
+                continue;
+            }
             const AcGePoint3d cadPoint(point.x, point.y, point.z);
             extents.addPoint(cadPoint);
             hasPoint = true;
@@ -339,16 +408,24 @@ Acad::ErrorStatus DnRoadModelEntity::subTransformBy(const AcGeMatrix3d& transfor
 {
     assertWriteEnabled();
 
-    for (auto& line : data_.componentLines) {
+    auto transformedData = data_;
+    for (auto& line : transformedData.componentLines) {
         for (auto& point : line.points) {
+            if (!isFiniteRoadModelPoint(point)) {
+                continue;
+            }
             AcGePoint3d cadPoint(point.x, point.y, point.z);
             cadPoint.transformBy(transform);
+            if (!transformedPointIsFinite(cadPoint)) {
+                return Acad::eInvalidInput;
+            }
             point.x = cadPoint.x;
             point.y = cadPoint.y;
             point.z = cadPoint.z;
         }
     }
 
+    data_ = std::move(transformedData);
     markGraphicsModifiedIfResident(*this);
     return Acad::eOk;
 }

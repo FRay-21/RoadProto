@@ -16,6 +16,30 @@ namespace {
 
 roadproto::cad_adapter::objectarx::ObjectArxEditor g_editor;
 
+void initializeCustomEntityClasses()
+{
+    using namespace roadproto;
+
+    cad_adapter::objectarx::initializeTerrainTinEntityClass();
+    cad_adapter::objectarx::initializeRoadCenterlineEntityClass();
+    cad_adapter::objectarx::initializeProfileGradeGraphEntityClass();
+    cad_adapter::objectarx::initializeProfileVerticalCurveEntityClass();
+    cad_adapter::objectarx::initializeSubgradeTemplateEntityClass();
+    cad_adapter::objectarx::initializeRoadModelEntityClass();
+}
+
+void uninitializeCustomEntityClasses()
+{
+    using namespace roadproto;
+
+    cad_adapter::objectarx::uninitializeRoadModelEntityClass();
+    cad_adapter::objectarx::uninitializeSubgradeTemplateEntityClass();
+    cad_adapter::objectarx::uninitializeProfileVerticalCurveEntityClass();
+    cad_adapter::objectarx::uninitializeProfileGradeGraphEntityClass();
+    cad_adapter::objectarx::uninitializeRoadCenterlineEntityClass();
+    cad_adapter::objectarx::uninitializeTerrainTinEntityClass();
+}
+
 } // namespace
 
 extern "C" __declspec(dllexport) AcRx::AppRetCode acrxEntryPoint(AcRx::AppMsgCode msg, void* pkt)
@@ -26,14 +50,10 @@ extern "C" __declspec(dllexport) AcRx::AppRetCode acrxEntryPoint(AcRx::AppMsgCod
     case AcRx::kInitAppMsg: {
         acrxDynamicLinker->unlockApplication(pkt);
         acrxDynamicLinker->registerAppMDIAware(pkt);
-        cad_adapter::objectarx::initializeTerrainTinEntityClass();
-        cad_adapter::objectarx::initializeRoadCenterlineEntityClass();
-        cad_adapter::objectarx::initializeProfileGradeGraphEntityClass();
-        cad_adapter::objectarx::initializeProfileVerticalCurveEntityClass();
-        cad_adapter::objectarx::initializeSubgradeTemplateEntityClass();
-        cad_adapter::objectarx::initializeRoadModelEntityClass();
+        initializeCustomEntityClasses();
 
         if (!app::initialize(g_editor)) {
+            uninitializeCustomEntityClasses();
             return AcRx::kRetError;
         }
 
@@ -43,6 +63,9 @@ extern "C" __declspec(dllexport) AcRx::AppRetCode acrxEntryPoint(AcRx::AppMsgCod
             context.config().commandGroupName,
             g_editor);
         if (!commandsRegistered) {
+            cad_adapter::objectarx::unregisterCommands(context.config().commandGroupName);
+            app::shutdown();
+            uninitializeCustomEntityClasses();
             return AcRx::kRetError;
         }
 
@@ -54,12 +77,7 @@ extern "C" __declspec(dllexport) AcRx::AppRetCode acrxEntryPoint(AcRx::AppMsgCod
         auto& context = app::ApplicationContext::instance();
         cad_adapter::objectarx::unregisterCommands(context.config().commandGroupName);
         app::shutdown();
-        cad_adapter::objectarx::uninitializeRoadModelEntityClass();
-        cad_adapter::objectarx::uninitializeSubgradeTemplateEntityClass();
-        cad_adapter::objectarx::uninitializeProfileVerticalCurveEntityClass();
-        cad_adapter::objectarx::uninitializeProfileGradeGraphEntityClass();
-        cad_adapter::objectarx::uninitializeRoadCenterlineEntityClass();
-        cad_adapter::objectarx::uninitializeTerrainTinEntityClass();
+        uninitializeCustomEntityClasses();
         return AcRx::kRetOK;
     }
     default:

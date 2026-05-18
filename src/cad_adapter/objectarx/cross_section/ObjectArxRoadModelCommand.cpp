@@ -368,6 +368,30 @@ bool findUniqueVerticalCurveForCenterline(
     return true;
 }
 
+bool profileGraphBelongsToCenterline(
+    const std::wstring& profileGraphHandle,
+    const std::wstring& centerlineHandle)
+{
+    if (profileGraphHandle.empty() || centerlineHandle.empty()) {
+        return false;
+    }
+
+    AcDbObjectId graphId;
+    if (!resolveObjectIdFromHandle(profileGraphHandle, graphId)) {
+        return false;
+    }
+
+    DnProfileGradeGraphEntity* graph = nullptr;
+    if (acdbOpenObject(graph, graphId, AcDb::kForRead) != Acad::eOk || graph == nullptr) {
+        return false;
+    }
+
+    const auto belongs = graph->isKindOf(DnProfileGradeGraphEntity::desc())
+        && graph->graphData().roadCenterlineHandle == centerlineHandle;
+    graph->close();
+    return belongs;
+}
+
 bool queueDialogForRoadModelEdit(AcDbObjectId roadModelId)
 {
     auto& editor = app::ApplicationContext::instance().editor();
@@ -459,6 +483,10 @@ void runRoadModelCreateCommand()
     ProfileVerticalCurveData verticalCurve;
     if (!readVerticalCurve(verticalCurveId, verticalCurveHandle, verticalCurve)) {
         editor.writeError(L"Cannot read profile vertical curve data.");
+        return;
+    }
+    if (!profileGraphBelongsToCenterline(verticalCurve.profileGraphHandle, centerlineHandle)) {
+        editor.writeWarning(L"The selected profile vertical curve does not belong to the selected road centerline.");
         return;
     }
 
@@ -559,6 +587,10 @@ void runRoadModelApplyDialogFileCommand()
     ProfileVerticalCurveData verticalCurve;
     if (!readVerticalCurve(verticalCurveId, verticalCurveHandle, verticalCurve)) {
         editor.writeError(L"Cannot read profile vertical curve data.");
+        return;
+    }
+    if (!profileGraphBelongsToCenterline(verticalCurve.profileGraphHandle, centerlineHandle)) {
+        editor.writeError(L"The profile vertical curve does not belong to the road centerline in the dialog response.");
         return;
     }
 

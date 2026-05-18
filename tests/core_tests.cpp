@@ -1432,6 +1432,8 @@ void roadModelCommandSourceContainsCompleteObjectArxFlow()
     CHECK(source.find("DnRoadModelEntity") != std::string::npos);
     CHECK(source.find("selectTypedEntity") != std::string::npos);
     CHECK(source.find("findUniqueVerticalCurveForCenterline") != std::string::npos);
+    CHECK(source.find("profileGraphBelongsToCenterline") != std::string::npos
+        || source.find("verticalCurveBelongsToCenterline") != std::string::npos);
     CHECK(source.find("RoadModelBuildInput") != std::string::npos);
     CHECK(source.find("readSubgradeTemplate") != std::string::npos);
     CHECK(source.find("appendEntityToModelSpace") != std::string::npos);
@@ -1453,6 +1455,10 @@ void roadModelCommandSourceContainsCompleteObjectArxFlow()
     CHECK(source.find("findUniqueVerticalCurveForCenterline", createCommand) != std::string::npos);
     CHECK(source.find("selectTypedEntity<DnProfileVerticalCurveEntity>", createCommand) != std::string::npos);
     CHECK(source.find("queueRoadModelWpfDialog", createCommand) != std::string::npos);
+    const auto createRelationValidation = source.find("profileGraphBelongsToCenterline(verticalCurve.profileGraphHandle, centerlineHandle)", createCommand);
+    CHECK(createRelationValidation != std::string::npos);
+    CHECK(createRelationValidation < source.find("queueRoadModelWpfDialog", createCommand));
+    CHECK(source.find("return;", createRelationValidation) < source.find("queueRoadModelWpfDialog", createCommand));
 
     CHECK(source.find("selectTypedEntity<DnRoadModelEntity>", editCommand) != std::string::npos);
     CHECK(source.find("roadModelData().config", editCommand) != std::string::npos
@@ -1464,6 +1470,12 @@ void roadModelCommandSourceContainsCompleteObjectArxFlow()
     CHECK(source.find("readRoadModelDialogResponse", applyCommand) != std::string::npos);
     CHECK(source.find("resolveObjectIdFromHandle(response.roadCenterlineHandle", applyCommand) != std::string::npos);
     CHECK(source.find("resolveObjectIdFromHandle(response.profileVerticalCurveHandle", applyCommand) != std::string::npos);
+    const auto applyRelationValidation = source.find("profileGraphBelongsToCenterline(verticalCurve.profileGraphHandle, centerlineHandle)", applyCommand);
+    const auto applyBuild = source.find("service.build(input)", applyCommand);
+    CHECK(applyRelationValidation != std::string::npos);
+    CHECK(applyBuild != std::string::npos);
+    CHECK(applyRelationValidation < applyBuild);
+    CHECK(source.find("return;", applyRelationValidation) < applyBuild);
     CHECK(source.find("readSubgradeTemplate", applyCommand) != std::string::npos);
     CHECK(source.find("RoadModelBuildInput input", applyCommand) != std::string::npos);
     CHECK(source.find("service.build(input)", applyCommand) != std::string::npos);

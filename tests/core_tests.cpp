@@ -1292,6 +1292,67 @@ void managedRibbonExtensionRegistersSubgradeTemplateEntryPoints()
     CHECK(source.find("RoadModelEditButtonId") != std::string::npos);
 }
 
+void managedRibbonExtensionRegistersRoadModelEntryPoints()
+{
+    const auto sourcePath = findRepositoryRootForTests()
+        / "src"
+        / "ui"
+        / "wpf"
+        / "RoadProto.Terrain.UI"
+        / "AutoCad"
+        / "RoadProtoRibbonExtension.cs";
+    CHECK(std::filesystem::exists(sourcePath));
+
+    const auto source = readTextFileForTests(sourcePath);
+    CHECK(!source.empty());
+    CHECK(source.find("RD_SECTION_ROAD_MODEL_CREATE") != std::string::npos);
+    CHECK(source.find("RD_SECTION_ROAD_MODEL_EDIT") != std::string::npos);
+    CHECK(source.find("RD_SECTION_ROAD_MODEL_EDIT_HANDLE") != std::string::npos);
+    CHECK(source.find("RD_SECTION_ROAD_MODEL_EDIT_HANDLE {handle}\\n") != std::string::npos);
+    CHECK(source.find("DNROADMODELENTITY") != std::string::npos);
+    CHECK(source.find("RoadModelDialogCommands") != std::string::npos);
+    CHECK(source.find("RoadModelCreateButtonId") != std::string::npos);
+    CHECK(source.find("RoadModelEditButtonId") != std::string::npos);
+}
+
+void roadModelWpfBridgeSourceContainsRequiredFields()
+{
+    const auto root = findRepositoryRootForTests();
+    const auto uiRoot = root / "src" / "ui" / "wpf" / "RoadProto.Terrain.UI";
+    const auto dtoPath = uiRoot / "Bridge" / "RoadModelDialogDtos.cs";
+    const auto filePath = uiRoot / "Bridge" / "RoadModelDialogFile.cs";
+    const auto xamlPath = uiRoot / "RoadModelWindow.xaml";
+    const auto codePath = uiRoot / "RoadModelWindow.xaml.cs";
+
+    CHECK(std::filesystem::exists(dtoPath));
+    CHECK(std::filesystem::exists(filePath));
+    CHECK(std::filesystem::exists(xamlPath));
+    CHECK(std::filesystem::exists(codePath));
+
+    const auto dto = readTextFileForTests(dtoPath);
+    const auto file = readTextFileForTests(filePath);
+    const auto xaml = readTextFileForTests(xamlPath);
+    const auto code = readTextFileForTests(codePath);
+
+    CHECK(dto.find("RoadCenterlineHandle") != std::string::npos);
+    CHECK(dto.find("ProfileVerticalCurveHandle") != std::string::npos);
+    CHECK(dto.find("SampleInterval") != std::string::npos);
+    CHECK(dto.find("RoadModelTemplateAssignmentDto") != std::string::npos);
+
+    CHECK(file.find("assignmentCount") != std::string::npos);
+    CHECK(file.find("assignment.{i}.startStation") != std::string::npos);
+    CHECK(file.find("RD_SECTION_ROAD_MODEL_APPLY_DIALOG_FILE") == std::string::npos);
+
+    CHECK(xaml.find("横断面戴帽") != std::string::npos);
+    CHECK(xaml.find("路基模板") != std::string::npos);
+    CHECK(xaml.find("DataGrid") != std::string::npos);
+    CHECK(xaml.find("生成模型") != std::string::npos);
+
+    CHECK(code.find("MoveAssignment") != std::string::npos);
+    CHECK(code.find("BuildResponse") != std::string::npos);
+    CHECK(code.find("OnPickTemplate") != std::string::npos);
+}
+
 void subgradeTemplateWindowSourceKeepsControlsReadable()
 {
     const auto root = findRepositoryRootForTests();
@@ -3038,6 +3099,8 @@ int main()
     crossSectionModuleRegistersSubgradeTemplateCommandsAndRibbonPanel();
     startupRegistrationIncludesCrossSectionModule();
     managedRibbonExtensionRegistersSubgradeTemplateEntryPoints();
+    managedRibbonExtensionRegistersRoadModelEntryPoints();
+    roadModelWpfBridgeSourceContainsRequiredFields();
     subgradeTemplateWindowSourceKeepsControlsReadable();
     subgradeTemplateBridgeWritesEnumCodesAsText();
     managedRibbonExtensionRegistersVerticalCurveContextMenu();

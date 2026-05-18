@@ -17,6 +17,7 @@ using CoreApplication = Autodesk.AutoCAD.ApplicationServices.Core.Application;
 [assembly: ExtensionApplication(typeof(RoadProto.Terrain.UI.AutoCad.RoadProtoRibbonExtension))]
 [assembly: CommandClass(typeof(RoadProto.Terrain.UI.AutoCad.RoadProtoRibbonExtension))]
 [assembly: CommandClass(typeof(RoadProto.Terrain.UI.AutoCad.SubgradeTemplateDialogCommands))]
+[assembly: CommandClass(typeof(RoadProto.Terrain.UI.AutoCad.RoadModelDialogCommands))]
 
 namespace RoadProto.Terrain.UI.AutoCad;
 
@@ -44,6 +45,7 @@ public sealed class RoadProtoRibbonExtension : IExtensionApplication
     private const string RoadCenterlineDxfName = "DNROADCENTERLINEENTITY";
     private const string ProfileGradeGraphDxfName = "DNPROFILEGRADEGRAPHENTITY";
     private const string ProfileVerticalCurveDxfName = "DNPROFILEVERTICALCURVEENTITY";
+    private const string RoadModelDxfName = "DNROADMODELENTITY";
     private const string SubgradeTemplateDxfName = "DNSUBGRADETEMPLATEENTITY";
     private static ObjectId _lastDoubleClickObjectId = ObjectId.Null;
     private static DateTime _lastDoubleClickUtc = DateTime.MinValue;
@@ -441,6 +443,15 @@ public sealed class RoadProtoRibbonExtension : IExtensionApplication
                 return;
             }
 
+            if (TryFindEntityByDxfName(document, e.Location, RoadModelDxfName, out var roadModelId))
+            {
+                if (!SuppressDuplicateDoubleClick(roadModelId))
+                {
+                    QueueRoadModelEditByHandle(document, roadModelId);
+                }
+                return;
+            }
+
             if (TryFindEntityByDxfName(document, e.Location, SubgradeTemplateDxfName, out var subgradeTemplateId))
             {
                 if (!SuppressDuplicateDoubleClick(subgradeTemplateId))
@@ -648,6 +659,17 @@ public sealed class RoadProtoRibbonExtension : IExtensionApplication
         }
 
         document.SendStringToExecute($"RD_SECTION_SUBGRADE_TEMPLATE_EDIT_HANDLE {handle}\n", true, false, true);
+    }
+
+    private static void QueueRoadModelEditByHandle(Document document, ObjectId entityId)
+    {
+        var handle = entityId.Handle.ToString();
+        if (string.IsNullOrWhiteSpace(handle))
+        {
+            return;
+        }
+
+        document.SendStringToExecute($"RD_SECTION_ROAD_MODEL_EDIT_HANDLE {handle}\n", true, false, true);
     }
 
     private static void SendActiveDocumentCommand(string command)

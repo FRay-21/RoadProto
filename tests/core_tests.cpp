@@ -1486,6 +1486,28 @@ void roadModelEntitySourceContainsRequiredObjectArxContracts()
     CHECK(source.find("if (!isFiniteRoadModelPoint(point))") != std::string::npos);
     CHECK(source.find("if (!isFiniteRoadModelPoint(point))") != source.rfind("if (!isFiniteRoadModelPoint(point))"));
     CHECK(source.find("transformedPointIsFinite") != std::string::npos);
+    CHECK(source.find("validateAllRoadModelPointsFinite") != std::string::npos);
+
+    const auto finalFilerStatus = source.find("const auto finalStatus = filer->filerStatus();");
+    const auto roadModelDataAssignment = source.find("data_ = std::move(readData);");
+    CHECK(finalFilerStatus != std::string::npos);
+    CHECK(roadModelDataAssignment != std::string::npos);
+    CHECK(finalFilerStatus < roadModelDataAssignment);
+    CHECK(source.find("if (finalStatus != Acad::eOk)", finalFilerStatus) != std::string::npos);
+    CHECK(source.find("return finalStatus;", roadModelDataAssignment) != std::string::npos);
+
+    const auto transformFunction = source.find("Acad::ErrorStatus DnRoadModelEntity::subTransformBy");
+    const auto transformExistingValidation = source.find("if (!validateAllRoadModelPointsFinite(data_))", transformFunction);
+    const auto transformCopy = source.find("auto transformedData = data_;", transformFunction);
+    const auto transformCommit = source.find("data_ = std::move(transformedData);", transformFunction);
+    CHECK(transformFunction != std::string::npos);
+    CHECK(transformExistingValidation != std::string::npos);
+    CHECK(transformCopy != std::string::npos);
+    CHECK(transformCommit != std::string::npos);
+    CHECK(transformExistingValidation < transformCopy);
+    CHECK(transformCopy < transformCommit);
+    CHECK(source.find("continue;", transformFunction) == std::string::npos
+        || source.find("continue;", transformFunction) > transformCommit);
 
     CHECK(entry.find("DnRoadModelEntity.h") != std::string::npos);
     CHECK(entry.find("initializeRoadModelEntityClass") != std::string::npos);

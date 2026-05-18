@@ -71,6 +71,19 @@ bool transformedPointIsFinite(const AcGePoint3d& point)
     return std::isfinite(point.x) && std::isfinite(point.y) && std::isfinite(point.z);
 }
 
+bool validateAllRoadModelPointsFinite(const RoadModelData& data)
+{
+    for (const auto& line : data.componentLines) {
+        for (const auto& point : line.points) {
+            if (!isFiniteRoadModelPoint(point)) {
+                return false;
+            }
+        }
+    }
+
+    return true;
+}
+
 void readPoint(AcDbDwgFiler* filer, RoadModelPoint3d& point)
 {
     filer->readDouble(&point.x);
@@ -150,14 +163,9 @@ bool validateRoadModelDataForPersistence(const RoadModelData& data)
             || !isValidLineKey(line.key)) {
             return false;
         }
-        for (const auto& point : line.points) {
-            if (!isFiniteRoadModelPoint(point)) {
-                return false;
-            }
-        }
     }
 
-    return true;
+    return validateAllRoadModelPointsFinite(data);
 }
 
 void readAssignment(AcDbDwgFiler* filer, RoadModelTemplateAssignment& row)
@@ -324,8 +332,13 @@ Acad::ErrorStatus DnRoadModelEntity::dwgInFields(AcDbDwgFiler* filer)
         return Acad::eInvalidInput;
     }
 
+    const auto finalStatus = filer->filerStatus();
+    if (finalStatus != Acad::eOk) {
+        return finalStatus;
+    }
+
     data_ = std::move(readData);
-    return filer->filerStatus();
+    return finalStatus;
 }
 
 Acad::ErrorStatus DnRoadModelEntity::dwgOutFields(AcDbDwgFiler* filer) const
@@ -408,12 +421,13 @@ Acad::ErrorStatus DnRoadModelEntity::subTransformBy(const AcGeMatrix3d& transfor
 {
     assertWriteEnabled();
 
+    if (!validateAllRoadModelPointsFinite(data_)) {
+        return Acad::eInvalidInput;
+    }
+
     auto transformedData = data_;
     for (auto& line : transformedData.componentLines) {
         for (auto& point : line.points) {
-            if (!isFiniteRoadModelPoint(point)) {
-                continue;
-            }
             AcGePoint3d cadPoint(point.x, point.y, point.z);
             cadPoint.transformBy(transform);
             if (!transformedPointIsFinite(cadPoint)) {

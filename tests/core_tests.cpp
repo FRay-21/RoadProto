@@ -12,6 +12,7 @@
 #include "domain/alignment/HorizontalAlignmentBuilder.h"
 #include "domain/alignment/IcdAlignmentFile.h"
 #include "domain/alignment/StationFormatter.h"
+#include "domain/cross_section/RoadModel.h"
 #include "domain/cross_section/SubgradeTemplateModel.h"
 #include "domain/profile/ProfileDmxFile.h"
 #include "domain/profile/ProfileGradeGraphLayout.h"
@@ -506,6 +507,59 @@ void subgradeTemplateCreateServiceBuildsDefaultTemplate()
     CHECK(std::fabs(result.templateData.properties.displayScale - 50.0) < 1.0e-9);
     CHECK(result.templateData.properties.roadGrade == RoadGrade::UrbanExpressway);
     CHECK(result.templateData.components.size() == 10);
+}
+
+void roadModelTemplateResolverUsesHigherPriorityRows()
+{
+    using namespace roadproto::domain::cross_section;
+
+    RoadModelTemplateAssignment low;
+    low.startStation = 0.0;
+    low.endStation = 100.0;
+    low.templateHandle = L"LOW";
+    low.templateName = L"Low priority";
+
+    RoadModelTemplateAssignment high;
+    high.startStation = 30.0;
+    high.endStation = 60.0;
+    high.templateHandle = L"HIGH";
+    high.templateName = L"High priority";
+
+    RoadModelTemplateResolver resolver({high, low});
+
+    const auto* station20 = resolver.resolve(20.0);
+    CHECK(station20 != nullptr);
+    if (station20 != nullptr) {
+        CHECK(station20->templateHandle == L"LOW");
+    }
+
+    const auto* station40 = resolver.resolve(40.0);
+    CHECK(station40 != nullptr);
+    if (station40 != nullptr) {
+        CHECK(station40->templateHandle == L"HIGH");
+    }
+
+    CHECK(resolver.resolve(120.0) == nullptr);
+}
+
+void roadModelTemplateResolverRejectsInvalidRows()
+{
+    using namespace roadproto::domain::cross_section;
+
+    std::wstring errorMessage;
+    RoadModelTemplateAssignment reversed;
+    reversed.startStation = 100.0;
+    reversed.endStation = 0.0;
+    reversed.templateHandle = L"TEMPLATE";
+    CHECK(!RoadModelRules::validateAssignments({reversed}, errorMessage));
+    CHECK(!errorMessage.empty());
+
+    errorMessage.clear();
+    RoadModelTemplateAssignment missingHandle;
+    missingHandle.startStation = 0.0;
+    missingHandle.endStation = 100.0;
+    CHECK(!RoadModelRules::validateAssignments({missingHandle}, errorMessage));
+    CHECK(!errorMessage.empty());
 }
 
 void crossSectionModuleRegistersSubgradeTemplateCommandsAndRibbonPanel()
@@ -2323,6 +2377,8 @@ int main()
     subgradeTemplateRulesUseWideningTableAndPavementThicknessGate();
     subgradeTemplateVariableSlopeUsesOnlySlopeTable();
     subgradeTemplateCreateServiceBuildsDefaultTemplate();
+    roadModelTemplateResolverUsesHigherPriorityRows();
+    roadModelTemplateResolverRejectsInvalidRows();
     crossSectionModuleRegistersSubgradeTemplateCommandsAndRibbonPanel();
     startupRegistrationIncludesCrossSectionModule();
     managedRibbonExtensionRegistersSubgradeTemplateEntryPoints();

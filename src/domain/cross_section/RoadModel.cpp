@@ -87,15 +87,25 @@ std::vector<double> sortedUniqueStations(std::vector<double> stations)
     return result;
 }
 
-bool assignmentCoversStation(const RoadModelTemplateAssignment& assignment, double station)
+std::optional<double> stationCoveredByAssignment(
+    const RoadModelTemplateAssignment& assignment,
+    double station)
 {
     if (!isFinite(assignment.startStation) || !isFinite(assignment.endStation) ||
         assignment.endStation < assignment.startStation) {
-        return false;
+        return std::nullopt;
     }
 
-    return assignment.startStation - kStationTolerance <= station &&
-        station <= assignment.endStation + kStationTolerance;
+    if (std::fabs(station - assignment.startStation) <= kStationTolerance) {
+        return assignment.startStation;
+    }
+    if (std::fabs(station - assignment.endStation) <= kStationTolerance) {
+        return assignment.endStation;
+    }
+    if (assignment.startStation <= station && station <= assignment.endStation) {
+        return station;
+    }
+    return std::nullopt;
 }
 
 std::vector<double> filterTemplateCoveredStations(
@@ -104,11 +114,11 @@ std::vector<double> filterTemplateCoveredStations(
 {
     std::vector<double> result;
     for (const double station : stations) {
-        const auto covered = std::any_of(assignments.begin(), assignments.end(), [station](const auto& assignment) {
-            return assignmentCoversStation(assignment, station);
-        });
-        if (covered) {
-            result.push_back(station);
+        for (const auto& assignment : assignments) {
+            if (const auto coveredStation = stationCoveredByAssignment(assignment, station)) {
+                result.push_back(*coveredStation);
+                break;
+            }
         }
     }
     return result;
@@ -246,7 +256,7 @@ std::vector<double> RoadModelStationSampler::collectStations(
         }
     }
 
-    return filterTemplateCoveredStations(sortedUniqueStations(std::move(stations)), assignments);
+    return sortedUniqueStations(filterTemplateCoveredStations(stations, assignments));
 }
 
 RoadModelBuildResult RoadModelBuilder::build(const RoadModelBuildInput& input)

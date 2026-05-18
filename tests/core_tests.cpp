@@ -685,6 +685,40 @@ void roadModelStationSamplerOnlyKeepsTemplateCoveredStations()
     CHECK(noVerticalRange.empty());
 }
 
+void roadModelStationSamplerSnapsTemplateBoundaryTolerance()
+{
+    using namespace roadproto::domain::cross_section;
+    using namespace roadproto::domain::profile;
+
+    constexpr double nearStart = 69.99999995;
+
+    ProfileVerticalCurveData verticalCurve;
+    verticalCurve.controlPoints = {
+        {VerticalCurvePointRole::Start, nearStart, 100.0},
+        {VerticalCurvePointRole::End, 120.0, 101.0},
+    };
+
+    RoadModelTemplateAssignment assignment;
+    assignment.startStation = 70.0;
+    assignment.endStation = 120.0;
+    assignment.templateHandle = L"T1";
+
+    const auto stations = RoadModelStationSampler::collectStations(
+        nearStart,
+        120.0,
+        verticalCurve,
+        {assignment},
+        10.0);
+
+    CHECK(std::find_if(stations.begin(), stations.end(), [](double station) { return std::fabs(station - 70.0) < 1e-12; }) != stations.end());
+    CHECK(std::none_of(stations.begin(), stations.end(), [nearStart](double station) { return std::fabs(station - nearStart) < 1e-12; }));
+
+    RoadModelTemplateResolver resolver({assignment});
+    CHECK(std::all_of(stations.begin(), stations.end(), [&resolver](double station) {
+        return resolver.resolve(station) != nullptr;
+    }));
+}
+
 void crossSectionModuleRegistersSubgradeTemplateCommandsAndRibbonPanel()
 {
     roadproto::core::CommandRegistry commands;
@@ -2504,6 +2538,7 @@ int main()
     roadModelTemplateResolverRejectsInvalidRows();
     roadModelStationSamplerIncludesIntervalTemplateAndVerticalCurveStations();
     roadModelStationSamplerOnlyKeepsTemplateCoveredStations();
+    roadModelStationSamplerSnapsTemplateBoundaryTolerance();
     crossSectionModuleRegistersSubgradeTemplateCommandsAndRibbonPanel();
     startupRegistrationIncludesCrossSectionModule();
     managedRibbonExtensionRegistersSubgradeTemplateEntryPoints();

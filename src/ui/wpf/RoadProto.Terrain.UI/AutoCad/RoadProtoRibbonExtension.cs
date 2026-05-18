@@ -38,6 +38,8 @@ public sealed class RoadProtoRibbonExtension : IExtensionApplication
     private const string ProfileVerticalCurveButtonId = "ROADPROTO_RD_PROFILE_VERTICAL_CURVE_CREATE";
     private const string CrossSectionPanelId = "ROADPROTO_CROSS_SECTION_PANEL";
     private const string SubgradeTemplateButtonId = "ROADPROTO_RD_SECTION_SUBGRADE_TEMPLATE_CREATE";
+    private const string RoadModelCreateButtonId = "ROADPROTO_RD_SECTION_ROAD_MODEL_CREATE";
+    private const string RoadModelEditButtonId = "ROADPROTO_RD_SECTION_ROAD_MODEL_EDIT";
     private const string TerrainTinDxfName = "DNTERRAINTINENTITY";
     private const string RoadCenterlineDxfName = "DNROADCENTERLINEENTITY";
     private const string ProfileGradeGraphDxfName = "DNPROFILEGRADEGRAPHENTITY";
@@ -262,6 +264,24 @@ public sealed class RoadProtoRibbonExtension : IExtensionApplication
                 "\u521b\u5efa\u8def\u57fa\u6a21\u677f",
                 "\u70b9\u53d6\u63d2\u5165\u70b9\u5e76\u521b\u5efa\u72ec\u7acb\u8def\u57fa\u6a21\u677f",
                 "RD_SECTION_SUBGRADE_TEMPLATE_CREATE "));
+        }
+
+        if (!crossSectionPanel.Source.Items.OfType<RibbonButton>().Any(item => item.Id == RoadModelCreateButtonId))
+        {
+            crossSectionPanel.Source.Items.Add(CreateCrossSectionCommandButton(
+                RoadModelCreateButtonId,
+                "横断面戴帽",
+                "创建横断面戴帽道路模型",
+                "RD_SECTION_ROAD_MODEL_CREATE "));
+        }
+
+        if (!crossSectionPanel.Source.Items.OfType<RibbonButton>().Any(item => item.Id == RoadModelEditButtonId))
+        {
+            crossSectionPanel.Source.Items.Add(CreateCrossSectionCommandButton(
+                RoadModelEditButtonId,
+                "编辑道路模型",
+                "编辑已有道路模型",
+                "RD_SECTION_ROAD_MODEL_EDIT "));
         }
 
         tab.IsActive = true;

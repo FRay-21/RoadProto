@@ -42,4 +42,3 @@ core::CommandProcedure roadModelApplyDialogFileCommandProcedure()
 }
 
 } // namespace roadproto::cad_adapter::objectarx::cross_section
-

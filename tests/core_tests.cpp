@@ -86,6 +86,11 @@ std::string readTextFileForTests(const std::filesystem::path& path)
     return std::string(std::istreambuf_iterator<char>(input), std::istreambuf_iterator<char>());
 }
 
+void checkBusinessDocExistsForTests(const std::wstring& businessDocPath)
+{
+    CHECK(std::filesystem::exists(findRepositoryRootForTests() / std::filesystem::path(businessDocPath)));
+}
+
 roadproto::core::CommandDefinition makeCommand(const std::wstring& name)
 {
     return roadproto::core::CommandDefinition{
@@ -1198,24 +1203,37 @@ void crossSectionModuleRegistersSubgradeTemplateCommandsAndRibbonPanel()
     const auto roadModelEditCommand = commands.find(L"RD_SECTION_ROAD_MODEL_EDIT");
     CHECK(roadModelEditCommand.has_value());
     if (roadModelEditCommand.has_value()) {
+        CHECK(roadModelEditCommand->moduleCode == L"CROSS_SECTION");
         CHECK(roadModelEditCommand->displayName == L"编辑道路模型");
         CHECK(roadModelEditCommand->businessDocPath == L"docs/business/cross_section/道路模型_编辑.md");
         CHECK(roadModelEditCommand->ribbonAttachable);
+        CHECK(roadModelEditCommand->isPrototype);
+        CHECK(roadModelEditCommand->reusable);
     }
 
     const auto roadModelEditHandleCommand = commands.find(L"RD_SECTION_ROAD_MODEL_EDIT_HANDLE");
     CHECK(roadModelEditHandleCommand.has_value());
     if (roadModelEditHandleCommand.has_value()) {
+        CHECK(roadModelEditHandleCommand->moduleCode == L"CROSS_SECTION");
         CHECK(roadModelEditHandleCommand->businessDocPath == L"docs/business/cross_section/道路模型_编辑.md");
         CHECK(!roadModelEditHandleCommand->ribbonAttachable);
+        CHECK(roadModelEditHandleCommand->isPrototype);
+        CHECK(!roadModelEditHandleCommand->reusable);
     }
 
     const auto roadModelApplyDialogFileCommand = commands.find(L"RD_SECTION_ROAD_MODEL_APPLY_DIALOG_FILE");
     CHECK(roadModelApplyDialogFileCommand.has_value());
     if (roadModelApplyDialogFileCommand.has_value()) {
+        CHECK(roadModelApplyDialogFileCommand->moduleCode == L"CROSS_SECTION");
         CHECK(roadModelApplyDialogFileCommand->businessDocPath == L"docs/business/cross_section/道路模型_WPF桥接回写.md");
         CHECK(!roadModelApplyDialogFileCommand->ribbonAttachable);
+        CHECK(roadModelApplyDialogFileCommand->isPrototype);
+        CHECK(!roadModelApplyDialogFileCommand->reusable);
     }
+
+    checkBusinessDocExistsForTests(L"docs/business/cross_section/横断面戴帽_道路模型创建.md");
+    checkBusinessDocExistsForTests(L"docs/business/cross_section/道路模型_编辑.md");
+    checkBusinessDocExistsForTests(L"docs/business/cross_section/道路模型_WPF桥接回写.md");
 
     CHECK(ribbon.tab().panels.size() == 1);
     CHECK(ribbon.tab().panels.front().moduleCode == L"CROSS_SECTION");
@@ -1243,6 +1261,8 @@ void startupRegistrationIncludesCrossSectionModule()
     CHECK(commands.contains(L"RD_SECTION_SUBGRADE_TEMPLATE_CREATE"));
     CHECK(commands.contains(L"RD_SECTION_ROAD_MODEL_CREATE"));
     CHECK(commands.contains(L"RD_SECTION_ROAD_MODEL_EDIT"));
+    CHECK(commands.contains(L"RD_SECTION_ROAD_MODEL_EDIT_HANDLE"));
+    CHECK(commands.contains(L"RD_SECTION_ROAD_MODEL_APPLY_DIALOG_FILE"));
     CHECK(ribbon.tab().panels.size() == 1);
     CHECK(ribbon.tab().panels.front().moduleCode == L"CROSS_SECTION");
 }
@@ -1266,6 +1286,10 @@ void managedRibbonExtensionRegistersSubgradeTemplateEntryPoints()
     CHECK(source.find("RD_SECTION_SUBGRADE_TEMPLATE_EDIT_HANDLE {handle}\\n") != std::string::npos);
     CHECK(source.find("DNSUBGRADETEMPLATEENTITY") != std::string::npos);
     CHECK(source.find("SubgradeTemplateDialogCommands") != std::string::npos);
+    CHECK(source.find("RD_SECTION_ROAD_MODEL_CREATE") != std::string::npos);
+    CHECK(source.find("RD_SECTION_ROAD_MODEL_EDIT") != std::string::npos);
+    CHECK(source.find("RoadModelCreateButtonId") != std::string::npos);
+    CHECK(source.find("RoadModelEditButtonId") != std::string::npos);
 }
 
 void subgradeTemplateWindowSourceKeepsControlsReadable()

@@ -168,6 +168,43 @@ std::vector<alignment::AlignmentSamplePoint> sortedAlignmentSamples(
     return samples;
 }
 
+std::optional<std::vector<alignment::AlignmentSamplePoint>> normalizeAlignmentSamples(
+    const std::vector<alignment::AlignmentSamplePoint>& input,
+    std::wstring& errorMessage)
+{
+    errorMessage.clear();
+    if (input.size() < 2) {
+        errorMessage = L"Road model requires at least two alignment samples.";
+        return std::nullopt;
+    }
+
+    auto samples = sortedAlignmentSamples(input);
+    for (const auto& sample : samples) {
+        if (!isFinite(sample.station) || !isFinite(sample.point.x) || !isFinite(sample.point.y)) {
+            errorMessage = L"Road model alignment samples must contain finite station and XY values.";
+            return std::nullopt;
+        }
+    }
+
+    for (std::size_t i = 1; i < samples.size(); ++i) {
+        const auto& previous = samples[i - 1];
+        const auto& current = samples[i];
+        if (current.station - previous.station <= kStationTolerance) {
+            errorMessage = L"Road model alignment sample stations must be strictly increasing.";
+            return std::nullopt;
+        }
+
+        const double dx = current.point.x - previous.point.x;
+        const double dy = current.point.y - previous.point.y;
+        if (std::hypot(dx, dy) <= kStationTolerance) {
+            errorMessage = L"Road model alignment samples must not contain zero-length segments.";
+            return std::nullopt;
+        }
+    }
+
+    return samples;
+}
+
 std::optional<AlignmentFrame> interpolateAlignmentFrame(
     const std::vector<alignment::AlignmentSamplePoint>& samples,
     double station)
@@ -232,39 +269,6 @@ const RoadModelTemplateSource* findTemplate(
             return source.templateHandle == templateHandle;
         });
     return found == templates.end() ? nullptr : &*found;
-}
-
-std::vector<const RoadModelTemplateAssignment*> activeAssignmentsAtStation(
-    const RoadModelTemplateResolver& resolver,
-    const std::vector<RoadModelTemplateAssignment>& assignments,
-    double station)
-{
-    std::vector<const RoadModelTemplateAssignment*> result;
-    if (const auto* resolved = resolver.resolve(station)) {
-        result.push_back(resolved);
-    }
-
-    for (const auto& assignment : assignments) {
-        const bool atBoundary =
-            std::fabs(station - assignment.startStation) <= kStationTolerance ||
-            std::fabs(station - assignment.endStation) <= kStationTolerance;
-        if (!atBoundary || station < assignment.startStation - kStationTolerance ||
-            station > assignment.endStation + kStationTolerance) {
-            continue;
-        }
-
-        const bool alreadyAdded = std::any_of(
-            result.begin(),
-            result.end(),
-            [&assignment](const auto* item) {
-                return item == &assignment || item->templateHandle == assignment.templateHandle;
-            });
-        if (!alreadyAdded) {
-            result.push_back(&assignment);
-        }
-    }
-
-    return result;
 }
 
 std::vector<const SubgradeTemplateComponent*> componentsForSide(
@@ -507,11 +511,6 @@ RoadModelBuildResult RoadModelBuilder::build(const RoadModelBuildInput& input)
         return result;
     }
 
-    if (input.alignmentSamples.size() < 2) {
-        result.errorMessage = L"Road model requires at least two alignment samples.";
-        return result;
-    }
-
     std::wstring assignmentError;
     if (!RoadModelRules::validateAssignments(input.config.assignments, assignmentError)) {
         result.errorMessage = assignmentError;
@@ -526,7 +525,14 @@ RoadModelBuildResult RoadModelBuilder::build(const RoadModelBuildInput& input)
         return result;
     }
 
-    const auto alignmentSamples = sortedAlignmentSamples(input.alignmentSamples);
+    std::wstring alignmentError;
+    const auto normalizedAlignmentSamples = normalizeAlignmentSamples(input.alignmentSamples, alignmentError);
+    if (!normalizedAlignmentSamples.has_value()) {
+        result.errorMessage = alignmentError;
+        return result;
+    }
+
+    const auto& alignmentSamples = *normalizedAlignmentSamples;
     const double alignmentStart = alignmentSamples.front().station;
     const double alignmentEnd = alignmentSamples.back().station;
     if (!isFinite(alignmentStart) || !isFinite(alignmentEnd) || alignmentEnd <= alignmentStart) {
@@ -547,58 +553,72 @@ RoadModelBuildResult RoadModelBuilder::build(const RoadModelBuildInput& input)
     result.sampledStations = sampledStations;
 
     RoadModelTemplateResolver resolver(input.config.assignments);
-    std::vector<ActiveBoundaryPoint> previousPoints;
 
-    for (const double station : sampledStations) {
-        const auto activeAssignments = activeAssignmentsAtStation(resolver, input.config.assignments, station);
-        if (activeAssignments.empty()) {
-            previousPoints.clear();
+    for (std::size_t i = 1; i < sampledStations.size(); ++i) {
+        const double startStation = sampledStations[i - 1];
+        const double endStation = sampledStations[i];
+        if (endStation - startStation <= kStationTolerance) {
+            result.errorMessage = L"Road model sampled station intervals must be strictly increasing.";
+            result.data.componentLines.clear();
+            return result;
+        }
+
+        const double midStation = (startStation + endStation) * 0.5;
+        const auto* assignment = resolver.resolve(midStation);
+        if (assignment == nullptr) {
             continue;
         }
 
-        const auto frame = interpolateAlignmentFrame(alignmentSamples, station);
-        if (!frame.has_value()) {
-            previousPoints.clear();
-            continue;
+        const auto* templateSource = findTemplate(input.templates, assignment->templateHandle);
+        if (templateSource == nullptr) {
+            result.errorMessage = L"Road model template source was not found.";
+            result.data.componentLines.clear();
+            result.sampledStations.clear();
+            return result;
         }
 
-        const auto elevation = profile::ProfileVerticalCurveCalculator::elevationAt(builtVertical, station);
-        if (!elevation.succeeded) {
-            previousPoints.clear();
-            continue;
+        const auto startFrame = interpolateAlignmentFrame(alignmentSamples, startStation);
+        const auto endFrame = interpolateAlignmentFrame(alignmentSamples, endStation);
+        if (!startFrame.has_value() || !endFrame.has_value()) {
+            result.errorMessage = L"Road model failed to interpolate alignment frame.";
+            result.data.componentLines.clear();
+            return result;
         }
 
-        std::vector<ActiveBoundaryPoint> currentPoints;
-        for (const auto* assignment : activeAssignments) {
-            const auto* templateSource = findTemplate(input.templates, assignment->templateHandle);
-            if (templateSource == nullptr) {
-                result.errorMessage = L"Road model template source was not found.";
-                result.data.componentLines.clear();
-                result.sampledStations.clear();
-                return result;
-            }
-
-            appendTemplateBoundaryPoints(
-                currentPoints,
-                *assignment,
-                templateSource->data,
-                *frame,
-                elevation.value);
+        const auto startElevation = profile::ProfileVerticalCurveCalculator::elevationAt(builtVertical, startStation);
+        const auto endElevation = profile::ProfileVerticalCurveCalculator::elevationAt(builtVertical, endStation);
+        if (!startElevation.succeeded || !endElevation.succeeded) {
+            result.errorMessage = L"Road model failed to query vertical curve elevation.";
+            result.data.componentLines.clear();
+            return result;
         }
 
-        for (const auto& current : currentPoints) {
-            const auto previous = std::find_if(
-                previousPoints.begin(),
-                previousPoints.end(),
-                [&current](const auto& point) {
-                    return sameLineKey(point.key, current.key);
+        std::vector<ActiveBoundaryPoint> startPoints;
+        std::vector<ActiveBoundaryPoint> endPoints;
+        appendTemplateBoundaryPoints(
+            startPoints,
+            *assignment,
+            templateSource->data,
+            *startFrame,
+            startElevation.value);
+        appendTemplateBoundaryPoints(
+            endPoints,
+            *assignment,
+            templateSource->data,
+            *endFrame,
+            endElevation.value);
+
+        for (const auto& startPoint : startPoints) {
+            const auto endPoint = std::find_if(
+                endPoints.begin(),
+                endPoints.end(),
+                [&startPoint](const auto& point) {
+                    return sameLineKey(point.key, startPoint.key);
                 });
-            if (previous != previousPoints.end()) {
-                appendBoundaryPoint(result.data.componentLines, *previous, current);
+            if (endPoint != endPoints.end()) {
+                appendBoundaryPoint(result.data.componentLines, startPoint, *endPoint);
             }
         }
-
-        previousPoints = std::move(currentPoints);
     }
 
     if (result.data.componentLines.empty()) {

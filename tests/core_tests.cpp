@@ -827,6 +827,191 @@ void roadModelBuilderDoesNotConnectAcrossTemplateSwitches()
     CHECK(hasT2TwoPointLine);
 }
 
+void roadModelBuilderDoesNotConnectAcrossTemplateGaps()
+{
+    using namespace roadproto::domain::alignment;
+    using namespace roadproto::domain::cross_section;
+    using namespace roadproto::domain::profile;
+
+    SubgradeTemplateComponent lane;
+    lane.side = SubgradeSide::Right;
+    lane.type = SubgradeComponentType::TravelLane;
+    lane.width = 3.5;
+    lane.color = {1, 0, 0};
+
+    SubgradeTemplateData templateData;
+    templateData.components.push_back(lane);
+
+    RoadModelBuildInput input;
+    input.config.sampleInterval = 10.0;
+    input.config.assignments = {
+        {0.0, 10.0, L"T1", L"Template 1"},
+        {20.0, 30.0, L"T1", L"Template 1"},
+    };
+    input.verticalCurve.controlPoints = {
+        {VerticalCurvePointRole::Start, 0.0, 100.0},
+        {VerticalCurvePointRole::End, 30.0, 100.0},
+    };
+    input.alignmentSamples = {
+        {{0.0, 0.0}, 0.0},
+        {{30.0, 0.0}, 30.0},
+    };
+    input.templates = {
+        {L"T1", templateData},
+    };
+
+    const auto result = RoadModelBuilder::build(input);
+
+    CHECK(result.succeeded);
+    bool hasGapSpanningPair = false;
+    for (const auto& line : result.data.componentLines) {
+        if (line.key.templateHandle != L"T1") {
+            continue;
+        }
+        for (std::size_t i = 1; i < line.points.size(); ++i) {
+            const double previousX = line.points[i - 1].x;
+            const double currentX = line.points[i].x;
+            if (std::fabs(previousX - 10.0) < 1e-9 && std::fabs(currentX - 20.0) < 1e-9) {
+                hasGapSpanningPair = true;
+            }
+        }
+    }
+    CHECK(!hasGapSpanningPair);
+}
+
+void roadModelBuilderSplitsLowerPriorityTemplateAroundOverride()
+{
+    using namespace roadproto::domain::alignment;
+    using namespace roadproto::domain::cross_section;
+    using namespace roadproto::domain::profile;
+
+    SubgradeTemplateComponent lane;
+    lane.side = SubgradeSide::Right;
+    lane.type = SubgradeComponentType::TravelLane;
+    lane.width = 3.5;
+
+    SubgradeTemplateData lowTemplate;
+    lane.color = {10, 0, 0};
+    lowTemplate.components.push_back(lane);
+
+    SubgradeTemplateData highTemplate;
+    lane.color = {20, 0, 0};
+    highTemplate.components.push_back(lane);
+
+    RoadModelBuildInput input;
+    input.config.sampleInterval = 10.0;
+    input.config.assignments = {
+        {30.0, 60.0, L"HIGH", L"High priority"},
+        {0.0, 100.0, L"LOW", L"Low priority"},
+    };
+    input.verticalCurve.controlPoints = {
+        {VerticalCurvePointRole::Start, 0.0, 100.0},
+        {VerticalCurvePointRole::End, 100.0, 100.0},
+    };
+    input.alignmentSamples = {
+        {{0.0, 0.0}, 0.0},
+        {{100.0, 0.0}, 100.0},
+    };
+    input.templates = {
+        {L"LOW", lowTemplate},
+        {L"HIGH", highTemplate},
+    };
+
+    const auto result = RoadModelBuilder::build(input);
+
+    CHECK(result.succeeded);
+    bool hasLowBeforeOverride = false;
+    bool hasLowAfterOverride = false;
+    bool hasHighOverride = false;
+    bool hasLowThroughOverride = false;
+
+    for (const auto& line : result.data.componentLines) {
+        if (line.points.size() < 2) {
+            continue;
+        }
+
+        double minX = line.points.front().x;
+        double maxX = line.points.front().x;
+        for (const auto& point : line.points) {
+            minX = std::min(minX, point.x);
+            maxX = std::max(maxX, point.x);
+        }
+
+        if (line.key.templateHandle == L"LOW") {
+            hasLowBeforeOverride = hasLowBeforeOverride ||
+                (minX <= 0.0 + 1e-9 && maxX >= 30.0 - 1e-9);
+            hasLowAfterOverride = hasLowAfterOverride ||
+                (minX <= 60.0 + 1e-9 && maxX >= 100.0 - 1e-9);
+            hasLowThroughOverride = hasLowThroughOverride ||
+                (minX < 60.0 - 1e-9 && maxX > 30.0 + 1e-9);
+        } else if (line.key.templateHandle == L"HIGH") {
+            hasHighOverride = hasHighOverride ||
+                (minX <= 30.0 + 1e-9 && maxX >= 60.0 - 1e-9);
+        }
+
+        for (std::size_t i = 1; i < line.points.size(); ++i) {
+            const double previousX = line.points[i - 1].x;
+            const double currentX = line.points[i].x;
+            if (line.key.templateHandle == L"LOW") {
+                hasLowThroughOverride = hasLowThroughOverride ||
+                    (previousX < 60.0 - 1e-9 && currentX > 30.0 + 1e-9);
+            }
+        }
+    }
+
+    CHECK(hasLowBeforeOverride);
+    CHECK(hasLowAfterOverride);
+    CHECK(hasHighOverride);
+    CHECK(!hasLowThroughOverride);
+}
+
+void roadModelBuilderRejectsInvalidAlignmentSamples()
+{
+    using namespace roadproto::domain::alignment;
+    using namespace roadproto::domain::cross_section;
+    using namespace roadproto::domain::profile;
+
+    SubgradeTemplateComponent lane;
+    lane.side = SubgradeSide::Right;
+    lane.type = SubgradeComponentType::TravelLane;
+    lane.width = 3.5;
+
+    SubgradeTemplateData templateData;
+    templateData.components.push_back(lane);
+
+    RoadModelBuildInput input;
+    input.config.sampleInterval = 10.0;
+    input.config.assignments = {
+        {0.0, 20.0, L"T1", L"Template 1"},
+    };
+    input.verticalCurve.controlPoints = {
+        {VerticalCurvePointRole::Start, 0.0, 100.0},
+        {VerticalCurvePointRole::End, 20.0, 100.0},
+    };
+    input.templates = {
+        {L"T1", templateData},
+    };
+
+    input.alignmentSamples = {
+        {{0.0, 0.0}, 0.0},
+        {{10.0, 0.0}, 10.0},
+        {{20.0, 0.0}, 10.0},
+        {{30.0, 0.0}, 20.0},
+    };
+    const auto duplicateStation = RoadModelBuilder::build(input);
+    CHECK(!duplicateStation.succeeded);
+    CHECK(!duplicateStation.errorMessage.empty());
+
+    input.alignmentSamples = {
+        {{0.0, 0.0}, 0.0},
+        {{0.0, 0.0}, 10.0},
+        {{20.0, 0.0}, 20.0},
+    };
+    const auto zeroLengthSegment = RoadModelBuilder::build(input);
+    CHECK(!zeroLengthSegment.succeeded);
+    CHECK(!zeroLengthSegment.errorMessage.empty());
+}
+
 void crossSectionModuleRegistersSubgradeTemplateCommandsAndRibbonPanel()
 {
     roadproto::core::CommandRegistry commands;
@@ -2649,6 +2834,9 @@ int main()
     roadModelStationSamplerSnapsTemplateBoundaryTolerance();
     roadModelBuilderCreatesThreeDimensionalComponentLines();
     roadModelBuilderDoesNotConnectAcrossTemplateSwitches();
+    roadModelBuilderDoesNotConnectAcrossTemplateGaps();
+    roadModelBuilderSplitsLowerPriorityTemplateAroundOverride();
+    roadModelBuilderRejectsInvalidAlignmentSamples();
     crossSectionModuleRegistersSubgradeTemplateCommandsAndRibbonPanel();
     startupRegistrationIncludesCrossSectionModule();
     managedRibbonExtensionRegistersSubgradeTemplateEntryPoints();

@@ -7,7 +7,7 @@
 - 命令名称：`RD_SECTION_ROAD_MODEL_APPLY_DIALOG_FILE`
 - 对应代码入口：`src/cad_adapter/objectarx/cross_section/ObjectArxRoadModelCommand.cpp`
 - 业务文档维护人：RoadProto 项目
-- 原型版本：`v0.1.11`
+- 原型版本：`v0.1.12`
 - 是否可复用：部分可复用
 
 ## 功能背景

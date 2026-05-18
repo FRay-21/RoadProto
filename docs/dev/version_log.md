@@ -596,3 +596,12 @@
 - 模板表第一版使用模板 handle 输入，后续应提供 CAD 选择或模板库选择器。
 - 道路模型保存上游对象 handle，但尚未接入统一实体关系管理机制自动标脏或重建。
 - Core Console 和自动测试无法覆盖完整 AutoCAD 图形界面的 Ribbon 点击、WPF 弹窗、双击编辑和 DWG 保存重开，需要人工验证。
+
+## v0.1.12 - 2026-05-18
+
+- 版本标识：`v0.1.12_20260518_RoadModelWpfFix`。
+- ARX 文件：`RoadProto_v0.1.12_20260518_RoadModelWpfFix.arx`。
+- 阶段：横断面戴帽道路模型 WPF 热修。
+- 修正 `RoadModelWindow.xaml` 中道路中线 handle 只读文本框的绑定模式：显式使用 `Mode=OneWay`，避免 `TextBox.Text` 默认 TwoWay 绑定只读属性时在打开横断面戴帽窗口时抛出 WPF 异常。
+- 托管桥接测试新增道路模型窗口源码契约，防止只读 handle 绑定再次退回 TwoWay。
+- 验证：托管桥接测试通过；Release WPF 构建通过；Release ARX 构建通过；使用 `C:\Users\admin\Desktop\test\MY01.dwg` 在 AutoCAD 2022 中加载热修 ARX/DLL，并以 handle `243` 的道路中线执行 `RD_SECTION_ROAD_MODEL_CREATE`，已弹出 `横断面戴帽` WPF 窗口，未出现 AutoCAD 错误中断。

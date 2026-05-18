@@ -15,6 +15,25 @@ static string NewTempFile()
     return Path.Combine(Path.GetTempPath(), $"RoadProtoManagedBridgeTests_{Guid.NewGuid():N}.response");
 }
 
+static string FindRepoRoot()
+{
+    foreach (var start in new[] { Directory.GetCurrentDirectory(), AppContext.BaseDirectory })
+    {
+        var directory = new DirectoryInfo(start);
+        while (directory != null)
+        {
+            if (File.Exists(Path.Combine(directory.FullName, "RoadProto.sln")))
+            {
+                return directory.FullName;
+            }
+
+            directory = directory.Parent;
+        }
+    }
+
+    throw new InvalidOperationException("Cannot find RoadProto repository root.");
+}
+
 static void ExpectThrows<TException>(Action action, string message)
     where TException : Exception
 {
@@ -297,9 +316,25 @@ static void RoadModelRequestRejectsMissingOrEmptyResponsePath()
     }
 }
 
+static void RoadModelWindowReadOnlyHandleBindingIsOneWay()
+{
+    var xamlPath = Path.Combine(
+        FindRepoRoot(),
+        "src",
+        "ui",
+        "wpf",
+        "RoadProto.Terrain.UI",
+        "RoadModelWindow.xaml");
+    var xaml = File.ReadAllText(xamlPath);
+    Check(
+        xaml.Contains("Text=\"{Binding RoadCenterlineHandle, Mode=OneWay}\""),
+        "road model window should bind read-only road centerline handle with Mode=OneWay");
+}
+
 ResponseWritesPickTerrainAction();
 SubgradeRequestReadsPersistedEntityComponents();
 RoadModelRequestReadsAssignmentsUsingInvariantCultureAndEscaping();
 RoadModelResponseWritesAssignmentsUsingInvariantCultureAndEscaping();
 RoadModelRequestRejectsMissingOrEmptyResponsePath();
+RoadModelWindowReadOnlyHandleBindingIsOneWay();
 Console.WriteLine("All RoadProto managed bridge tests passed.");

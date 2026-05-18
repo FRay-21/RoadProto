@@ -62,7 +62,7 @@
                         <TextBox x:Name="RoadCenterlineHandleTextBox"
                                  Grid.Column="4"
                                  IsReadOnly="True"
-                                 Text="{Binding RoadCenterlineHandle}" />
+                                 Text="{Binding RoadCenterlineHandle, Mode=OneWay}" />
                     </Grid>
 
                     <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,0,0,12">

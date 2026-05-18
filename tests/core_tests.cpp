@@ -1119,8 +1119,15 @@ void roadModelBuildServiceRejectsMissingHandlesAndDelegatesBuild()
     auto result = service.build(input);
     CHECK(!result.succeeded);
     CHECK(!result.errorMessage.empty());
+    CHECK(result.data.config.sampleInterval == 10.0);
 
     input.config.roadCenterlineHandle = L"C1";
+    result = service.build(input);
+    CHECK(!result.succeeded);
+    CHECK(!result.errorMessage.empty());
+    CHECK(result.data.config.roadCenterlineHandle == L"C1");
+    CHECK(result.data.config.profileVerticalCurveHandle.empty());
+
     input.config.profileVerticalCurveHandle = L"V1";
     input.alignmentSamples = {{{0.0, 0.0}, 0.0}, {{10.0, 0.0}, 10.0}};
     input.verticalCurve.controlPoints = {

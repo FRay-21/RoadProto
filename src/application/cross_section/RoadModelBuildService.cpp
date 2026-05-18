@@ -4,14 +4,15 @@ namespace roadproto::application::cross_section {
 
 RoadModelBuildResult RoadModelBuildService::build(const RoadModelBuildInput& input) const
 {
+    RoadModelBuildResult result;
+    result.data.config = input.config;
+
     if (input.config.roadCenterlineHandle.empty()) {
-        RoadModelBuildResult result;
         result.errorMessage = L"Road centerline handle is required.";
         return result;
     }
 
     if (input.config.profileVerticalCurveHandle.empty()) {
-        RoadModelBuildResult result;
         result.errorMessage = L"Profile vertical curve handle is required.";
         return result;
     }

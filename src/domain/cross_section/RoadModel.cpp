@@ -178,17 +178,16 @@ std::optional<std::vector<alignment::AlignmentSamplePoint>> normalizeAlignmentSa
         return std::nullopt;
     }
 
-    auto samples = sortedAlignmentSamples(input);
-    for (const auto& sample : samples) {
+    for (const auto& sample : input) {
         if (!isFinite(sample.station) || !isFinite(sample.point.x) || !isFinite(sample.point.y)) {
             errorMessage = L"Road model alignment samples must contain finite station and XY values.";
             return std::nullopt;
         }
     }
 
-    for (std::size_t i = 1; i < samples.size(); ++i) {
-        const auto& previous = samples[i - 1];
-        const auto& current = samples[i];
+    for (std::size_t i = 1; i < input.size(); ++i) {
+        const auto& previous = input[i - 1];
+        const auto& current = input[i];
         if (current.station - previous.station <= kStationTolerance) {
             errorMessage = L"Road model alignment sample stations must be strictly increasing.";
             return std::nullopt;
@@ -202,7 +201,7 @@ std::optional<std::vector<alignment::AlignmentSamplePoint>> normalizeAlignmentSa
         }
     }
 
-    return samples;
+    return input;
 }
 
 std::optional<AlignmentFrame> interpolateAlignmentFrame(

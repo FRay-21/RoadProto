@@ -1010,6 +1010,14 @@ void roadModelBuilderRejectsInvalidAlignmentSamples()
     const auto zeroLengthSegment = RoadModelBuilder::build(input);
     CHECK(!zeroLengthSegment.succeeded);
     CHECK(!zeroLengthSegment.errorMessage.empty());
+
+    input.alignmentSamples = {
+        {{20.0, 0.0}, 20.0},
+        {{0.0, 0.0}, 0.0},
+    };
+    const auto unorderedStations = RoadModelBuilder::build(input);
+    CHECK(!unorderedStations.succeeded);
+    CHECK(!unorderedStations.errorMessage.empty());
 }
 
 void crossSectionModuleRegistersSubgradeTemplateCommandsAndRibbonPanel()

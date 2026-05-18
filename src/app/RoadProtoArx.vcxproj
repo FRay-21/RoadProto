@@ -106,6 +106,7 @@
     <ClCompile Include="..\cad_adapter\objectarx\alignment\DnRoadCenterlineEntity.cpp" />
     <ClCompile Include="..\cad_adapter\objectarx\alignment\ObjectArxAlignmentCommand.cpp" />
     <ClCompile Include="..\cad_adapter\objectarx\cross_section\DnSubgradeTemplateEntity.cpp" />
+    <ClCompile Include="..\cad_adapter\objectarx\cross_section\ObjectArxRoadModelCommand.cpp" />
     <ClCompile Include="..\cad_adapter\objectarx\cross_section\ObjectArxSubgradeTemplateCommand.cpp" />
     <ClCompile Include="..\cad_adapter\objectarx\cross_section\SubgradeTemplateDialogBridge.cpp" />
     <ClCompile Include="..\cad_adapter\objectarx\profile\DnProfileGradeGraphEntity.cpp" />

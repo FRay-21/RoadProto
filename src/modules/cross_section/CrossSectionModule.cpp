@@ -1,5 +1,6 @@
 #include "modules/cross_section/CrossSectionModule.h"
 
+#include "cad_adapter/objectarx/cross_section/ObjectArxRoadModelCommand.h"
 #include "cad_adapter/objectarx/cross_section/ObjectArxSubgradeTemplateCommand.h"
 #include "ui/ribbon/RibbonModel.h"
 
@@ -39,6 +40,50 @@ void registerCrossSectionCommands(core::CommandRegistry& commandRegistry)
         true,
         false,
         L"docs/business/cross_section/\u8def\u57fa\u6a21\u677f_WPF\u6865\u63a5\u56de\u5199.md",
+        false});
+
+    commandRegistry.registerCommand(core::CommandDefinition{
+        L"RD_SECTION_ROAD_MODEL_CREATE",
+        L"横断面戴帽",
+        L"CROSS_SECTION",
+        L"Creates a road model from cross-section design inputs.",
+        cad_adapter::objectarx::cross_section::roadModelCreateCommandProcedure(),
+        true,
+        true,
+        L"docs/business/cross_section/横断面戴帽_道路模型创建.md",
+        true});
+
+    commandRegistry.registerCommand(core::CommandDefinition{
+        L"RD_SECTION_ROAD_MODEL_EDIT",
+        L"编辑道路模型",
+        L"CROSS_SECTION",
+        L"Edits an existing road model through the WPF bridge.",
+        cad_adapter::objectarx::cross_section::roadModelEditCommandProcedure(),
+        true,
+        true,
+        L"docs/business/cross_section/道路模型_编辑.md",
+        true});
+
+    commandRegistry.registerCommand(core::CommandDefinition{
+        L"RD_SECTION_ROAD_MODEL_EDIT_HANDLE",
+        L"按 handle 编辑道路模型",
+        L"CROSS_SECTION",
+        L"Internal double-click bridge command that edits a road model by handle.",
+        cad_adapter::objectarx::cross_section::roadModelEditHandleCommandProcedure(),
+        true,
+        false,
+        L"docs/business/cross_section/道路模型_编辑.md",
+        false});
+
+    commandRegistry.registerCommand(core::CommandDefinition{
+        L"RD_SECTION_ROAD_MODEL_APPLY_DIALOG_FILE",
+        L"应用道路模型对话框结果",
+        L"CROSS_SECTION",
+        L"Internal WPF bridge command that applies road model dialog response files.",
+        cad_adapter::objectarx::cross_section::roadModelApplyDialogFileCommandProcedure(),
+        true,
+        false,
+        L"docs/business/cross_section/道路模型_WPF桥接回写.md",
         false});
 }
 

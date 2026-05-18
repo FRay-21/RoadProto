@@ -1184,6 +1184,39 @@ void crossSectionModuleRegistersSubgradeTemplateCommandsAndRibbonPanel()
         CHECK(!applyCommand->reusable);
     }
 
+    const auto roadModelCreateCommand = commands.find(L"RD_SECTION_ROAD_MODEL_CREATE");
+    CHECK(roadModelCreateCommand.has_value());
+    if (roadModelCreateCommand.has_value()) {
+        CHECK(roadModelCreateCommand->moduleCode == L"CROSS_SECTION");
+        CHECK(roadModelCreateCommand->displayName == L"横断面戴帽");
+        CHECK(roadModelCreateCommand->businessDocPath == L"docs/business/cross_section/横断面戴帽_道路模型创建.md");
+        CHECK(roadModelCreateCommand->ribbonAttachable);
+        CHECK(roadModelCreateCommand->isPrototype);
+        CHECK(roadModelCreateCommand->reusable);
+    }
+
+    const auto roadModelEditCommand = commands.find(L"RD_SECTION_ROAD_MODEL_EDIT");
+    CHECK(roadModelEditCommand.has_value());
+    if (roadModelEditCommand.has_value()) {
+        CHECK(roadModelEditCommand->displayName == L"编辑道路模型");
+        CHECK(roadModelEditCommand->businessDocPath == L"docs/business/cross_section/道路模型_编辑.md");
+        CHECK(roadModelEditCommand->ribbonAttachable);
+    }
+
+    const auto roadModelEditHandleCommand = commands.find(L"RD_SECTION_ROAD_MODEL_EDIT_HANDLE");
+    CHECK(roadModelEditHandleCommand.has_value());
+    if (roadModelEditHandleCommand.has_value()) {
+        CHECK(roadModelEditHandleCommand->businessDocPath == L"docs/business/cross_section/道路模型_编辑.md");
+        CHECK(!roadModelEditHandleCommand->ribbonAttachable);
+    }
+
+    const auto roadModelApplyDialogFileCommand = commands.find(L"RD_SECTION_ROAD_MODEL_APPLY_DIALOG_FILE");
+    CHECK(roadModelApplyDialogFileCommand.has_value());
+    if (roadModelApplyDialogFileCommand.has_value()) {
+        CHECK(roadModelApplyDialogFileCommand->businessDocPath == L"docs/business/cross_section/道路模型_WPF桥接回写.md");
+        CHECK(!roadModelApplyDialogFileCommand->ribbonAttachable);
+    }
+
     CHECK(ribbon.tab().panels.size() == 1);
     CHECK(ribbon.tab().panels.front().moduleCode == L"CROSS_SECTION");
     CHECK(ribbon.tab().panels.front().title == L"\u6a2a\u65ad\u9762\u8bbe\u8ba1");
@@ -1208,6 +1241,8 @@ void startupRegistrationIncludesCrossSectionModule()
     module->registerRibbon(ribbon);
 
     CHECK(commands.contains(L"RD_SECTION_SUBGRADE_TEMPLATE_CREATE"));
+    CHECK(commands.contains(L"RD_SECTION_ROAD_MODEL_CREATE"));
+    CHECK(commands.contains(L"RD_SECTION_ROAD_MODEL_EDIT"));
     CHECK(ribbon.tab().panels.size() == 1);
     CHECK(ribbon.tab().panels.front().moduleCode == L"CROSS_SECTION");
 }

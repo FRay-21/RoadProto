@@ -1,3 +1,4 @@
+#include "application/cross_section/RoadModelBuildService.h"
 #include "application/cross_section/SubgradeTemplateCreateService.h"
 #include "application/profile/ProfileGradeGraphCreateService.h"
 #include "application/profile/ProfileVerticalCurveCreateService.h"
@@ -1102,6 +1103,42 @@ void roadModelBuilderRejectsInvalidTemplateSource()
 
     CHECK(!result.succeeded);
     CHECK(!result.errorMessage.empty());
+}
+
+void roadModelBuildServiceRejectsMissingHandlesAndDelegatesBuild()
+{
+    using namespace roadproto::application::cross_section;
+    using namespace roadproto::domain::cross_section;
+    using namespace roadproto::domain::profile;
+
+    RoadModelBuildInput input;
+    input.config.sampleInterval = 10.0;
+    input.config.assignments = {{0.0, 10.0, L"T1", L"Template"}};
+
+    RoadModelBuildService service;
+    auto result = service.build(input);
+    CHECK(!result.succeeded);
+    CHECK(!result.errorMessage.empty());
+
+    input.config.roadCenterlineHandle = L"C1";
+    input.config.profileVerticalCurveHandle = L"V1";
+    input.alignmentSamples = {{{0.0, 0.0}, 0.0}, {{10.0, 0.0}, 10.0}};
+    input.verticalCurve.controlPoints = {
+        {VerticalCurvePointRole::Start, 0.0, 100.0},
+        {VerticalCurvePointRole::End, 10.0, 100.0},
+    };
+    SubgradeTemplateData data;
+    SubgradeTemplateComponent lane;
+    lane.side = SubgradeSide::Right;
+    lane.type = SubgradeComponentType::TravelLane;
+    lane.width = 3.5;
+    data.components.push_back(lane);
+    input.templates = {{L"T1", data}};
+
+    result = service.build(input);
+    CHECK(result.succeeded);
+    CHECK(result.data.config.roadCenterlineHandle == L"C1");
+    CHECK(result.data.config.profileVerticalCurveHandle == L"V1");
 }
 
 void crossSectionModuleRegistersSubgradeTemplateCommandsAndRibbonPanel()
@@ -2931,6 +2968,7 @@ int main()
     roadModelBuilderSplitsLowerPriorityTemplateAroundOverride();
     roadModelBuilderRejectsInvalidAlignmentSamples();
     roadModelBuilderRejectsInvalidTemplateSource();
+    roadModelBuildServiceRejectsMissingHandlesAndDelegatesBuild();
     crossSectionModuleRegistersSubgradeTemplateCommandsAndRibbonPanel();
     startupRegistrationIncludesCrossSectionModule();
     managedRibbonExtensionRegistersSubgradeTemplateEntryPoints();

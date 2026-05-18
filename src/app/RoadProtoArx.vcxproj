@@ -84,6 +84,7 @@
     <ClCompile Include="..\domain\terrain\TerrainTextElevationParser.cpp" />
     <ClCompile Include="..\domain\terrain\TerrainTinBuilder.cpp" />
     <ClCompile Include="..\application\alignment\AlignmentCreateService.cpp" />
+    <ClCompile Include="..\application\cross_section\RoadModelBuildService.cpp" />
     <ClCompile Include="..\application\cross_section\SubgradeTemplateCreateService.cpp" />
     <ClCompile Include="..\application\profile\ProfileGradeGraphCreateService.cpp" />
     <ClCompile Include="..\application\profile\ProfileVerticalCurveCreateService.cpp" />

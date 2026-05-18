@@ -77,6 +77,7 @@
     <ClCompile Include="..\src\application\profile\ProfileGradeGraphCreateService.cpp" />
     <ClCompile Include="..\src\application\profile\ProfileVerticalCurveCreateService.cpp" />
     <ClCompile Include="..\src\application\profile\ProfileVerticalCurveEditService.cpp" />
+    <ClCompile Include="..\src\application\cross_section\RoadModelBuildService.cpp" />
     <ClCompile Include="..\src\application\cross_section\SubgradeTemplateCreateService.cpp" />
     <ClCompile Include="..\src\application\terrain\TerrainUpdateSampleService.cpp" />
     <ClCompile Include="..\src\modules\cross_section\CrossSectionModule.cpp" />

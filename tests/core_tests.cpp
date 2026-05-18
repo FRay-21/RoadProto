@@ -540,6 +540,7 @@ void roadModelTemplateResolverUsesHigherPriorityRows()
     }
 
     CHECK(resolver.resolve(120.0) == nullptr);
+    CHECK(resolver.resolve(100.0 + 1.0e-10) == nullptr);
 }
 
 void roadModelTemplateResolverRejectsInvalidRows()
@@ -560,6 +561,30 @@ void roadModelTemplateResolverRejectsInvalidRows()
     missingHandle.endStation = 100.0;
     CHECK(!RoadModelRules::validateAssignments({missingHandle}, errorMessage));
     CHECK(!errorMessage.empty());
+}
+
+void roadModelSamplerAndBuilderStayTaskOneStubs()
+{
+    using namespace roadproto::domain::cross_section;
+
+    RoadModelConfig config;
+    config.roadCenterlineHandle = L"CENTERLINE";
+
+    roadproto::domain::alignment::AlignmentSamplePoint sample;
+    sample.station = 42.0;
+
+    const auto sampledStations = RoadModelStationSampler::collectStations(config, {sample});
+    CHECK(sampledStations.empty());
+
+    RoadModelBuildInput input;
+    input.config = config;
+    input.alignmentSamples.push_back(sample);
+
+    const RoadModelBuilder builder;
+    const auto result = builder.build(input);
+    CHECK(!result.succeeded);
+    CHECK(result.sampledStations.empty());
+    CHECK(result.data.config.roadCenterlineHandle == L"CENTERLINE");
 }
 
 void crossSectionModuleRegistersSubgradeTemplateCommandsAndRibbonPanel()
@@ -2379,6 +2404,7 @@ int main()
     subgradeTemplateCreateServiceBuildsDefaultTemplate();
     roadModelTemplateResolverUsesHigherPriorityRows();
     roadModelTemplateResolverRejectsInvalidRows();
+    roadModelSamplerAndBuilderStayTaskOneStubs();
     crossSectionModuleRegistersSubgradeTemplateCommandsAndRibbonPanel();
     startupRegistrationIncludesCrossSectionModule();
     managedRibbonExtensionRegistersSubgradeTemplateEntryPoints();

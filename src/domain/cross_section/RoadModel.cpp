@@ -6,8 +6,6 @@
 namespace roadproto::domain::cross_section {
 namespace {
 
-constexpr double kStationTolerance = 1.0e-9;
-
 bool isFinite(double value)
 {
     return std::isfinite(value);
@@ -58,8 +56,7 @@ const RoadModelTemplateAssignment* RoadModelTemplateResolver::resolve(double sta
     }
 
     for (const auto& assignment : assignments_) {
-        if (station + kStationTolerance >= assignment.startStation
-            && station - kStationTolerance <= assignment.endStation) {
+        if (station >= assignment.startStation && station <= assignment.endStation) {
             return &assignment;
         }
     }
@@ -69,22 +66,15 @@ const RoadModelTemplateAssignment* RoadModelTemplateResolver::resolve(double sta
 
 std::vector<double> RoadModelStationSampler::collectStations(
     const RoadModelConfig&,
-    const std::vector<alignment::AlignmentSamplePoint>& alignmentSamples)
+    const std::vector<alignment::AlignmentSamplePoint>&)
 {
-    std::vector<double> stations;
-    stations.reserve(alignmentSamples.size());
-    for (const auto& sample : alignmentSamples) {
-        stations.push_back(sample.station);
-    }
-    return stations;
+    return {};
 }
 
 RoadModelBuildResult RoadModelBuilder::build(const RoadModelBuildInput& input) const
 {
     RoadModelBuildResult result;
     result.data.config = input.config;
-    result.sampledStations = RoadModelStationSampler::collectStations(input.config, input.alignmentSamples);
-    result.succeeded = true;
     return result;
 }
 

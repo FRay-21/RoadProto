@@ -1412,6 +1412,68 @@ void roadModelNativeDialogBridgeSourceContainsRequiredFields()
     CHECK(command.find("runRoadModelApplyDialogFileCommand") != std::string::npos);
 }
 
+void roadModelCommandSourceContainsCompleteObjectArxFlow()
+{
+    const auto sourcePath = findRepositoryRootForTests()
+        / "src"
+        / "cad_adapter"
+        / "objectarx"
+        / "cross_section"
+        / "ObjectArxRoadModelCommand.cpp";
+    CHECK(std::filesystem::exists(sourcePath));
+
+    const auto source = readTextFileForTests(sourcePath);
+    CHECK(!source.empty());
+
+    CHECK(source.find("RoadModelBuildService") != std::string::npos);
+    CHECK(source.find("DnRoadCenterlineEntity") != std::string::npos);
+    CHECK(source.find("DnProfileVerticalCurveEntity") != std::string::npos);
+    CHECK(source.find("DnSubgradeTemplateEntity") != std::string::npos);
+    CHECK(source.find("DnRoadModelEntity") != std::string::npos);
+    CHECK(source.find("selectTypedEntity") != std::string::npos);
+    CHECK(source.find("findUniqueVerticalCurveForCenterline") != std::string::npos);
+    CHECK(source.find("RoadModelBuildInput") != std::string::npos);
+    CHECK(source.find("readSubgradeTemplate") != std::string::npos);
+    CHECK(source.find("appendEntityToModelSpace") != std::string::npos);
+    CHECK(source.find("setRoadModelData") != std::string::npos);
+    CHECK(source.find("recordGraphicsModified") != std::string::npos);
+    CHECK(source.find("acedUpdateDisplay") != std::string::npos);
+
+    const auto createCommand = source.find("void runRoadModelCreateCommand()");
+    const auto editCommand = source.find("void runRoadModelEditCommand()");
+    const auto editHandleCommand = source.find("void runRoadModelEditHandleCommand()");
+    const auto applyCommand = source.find("void runRoadModelApplyDialogFileCommand()");
+    CHECK(createCommand != std::string::npos);
+    CHECK(editCommand != std::string::npos);
+    CHECK(editHandleCommand != std::string::npos);
+    CHECK(applyCommand != std::string::npos);
+
+    CHECK(source.find("selectTypedEntity<DnRoadCenterlineEntity>", createCommand) != std::string::npos);
+    CHECK(source.find("readRoadCenterline", createCommand) != std::string::npos);
+    CHECK(source.find("findUniqueVerticalCurveForCenterline", createCommand) != std::string::npos);
+    CHECK(source.find("selectTypedEntity<DnProfileVerticalCurveEntity>", createCommand) != std::string::npos);
+    CHECK(source.find("queueRoadModelWpfDialog", createCommand) != std::string::npos);
+
+    CHECK(source.find("selectTypedEntity<DnRoadModelEntity>", editCommand) != std::string::npos);
+    CHECK(source.find("roadModelData().config", editCommand) != std::string::npos
+        || source.find("roadModelData().config", source.find("queueDialogForRoadModelEdit")) != std::string::npos);
+    CHECK(source.find("resolveObjectIdFromHandle", editHandleCommand) != std::string::npos);
+    CHECK(source.find("isKindOf(DnRoadModelEntity::desc())", editHandleCommand) != std::string::npos
+        || source.find("isKindOf(DnRoadModelEntity::desc())", source.find("queueDialogForRoadModelEdit")) != std::string::npos);
+
+    CHECK(source.find("readRoadModelDialogResponse", applyCommand) != std::string::npos);
+    CHECK(source.find("resolveObjectIdFromHandle(response.roadCenterlineHandle", applyCommand) != std::string::npos);
+    CHECK(source.find("resolveObjectIdFromHandle(response.profileVerticalCurveHandle", applyCommand) != std::string::npos);
+    CHECK(source.find("readSubgradeTemplate", applyCommand) != std::string::npos);
+    CHECK(source.find("RoadModelBuildInput input", applyCommand) != std::string::npos);
+    CHECK(source.find("service.build(input)", applyCommand) != std::string::npos);
+    CHECK(source.find("new DnRoadModelEntity", applyCommand) != std::string::npos);
+    CHECK(source.find("appendEntityToModelSpace", applyCommand) != std::string::npos);
+    CHECK(source.find("AcDb::kForWrite", applyCommand) != std::string::npos);
+    CHECK(source.find("recordGraphicsModified(true)", applyCommand) != std::string::npos);
+    CHECK(source.find("acedUpdateDisplay()", applyCommand) != std::string::npos);
+}
+
 void roadModelEntitySourceContainsRequiredObjectArxContracts()
 {
     const auto root = findRepositoryRootForTests();
@@ -3268,6 +3330,7 @@ int main()
     managedRibbonExtensionRegistersRoadModelEntryPoints();
     roadModelWpfBridgeSourceContainsRequiredFields();
     roadModelNativeDialogBridgeSourceContainsRequiredFields();
+    roadModelCommandSourceContainsCompleteObjectArxFlow();
     roadModelEntitySourceContainsRequiredObjectArxContracts();
     subgradeTemplateWindowSourceKeepsControlsReadable();
     subgradeTemplateBridgeWritesEnumCodesAsText();

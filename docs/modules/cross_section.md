@@ -5,7 +5,7 @@
 - 模块名称：横断面设计
 - 模块编码：`CROSS_SECTION`
 - 命令前缀：`RD_SECTION_`
-- 当前状态：已实现路基模板独立实体创建、WPF 参数窗口、二维预览、双击编辑入口和桥接回写；道路模型/横断面戴帽框架入口已接入命令元数据和 Ribbon，完整 WPF、实体和命令逻辑在后续任务扩展。
+- 当前状态：已实现路基模板独立实体创建、WPF 参数窗口、二维预览、双击编辑入口和桥接回写；已实现横断面戴帽道路模型创建、编辑、WPF 模板范围表、`DnRoadModelEntity` 三维部件线实体和 ObjectARX 回写流程。
 
 ## 命令清单
 
@@ -36,12 +36,16 @@
 | modules | `src/modules/cross_section/CrossSectionModule.*` | 模块、命令和 C++ Ribbon 元数据注册 |
 | startup | `src/app/startup/CrossSectionStartupRegistration.*` | 启动期注册 `CROSS_SECTION` 模块 |
 | cad_adapter | `src/cad_adapter/objectarx/cross_section/DnSubgradeTemplateEntity.*` | 自定义实体显示、DWG 持久化、几何范围和变换 |
+| cad_adapter | `src/cad_adapter/objectarx/cross_section/DnRoadModelEntity.*` | 道路模型三维部件线显示、DWG 持久化、几何范围和变换 |
 | cad_adapter | `src/cad_adapter/objectarx/cross_section/ObjectArxSubgradeTemplateCommand.*` | 插入点点取、弹窗、实体创建和回写命令 |
 | cad_adapter | `src/cad_adapter/objectarx/cross_section/ObjectArxRoadModelCommand.*` | 道路模型创建、编辑和 WPF 回写命令入口 |
 | cad_adapter | `src/cad_adapter/objectarx/cross_section/SubgradeTemplateDialogBridge.*` | WPF 请求/响应文件桥接 |
+| cad_adapter | `src/cad_adapter/objectarx/cross_section/RoadModelDialogBridge.*` | 道路模型 WPF 请求/响应文件桥接 |
 | WPF | `src/ui/wpf/RoadProto.Terrain.UI/SubgradeTemplateWindow.xaml` | 参数窗口和二维预览 |
 | WPF | `src/ui/wpf/RoadProto.Terrain.UI/StationValueTableWindow.xaml` | 变宽/变坡二级表格 |
+| WPF | `src/ui/wpf/RoadProto.Terrain.UI/RoadModelWindow.xaml` | 横断面戴帽窗口、路基模板范围表和生成入口 |
 | WPF | `src/ui/wpf/RoadProto.Terrain.UI/AutoCad/SubgradeTemplateDialogCommands.cs` | WPF 弹窗命令和响应转发 |
+| WPF | `src/ui/wpf/RoadProto.Terrain.UI/AutoCad/RoadModelDialogCommands.cs` | 道路模型 WPF 弹窗命令和响应转发 |
 | WPF | `src/ui/wpf/RoadProto.Terrain.UI/AutoCad/RoadProtoRibbonExtension.cs` | AutoCAD WPF Ribbon 横断面入口扩展 |
 
 ## 边界
@@ -49,9 +53,17 @@
 - `domain/cross_section` 不依赖 ObjectARX。
 - WPF 不直接读写 CAD 自定义实体。
 - 路基模板当前是独立实体，不绑定道路中线。
-- 与道路中线、路面结构层和统一关系管理机制的关联在后续功能中扩展。
+- 道路模型通过 handle 关联道路中线、竖曲线和路基模板；当前版本不自动监听上游实体变更。
+- 路面结构层和统一关系管理机制的自动重建在后续功能中扩展。
 ## 2026-05-13 更新
 
 - 路基模板默认值已覆盖一级道路、二级道路、三级道路、四级道路、城市主干道、城市次干道和城市支路。
 - WPF 路基模板编辑模式保留实体已保存参数，仅在空白新建请求时回退到高速公路默认值。
 - 预览图支持直接点选部件，左、右按钮按横断面几何顺序移动。
+
+## 2026-05-18 更新
+
+- 新增横断面戴帽道路模型创建和编辑流程。
+- 新增 `DnRoadModelEntity`，支持三维道路部件线 DWG 持久化、显示、范围和变换。
+- 新增道路模型 WPF 桥接和 `RoadModelBuildService` 应用服务接入。
+- 道路模型创建和回写会校验竖曲线所属拉坡图与当前道路中线一致。

@@ -558,3 +558,41 @@
 - 该问题会导致 WPF 双击编辑窗口把已有实体参数误解析为一级道路、右侧、行车道和变化坡度，出现预览与 DWG 实体不一致。
 - 更新路基模板创建、编辑和 WPF 桥接业务文档，移除说明段落中的英文表述。
 - 增加核心测试检查桥接写入重载，防止枚举文本再次被误写为布尔值。
+
+## v0.1.11 - 2026-05-18
+
+- 版本标识：`v0.1.11_20260518_RoadModel`。
+- ARX 文件：`RoadProto_v0.1.11_20260518_RoadModel.arx`。
+- 阶段：横断面戴帽道路模型。
+- 是否可作为稳定测试版本：是。核心测试、托管桥接测试、WPF Debug 构建和 ARX Debug 构建已验证；完整 AutoCAD 图形界面的 Ribbon 点击、WPF 弹窗、双击编辑和 DWG 保存重开仍需人工点验。
+
+### 新增内容
+
+- 新增横断面戴帽道路模型领域能力：`RoadModelTemplateResolver`、`RoadModelStationSampler` 和 `RoadModelBuilder`，支持模板优先级、采样点收集、竖曲线高程和三维部件线生成。
+- 新增 `RoadModelBuildService`，在 application 层组织道路模型配置、道路中线采样、竖曲线和路基模板来源。
+- 新增 `DnRoadModelEntity` 自定义实体，支持 `RoadModelData` DWG 持久化、三维部件线绘制、几何范围和变换。
+- 新增道路模型 WPF 窗口，提供 `路基模板` tab 表格，支持起终点桩号、模板 handle、模板名称和行优先级调整。
+- 新增道路模型 C++ / WPF 请求响应桥接，覆盖 UTF-8、转义、`assignmentCount` 和 InvariantCulture 数值读写。
+- 新增 `RD_SECTION_ROAD_MODEL_CREATE`、`RD_SECTION_ROAD_MODEL_EDIT`、`RD_SECTION_ROAD_MODEL_EDIT_HANDLE` 和 `RD_SECTION_ROAD_MODEL_APPLY_DIALOG_FILE` 命令。
+- 托管 Ribbon `横断面设计` 面板新增 `横断面戴帽` 和 `编辑道路模型` 按钮；双击 `DNROADMODELENTITY` 可进入同一编辑窗口。
+
+### 修改内容
+
+- 更新横断面设计模块文档、道路模型创建/编辑/WPF 桥接业务文档、复用能力目录、道路模型复用说明、README 和测试说明。
+- 更新构建版本信息为 `v0.1.11_20260518_RoadModel`。
+- 道路模型创建和回写会校验竖曲线所属拉坡图与当前道路中线一致，避免混用不同道路的平面和纵断面数据。
+- ARX 初始化失败路径会清理已注册的自定义实体类，降低重复加载风险。
+
+### 构建验证
+
+- 核心测试：`RoadProtoCoreTests.vcxproj` Debug 构建通过，`RoadProtoCoreTests.exe` 输出 `All RoadProto core tests passed.`。
+- 托管桥接测试：`tests/RoadProtoManagedBridgeTests` 运行通过。
+- WPF：`RoadProto.Terrain.UI.csproj` Debug 构建通过。
+- Debug ARX：`artifacts/x64/Debug/RoadProto_v0.1.11_20260518_RoadModel.arx` 构建通过。
+
+### 已知问题
+
+- 当前道路模型只生成三维部件线框，不生成道路面、结构层体积、材质或算量。
+- 模板表第一版使用模板 handle 输入，后续应提供 CAD 选择或模板库选择器。
+- 道路模型保存上游对象 handle，但尚未接入统一实体关系管理机制自动标脏或重建。
+- Core Console 和自动测试无法覆盖完整 AutoCAD 图形界面的 Ribbon 点击、WPF 弹窗、双击编辑和 DWG 保存重开，需要人工验证。

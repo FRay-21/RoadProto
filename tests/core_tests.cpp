@@ -1338,7 +1338,15 @@ void roadModelWpfBridgeSourceContainsRequiredFields()
     CHECK(dto.find("ProfileVerticalCurveHandle") != std::string::npos);
     CHECK(dto.find("SampleInterval") != std::string::npos);
     CHECK(dto.find("RoadModelTemplateAssignmentDto") != std::string::npos);
+    CHECK(dto.find("RoadModelDialogAction") != std::string::npos);
+    CHECK(dto.find("PickTemplate") != std::string::npos);
+    CHECK(dto.find("PickAssignmentIndex") != std::string::npos);
+    CHECK(dto.find("SelectedAssignmentIndex") != std::string::npos);
 
+    CHECK(file.find("action") != std::string::npos);
+    CHECK(file.find("pickTemplate") != std::string::npos);
+    CHECK(file.find("pickAssignmentIndex") != std::string::npos);
+    CHECK(file.find("selectedAssignmentIndex") != std::string::npos);
     CHECK(file.find("assignmentCount") != std::string::npos);
     CHECK(file.find("assignment.{i}.startStation") != std::string::npos);
     CHECK(file.find("RD_SECTION_ROAD_MODEL_APPLY_DIALOG_FILE") == std::string::npos);
@@ -1346,11 +1354,14 @@ void roadModelWpfBridgeSourceContainsRequiredFields()
     CHECK(xaml.find("横断面戴帽") != std::string::npos);
     CHECK(xaml.find("路基模板") != std::string::npos);
     CHECK(xaml.find("DataGrid") != std::string::npos);
+    CHECK(xaml.find("Header=\"点选模板\"") != std::string::npos);
     CHECK(xaml.find("生成模型") != std::string::npos);
 
     CHECK(code.find("MoveAssignment") != std::string::npos);
     CHECK(code.find("BuildResponse") != std::string::npos);
     CHECK(code.find("OnPickTemplate") != std::string::npos);
+    CHECK(code.find("RoadModelDialogAction.PickTemplate") != std::string::npos);
+    CHECK(code.find("PickAssignmentIndex") != std::string::npos);
 }
 
 void roadModelNativeDialogBridgeSourceContainsRequiredFields()
@@ -1385,15 +1396,22 @@ void roadModelNativeDialogBridgeSourceContainsRequiredFields()
 
     CHECK(header.find("RoadModelDialogRequest") != std::string::npos);
     CHECK(header.find("RoadModelDialogResponse") != std::string::npos);
+    CHECK(header.find("RoadModelDialogAction") != std::string::npos);
+    CHECK(header.find("PickTemplate") != std::string::npos);
     CHECK(header.find("roadCenterlineHandle") != std::string::npos);
     CHECK(header.find("profileVerticalCurveHandle") != std::string::npos);
     CHECK(header.find("sampleInterval") != std::string::npos);
+    CHECK(header.find("selectedAssignmentIndex") != std::string::npos);
+    CHECK(header.find("pickAssignmentIndex") != std::string::npos);
     CHECK(header.find("assignments") != std::string::npos);
     CHECK(header.find("queueRoadModelWpfDialog") != std::string::npos);
     CHECK(header.find("readRoadModelDialogResponse") != std::string::npos);
 
     CHECK(bridge.find("RoadProtoRoadModelDialog_") != std::string::npos);
     CHECK(bridge.find("RD_SECTION_ROAD_MODEL_SHOW_WPF_DIALOG") != std::string::npos);
+    CHECK(bridge.find("selectedAssignmentIndex") != std::string::npos);
+    CHECK(bridge.find("pickAssignmentIndex") != std::string::npos);
+    CHECK(bridge.find("pickTemplate") != std::string::npos);
     CHECK(bridge.find("assignmentCount") != std::string::npos);
     CHECK(bridge.find("assignment.\" + std::to_wstring(i)") != std::string::npos);
     CHECK(bridge.find(".startStation") != std::string::npos);
@@ -1410,6 +1428,8 @@ void roadModelNativeDialogBridgeSourceContainsRequiredFields()
     CHECK(command.find("runRoadModelEditCommand") != std::string::npos);
     CHECK(command.find("runRoadModelEditHandleCommand") != std::string::npos);
     CHECK(command.find("runRoadModelApplyDialogFileCommand") != std::string::npos);
+    CHECK(command.find("handlePickTemplateAction") != std::string::npos);
+    CHECK(command.find("selectTypedEntity<DnSubgradeTemplateEntity>") != std::string::npos);
 }
 
 void roadModelCommandSourceContainsCompleteObjectArxFlow()
@@ -1468,6 +1488,8 @@ void roadModelCommandSourceContainsCompleteObjectArxFlow()
         || source.find("isKindOf(DnRoadModelEntity::desc())", source.find("queueDialogForRoadModelEdit")) != std::string::npos);
 
     CHECK(source.find("readRoadModelDialogResponse", applyCommand) != std::string::npos);
+    CHECK(source.find("RoadModelDialogAction::PickTemplate", applyCommand) != std::string::npos);
+    CHECK(source.find("handlePickTemplateAction", applyCommand) != std::string::npos);
     CHECK(source.find("resolveObjectIdFromHandle(response.roadCenterlineHandle", applyCommand) != std::string::npos);
     CHECK(source.find("resolveObjectIdFromHandle(response.profileVerticalCurveHandle", applyCommand) != std::string::npos);
     const auto applyRelationValidation = source.find("profileGraphBelongsToCenterline(verticalCurve.profileGraphHandle, centerlineHandle)", applyCommand);
@@ -1484,6 +1506,33 @@ void roadModelCommandSourceContainsCompleteObjectArxFlow()
     CHECK(source.find("AcDb::kForWrite", applyCommand) != std::string::npos);
     CHECK(source.find("recordGraphicsModified(true)", applyCommand) != std::string::npos);
     CHECK(source.find("acedUpdateDisplay()", applyCommand) != std::string::npos);
+}
+
+void subgradeTemplateEntitySourceContainsMoveGrip()
+{
+    const auto root = findRepositoryRootForTests();
+    const auto headerPath = root
+        / "src"
+        / "cad_adapter"
+        / "objectarx"
+        / "cross_section"
+        / "DnSubgradeTemplateEntity.h";
+    const auto sourcePath = root
+        / "src"
+        / "cad_adapter"
+        / "objectarx"
+        / "cross_section"
+        / "DnSubgradeTemplateEntity.cpp";
+    CHECK(std::filesystem::exists(headerPath));
+    CHECK(std::filesystem::exists(sourcePath));
+
+    const auto header = readTextFileForTests(headerPath);
+    const auto source = readTextFileForTests(sourcePath);
+    CHECK(header.find("subGetGripPoints") != std::string::npos);
+    CHECK(header.find("subMoveGripPointsAt") != std::string::npos);
+    CHECK(source.find("gripPoints.append(insertionPoint_)") != std::string::npos);
+    CHECK(source.find("insertionPoint_ += offset") != std::string::npos);
+    CHECK(source.find("recordGraphicsModified(true)") != std::string::npos);
 }
 
 void roadModelEntitySourceContainsRequiredObjectArxContracts()
@@ -3344,6 +3393,7 @@ int main()
     roadModelNativeDialogBridgeSourceContainsRequiredFields();
     roadModelCommandSourceContainsCompleteObjectArxFlow();
     roadModelEntitySourceContainsRequiredObjectArxContracts();
+    subgradeTemplateEntitySourceContainsMoveGrip();
     subgradeTemplateWindowSourceKeepsControlsReadable();
     subgradeTemplateBridgeWritesEnumCodesAsText();
     managedRibbonExtensionRegistersVerticalCurveContextMenu();

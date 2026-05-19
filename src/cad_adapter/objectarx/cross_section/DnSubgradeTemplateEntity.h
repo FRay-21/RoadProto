@@ -23,6 +23,11 @@ protected:
     Adesk::Boolean subWorldDraw(AcGiWorldDraw* worldDraw) override;
     Acad::ErrorStatus subGetGeomExtents(AcDbExtents& extents) const override;
     Acad::ErrorStatus subTransformBy(const AcGeMatrix3d& transform) override;
+    Acad::ErrorStatus subGetGripPoints(
+        AcGePoint3dArray& gripPoints,
+        AcDbIntArray& osnapModes,
+        AcDbIntArray& geomIds) const override;
+    Acad::ErrorStatus subMoveGripPointsAt(const AcDbIntArray& indices, const AcGeVector3d& offset) override;
 
 private:
     roadproto::domain::cross_section::SubgradeTemplateData templateData_;

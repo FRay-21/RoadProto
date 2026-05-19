@@ -70,7 +70,7 @@
                         <Button Content="删除" Click="OnDeleteAssignment" />
                         <Button Content="上移" Click="OnMoveAssignmentUp" />
                         <Button Content="下移" Click="OnMoveAssignmentDown" />
-                        <Button Content="Pick Template" Click="OnPickTemplate" />
+                        <Button Content="点选模板" Click="OnPickTemplate" />
                     </StackPanel>
 
                     <DataGrid Grid.Row="2"
@@ -85,6 +85,16 @@
                             <DataGridTextColumn Header="终点桩号" Binding="{Binding EndStation}" Width="*" />
                             <DataGridTextColumn Header="路基模板 handle" Binding="{Binding TemplateHandle}" Width="1.4*" />
                             <DataGridTextColumn Header="路基模板名称" Binding="{Binding TemplateName}" Width="1.6*" />
+                            <DataGridTemplateColumn Header="点选模板" Width="100">
+                                <DataGridTemplateColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <Button Content="点选"
+                                                Margin="0"
+                                                Padding="8,3"
+                                                Click="OnPickTemplate" />
+                                    </DataTemplate>
+                                </DataGridTemplateColumn.CellTemplate>
+                            </DataGridTemplateColumn>
                         </DataGrid.Columns>
                     </DataGrid>
                 </Grid>

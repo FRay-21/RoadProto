@@ -13,7 +13,7 @@
 - 源码路径：`src/domain/cross_section/RoadModel.*`
 - 源码路径：`src/application/cross_section/RoadModelBuildService.*`
 - 源码路径：`src/cad_adapter/objectarx/cross_section/DnRoadModelEntity.*`
-- 对外类型/函数：`RoadModelBuilder`、`RoadModelStationSampler`、`RoadModelTemplateResolver`、`RoadModelBuildService`
+- 对外类型/函数：`RoadModelBuilder`、`RoadModelStationSampler`、`RoadModelTemplateResolver`、`RoadModelBuildService`、`RoadModelDialogBridge`
 - 当前使用该能力的命令：`RD_SECTION_ROAD_MODEL_CREATE`、`RD_SECTION_ROAD_MODEL_EDIT`
 
 ## 可复用内容
@@ -23,11 +23,12 @@
 - 竖曲线高程与道路中线平面点组合。
 - 路基模板部件边界转三维部件线。
 - `RoadModelData` 的 CAD 实体持久化和显示表达。
+- WPF 表格行与 CAD 模板实体点选之间的桥接动作。
 
 ## 不可复用或临时内容
 
 - WPF 与 C++ 之间的临时请求/响应文件 Bridge 属于原型接入方式。
-- 模板 handle 当前需要由用户在表格中维护，后续应升级为模板选择器或模板库。
+- 模板 handle 当前可手工输入或从 CAD 图中点选实体回填，后续仍应升级为正式模板库。
 - 当前只生成三维线框，不生成道路实体面、材质、结构层体积或算量结果。
 
 ## 依赖关系
@@ -46,4 +47,4 @@
 
 - 测试路径：`tests/core_tests.cpp`
 - 测试路径：`tests/RoadProtoManagedBridgeTests/`
-- AutoCAD 手工验证：创建道路中线、竖曲线和路基模板后运行 `RD_SECTION_ROAD_MODEL_CREATE`，确认生成 `DnRoadModelEntity`；双击道路模型或运行 `RD_SECTION_ROAD_MODEL_EDIT` 后可调整模板范围并刷新实体。
+- AutoCAD 手工验证：创建道路中线、竖曲线和路基模板后运行 `RD_SECTION_ROAD_MODEL_CREATE`，在表格行内点选图中模板并确认生成 `DnRoadModelEntity`；双击道路模型或运行 `RD_SECTION_ROAD_MODEL_EDIT` 后可调整模板范围并刷新实体。

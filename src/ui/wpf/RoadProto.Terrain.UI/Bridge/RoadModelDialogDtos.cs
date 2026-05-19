@@ -2,6 +2,12 @@ using System.Collections.Generic;
 
 namespace RoadProto.Terrain.UI.Bridge;
 
+public enum RoadModelDialogAction
+{
+    None,
+    PickTemplate,
+}
+
 public sealed class RoadModelTemplateAssignmentDto
 {
     public double StartStation { get; set; }
@@ -26,12 +32,15 @@ public sealed class RoadModelDialogRequest
     public string RoadCenterlineHandle { get; set; } = string.Empty;
     public string ProfileVerticalCurveHandle { get; set; } = string.Empty;
     public double SampleInterval { get; set; } = 10.0;
+    public int SelectedAssignmentIndex { get; set; } = -1;
     public List<RoadModelTemplateAssignmentDto> Assignments { get; set; } = new();
 }
 
 public sealed class RoadModelDialogResponse
 {
+    public RoadModelDialogAction Action { get; set; } = RoadModelDialogAction.None;
     public bool Accepted { get; set; }
+    public int PickAssignmentIndex { get; set; } = -1;
     public string Handle { get; set; } = string.Empty;
     public string RoadCenterlineHandle { get; set; } = string.Empty;
     public string ProfileVerticalCurveHandle { get; set; } = string.Empty;

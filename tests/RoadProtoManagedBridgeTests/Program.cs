@@ -1,5 +1,6 @@
 using RoadProto.Terrain.UI.Bridge;
 using System.Globalization;
+using System.Text;
 using System.Threading;
 
 static void Check(bool condition, string message)
@@ -87,7 +88,7 @@ static void ResponseWritesPickTerrainAction()
             Ls2 = 20,
         });
 
-        var content = File.ReadAllText(path);
+        var content = File.ReadAllText(path, Encoding.UTF8);
         Check(content.Contains("action=pickTerrain"), "response file should request terrain picking");
         Check(content.Contains("handle=1A2"), "response should keep target centerline handle");
         Check(content.Contains("deleteOnCancel=1"), "response should keep create-cancel cleanup flag");
@@ -150,7 +151,7 @@ static void SubgradeRequestReadsPersistedEntityComponents()
             "component.1.pavementLayerLinked=0",
             "component.1.pavementLayerHandle=",
             "component.1.pavementLayerThickness=0",
-        });
+        }, Encoding.UTF8);
 
         var request = SubgradeTemplateDialogFile.ReadRequest(path);
         Check(request.Handle == "2B", "edit request should keep entity handle");
@@ -197,7 +198,7 @@ static void RoadModelRequestReadsAssignmentsUsingInvariantCultureAndEscaping()
             "assignment.1.endStation=180.75",
             "assignment.1.templateHandle=TPL-2",
             "assignment.1.templateName=secondary",
-        });
+        }, Encoding.UTF8);
 
         WithCulture("fr-FR", () =>
         {
@@ -256,7 +257,7 @@ static void RoadModelResponseWritesAssignmentsUsingInvariantCultureAndEscaping()
             RoadModelDialogFile.WriteResponse(path, response);
         });
 
-        var content = File.ReadAllText(path);
+        var content = File.ReadAllText(path, Encoding.UTF8);
         Check(content.Contains("accepted=1"), "road model response should record accepted state");
         Check(content.Contains("sampleInterval=7.5"), "road model response should write invariant decimal separator");
         Check(!content.Contains("sampleInterval=7,5"), "road model response should not use current culture decimal separator");
@@ -266,6 +267,79 @@ static void RoadModelResponseWritesAssignmentsUsingInvariantCultureAndEscaping()
         Check(content.Contains("roadCenterlineHandle=CL%0A1"), "road centerline handle should escape newline");
         Check(content.Contains("profileVerticalCurveHandle=VC%252"), "vertical curve handle should escape percent");
         Check(content.Contains("assignment.0.templateName=左幅%0A模板"), "template name should escape newline");
+    }
+    finally
+    {
+        if (File.Exists(path))
+        {
+            File.Delete(path);
+        }
+    }
+}
+
+static void RoadModelResponseWritesPickTemplateActionAndRowIndex()
+{
+    var path = NewTempFile();
+    try
+    {
+        var response = new RoadModelDialogResponse
+        {
+            Action = RoadModelDialogAction.PickTemplate,
+            Accepted = false,
+            PickAssignmentIndex = 1,
+            Handle = "RM-1",
+            RoadCenterlineHandle = "CL-1",
+            ProfileVerticalCurveHandle = "VC-1",
+            SampleInterval = 10.0,
+        };
+        response.Assignments.Add(new RoadModelTemplateAssignmentDto
+        {
+            StartStation = 0,
+            EndStation = 100,
+            TemplateHandle = "TPL-A",
+            TemplateName = "模板A",
+        });
+        response.Assignments.Add(new RoadModelTemplateAssignmentDto
+        {
+            StartStation = 100,
+            EndStation = 200,
+            TemplateHandle = string.Empty,
+            TemplateName = string.Empty,
+        });
+
+        RoadModelDialogFile.WriteResponse(path, response);
+        var content = File.ReadAllText(path, Encoding.UTF8);
+        Check(content.Contains("action=pickTemplate"), "road model response should request template picking");
+        Check(content.Contains("pickAssignmentIndex=1"), "road model response should keep selected assignment index");
+        Check(content.Contains("assignmentCount=2"), "road model response should keep current rows when picking a template");
+    }
+    finally
+    {
+        if (File.Exists(path))
+        {
+            File.Delete(path);
+        }
+    }
+}
+
+static void RoadModelRequestReadsSelectedAssignmentIndex()
+{
+    var path = NewTempFile();
+    try
+    {
+        File.WriteAllLines(path, new[]
+        {
+            "handle=RM-1",
+            "responsePath=C:/temp/road-model.response",
+            "roadCenterlineHandle=CL-1",
+            "profileVerticalCurveHandle=VC-1",
+            "sampleInterval=10",
+            "selectedAssignmentIndex=2",
+            "assignmentCount=0",
+        }, Encoding.UTF8);
+
+        var request = RoadModelDialogFile.ReadRequest(path);
+        Check(request.SelectedAssignmentIndex == 2, "road model request should keep selected assignment index after template pick");
     }
     finally
     {
@@ -287,14 +361,14 @@ static void RoadModelRequestRejectsMissingOrEmptyResponsePath()
             "handle=RM-1",
             "sampleInterval=10",
             "assignmentCount=0",
-        });
+        }, Encoding.UTF8);
         File.WriteAllLines(emptyPath, new[]
         {
             "handle=RM-1",
             "responsePath=   ",
             "sampleInterval=10",
             "assignmentCount=0",
-        });
+        }, Encoding.UTF8);
 
         ExpectThrows<InvalidDataException>(
             () => RoadModelDialogFile.ReadRequest(missingPath),
@@ -325,16 +399,24 @@ static void RoadModelWindowReadOnlyHandleBindingIsOneWay()
         "wpf",
         "RoadProto.Terrain.UI",
         "RoadModelWindow.xaml");
-    var xaml = File.ReadAllText(xamlPath);
+    var xaml = File.ReadAllText(xamlPath, Encoding.UTF8);
     Check(
         xaml.Contains("Text=\"{Binding RoadCenterlineHandle, Mode=OneWay}\""),
         "road model window should bind read-only road centerline handle with Mode=OneWay");
+    Check(
+        xaml.Contains("Header=\"点选模板\""),
+        "road model window should offer per-row template picking");
+    Check(
+        xaml.Contains("Click=\"OnPickTemplate\""),
+        "road model window should wire template picking button");
 }
 
 ResponseWritesPickTerrainAction();
 SubgradeRequestReadsPersistedEntityComponents();
 RoadModelRequestReadsAssignmentsUsingInvariantCultureAndEscaping();
 RoadModelResponseWritesAssignmentsUsingInvariantCultureAndEscaping();
+RoadModelResponseWritesPickTemplateActionAndRowIndex();
+RoadModelRequestReadsSelectedAssignmentIndex();
 RoadModelRequestRejectsMissingOrEmptyResponsePath();
 RoadModelWindowReadOnlyHandleBindingIsOneWay();
 Console.WriteLine("All RoadProto managed bridge tests passed.");

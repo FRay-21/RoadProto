@@ -25,6 +25,10 @@ public partial class RoadModelWindow : Window, INotifyPropertyChanged
         {
             Assignments.Add(assignment.Clone());
         }
+        if (request.SelectedAssignmentIndex >= 0 && request.SelectedAssignmentIndex < Assignments.Count)
+        {
+            SelectedAssignment = Assignments[request.SelectedAssignmentIndex];
+        }
 
         DataContext = this;
     }
@@ -116,12 +120,34 @@ public partial class RoadModelWindow : Window, INotifyPropertyChanged
 
     private void OnPickTemplate(object sender, RoutedEventArgs e)
     {
-        MessageBox.Show(
-            this,
-            "第一版请手动填写模板 handle",
-            "路基模板",
-            MessageBoxButton.OK,
-            MessageBoxImage.Information);
+        ErrorTextBlock.Text = string.Empty;
+        if (sender is FrameworkElement { DataContext: RoadModelTemplateAssignmentDto row })
+        {
+            SelectedAssignment = row;
+        }
+
+        if (SelectedAssignment == null)
+        {
+            ErrorTextBlock.Text = "请先选择一行路基模板范围。";
+            return;
+        }
+
+        var rowIndex = Assignments.IndexOf(SelectedAssignment);
+        if (rowIndex < 0)
+        {
+            ErrorTextBlock.Text = "请先选择一行路基模板范围。";
+            return;
+        }
+
+        var sampleInterval = TryReadSampleInterval(out var parsedSampleInterval) && parsedSampleInterval > 0.0 && IsFinite(parsedSampleInterval)
+            ? parsedSampleInterval
+            : PositiveOrFallback(_request.SampleInterval, 10.0);
+        Response = BuildResponse(
+            accepted: false,
+            sampleInterval,
+            RoadModelDialogAction.PickTemplate,
+            rowIndex);
+        DialogResult = true;
     }
 
     private void OnGenerateModel(object sender, RoutedEventArgs e)
@@ -137,10 +163,16 @@ public partial class RoadModelWindow : Window, INotifyPropertyChanged
         DialogResult = true;
     }
 
-    private RoadModelDialogResponse BuildResponse(bool accepted, double sampleInterval)
+    private RoadModelDialogResponse BuildResponse(
+        bool accepted,
+        double sampleInterval,
+        RoadModelDialogAction action = RoadModelDialogAction.None,
+        int pickAssignmentIndex = -1)
         => new()
         {
+            Action = action,
             Accepted = accepted,
+            PickAssignmentIndex = pickAssignmentIndex,
             Handle = _request.Handle,
             RoadCenterlineHandle = RoadCenterlineHandle,
             ProfileVerticalCurveHandle = ProfileVerticalCurveHandle,

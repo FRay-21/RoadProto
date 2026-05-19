@@ -425,6 +425,69 @@ bool queueDialogForRoadModelEdit(AcDbObjectId roadModelId)
     return true;
 }
 
+bool promptSubgradeTemplateForRoadModel(std::wstring& templateHandle, std::wstring& templateName)
+{
+    auto& editor = app::ApplicationContext::instance().editor();
+    editor.writeMessage(L"请选择要用于该行的路基模板实体。");
+
+    AcDbObjectId templateId;
+    if (!selectTypedEntity<DnSubgradeTemplateEntity>(templateId)) {
+        editor.writeWarning(L"未选择路基模板实体。");
+        return false;
+    }
+
+    DnSubgradeTemplateEntity* entity = nullptr;
+    if (acdbOpenObject(entity, templateId, AcDb::kForRead) != Acad::eOk || entity == nullptr) {
+        editor.writeError(L"无法打开路基模板实体。");
+        return false;
+    }
+    if (!entity->isKindOf(DnSubgradeTemplateEntity::desc())) {
+        entity->close();
+        editor.writeWarning(L"选择对象不是 RoadProto 路基模板实体。");
+        return false;
+    }
+
+    templateHandle = entityHandleText(entity);
+    templateName = entity->templateData().properties.name.empty()
+        ? templateHandle
+        : entity->templateData().properties.name;
+    entity->close();
+    return !templateHandle.empty();
+}
+
+bool handlePickTemplateAction(const RoadModelDialogResponse& response)
+{
+    auto& editor = app::ApplicationContext::instance().editor();
+
+    RoadModelDialogRequest request;
+    request.handle = response.handle;
+    request.roadCenterlineHandle = response.roadCenterlineHandle;
+    request.profileVerticalCurveHandle = response.profileVerticalCurveHandle;
+    request.sampleInterval = response.sampleInterval;
+    request.selectedAssignmentIndex = response.pickAssignmentIndex;
+    request.assignments = response.assignments;
+
+    if (response.pickAssignmentIndex < 0
+        || response.pickAssignmentIndex >= static_cast<int>(request.assignments.size())) {
+        editor.writeWarning(L"路基模板点选行索引无效，已重新打开横断面戴帽窗口。");
+    } else {
+        std::wstring templateHandle;
+        std::wstring templateName;
+        if (promptSubgradeTemplateForRoadModel(templateHandle, templateName)) {
+            auto& assignment = request.assignments[static_cast<std::size_t>(response.pickAssignmentIndex)];
+            assignment.templateHandle = templateHandle;
+            assignment.templateName = templateName;
+        }
+    }
+
+    std::wstring errorMessage;
+    if (!queueRoadModelWpfDialog(request, errorMessage)) {
+        editor.writeError(L"重新打开道路模型 WPF 对话框失败: " + errorMessage);
+        return false;
+    }
+    return true;
+}
+
 bool promptRoadModelHandle(std::wstring& handle)
 {
     ACHAR handleBuffer[128] = {};
@@ -557,6 +620,11 @@ void runRoadModelApplyDialogFileCommand()
     const auto responsePath = trimDialogCommandPath(pathBuffer);
     if (!readRoadModelDialogResponse(responsePath, response, errorMessage)) {
         editor.writeError(L"Failed to read road model dialog response: " + errorMessage);
+        return;
+    }
+
+    if (response.action == RoadModelDialogAction::PickTemplate) {
+        handlePickTemplateAction(response);
         return;
     }
 

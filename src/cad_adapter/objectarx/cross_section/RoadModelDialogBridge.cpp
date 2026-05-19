@@ -160,6 +160,11 @@ void writeKeyValue(std::ostream& stream, const std::wstring& key, std::size_t va
     stream << wideToUtf8(key) << '=' << value << '\n';
 }
 
+void writeKeyValue(std::ostream& stream, const std::wstring& key, int value)
+{
+    stream << wideToUtf8(key) << '=' << value << '\n';
+}
+
 bool writeRequestFile(
     const RoadModelDialogRequest& request,
     const std::wstring& requestPath,
@@ -177,6 +182,7 @@ bool writeRequestFile(
     writeKeyValue(stream, L"profileVerticalCurveHandle", request.profileVerticalCurveHandle);
     writeKeyValue(stream, L"responsePath", responsePath);
     writeKeyValue(stream, L"sampleInterval", request.sampleInterval);
+    writeKeyValue(stream, L"selectedAssignmentIndex", request.selectedAssignmentIndex);
     writeKeyValue(stream, L"assignmentCount", request.assignments.size());
 
     for (std::size_t i = 0; i < request.assignments.size(); ++i) {
@@ -232,6 +238,16 @@ bool boolValue(
 {
     const auto value = valueOrDefault(values, key, fallback ? L"1" : L"0");
     return value == L"1" || value == L"true" || value == L"True";
+}
+
+RoadModelDialogAction actionValue(
+    const std::unordered_map<std::wstring, std::wstring>& values,
+    const std::wstring& key)
+{
+    const auto value = valueOrDefault(values, key, L"none");
+    return value == L"pickTemplate" || value == L"PickTemplate"
+        ? RoadModelDialogAction::PickTemplate
+        : RoadModelDialogAction::None;
 }
 
 bool tryIntValue(
@@ -332,12 +348,17 @@ bool readRoadModelDialogResponse(
     test.close();
 
     const auto values = readKeyValueFile(responsePath);
+    response.action = actionValue(values, L"action");
     response.accepted = boolValue(values, L"accepted", false);
+    int pickAssignmentIndex = -1;
+    response.pickAssignmentIndex = tryIntValue(values, L"pickAssignmentIndex", pickAssignmentIndex)
+        ? pickAssignmentIndex
+        : -1;
     response.handle = valueOrDefault(values, L"handle");
     response.roadCenterlineHandle = valueOrDefault(values, L"roadCenterlineHandle");
     response.profileVerticalCurveHandle = valueOrDefault(values, L"profileVerticalCurveHandle");
 
-    if (!response.accepted) {
+    if (!response.accepted && response.action != RoadModelDialogAction::PickTemplate) {
         removeFileIfExists(responsePath);
         return true;
     }
@@ -371,7 +392,8 @@ bool readRoadModelDialogResponse(
         response.assignments.push_back(std::move(assignment));
     }
 
-    if (!roadproto::domain::cross_section::RoadModelRules::validateAssignments(response.assignments, errorMessage)) {
+    if (response.accepted
+        && !roadproto::domain::cross_section::RoadModelRules::validateAssignments(response.assignments, errorMessage)) {
         return false;
     }
 

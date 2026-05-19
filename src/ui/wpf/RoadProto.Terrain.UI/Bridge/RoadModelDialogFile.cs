@@ -26,6 +26,7 @@ public static class RoadModelDialogFile
             RoadCenterlineHandle = Get(values, "roadCenterlineHandle"),
             ProfileVerticalCurveHandle = Get(values, "profileVerticalCurveHandle"),
             SampleInterval = GetDouble(values, "sampleInterval", 10.0),
+            SelectedAssignmentIndex = GetInt(values, "selectedAssignmentIndex", -1),
         };
 
         var assignmentCount = Math.Max(0, GetInt(values, "assignmentCount"));
@@ -41,7 +42,9 @@ public static class RoadModelDialogFile
     {
         var lines = new List<string>
         {
+            Write("action", ActionText(response.Action)),
             Write("accepted", response.Accepted),
+            Write("pickAssignmentIndex", response.PickAssignmentIndex),
             Write("handle", response.Handle),
             Write("roadCenterlineHandle", response.RoadCenterlineHandle),
             Write("profileVerticalCurveHandle", response.ProfileVerticalCurveHandle),
@@ -118,6 +121,13 @@ public static class RoadModelDialogFile
 
     private static string Write(string key, double value)
         => $"{key}={value.ToString("R", CultureInfo.InvariantCulture)}";
+
+    private static string ActionText(RoadModelDialogAction action)
+        => action switch
+        {
+            RoadModelDialogAction.PickTemplate => "pickTemplate",
+            _ => "none",
+        };
 
     private static string Escape(string value)
     {

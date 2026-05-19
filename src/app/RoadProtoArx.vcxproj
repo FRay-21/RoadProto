@@ -71,6 +71,7 @@
     <ClCompile Include="..\domain\alignment\HorizontalAlignmentBuilder.cpp" />
     <ClCompile Include="..\domain\alignment\IcdAlignmentFile.cpp" />
     <ClCompile Include="..\domain\alignment\StationFormatter.cpp" />
+    <ClCompile Include="..\domain\cross_section\RoadModel.cpp" />
     <ClCompile Include="..\domain\cross_section\SubgradeTemplateModel.cpp" />
     <ClCompile Include="..\domain\profile\ProfileDmxFile.cpp" />
     <ClCompile Include="..\domain\profile\ProfileGradeGraphLayout.cpp" />
@@ -83,6 +84,7 @@
     <ClCompile Include="..\domain\terrain\TerrainTextElevationParser.cpp" />
     <ClCompile Include="..\domain\terrain\TerrainTinBuilder.cpp" />
     <ClCompile Include="..\application\alignment\AlignmentCreateService.cpp" />
+    <ClCompile Include="..\application\cross_section\RoadModelBuildService.cpp" />
     <ClCompile Include="..\application\cross_section\SubgradeTemplateCreateService.cpp" />
     <ClCompile Include="..\application\profile\ProfileGradeGraphCreateService.cpp" />
     <ClCompile Include="..\application\profile\ProfileVerticalCurveCreateService.cpp" />
@@ -103,7 +105,10 @@
     <ClCompile Include="..\cad_adapter\objectarx\alignment\AlignmentDialogBridge.cpp" />
     <ClCompile Include="..\cad_adapter\objectarx\alignment\DnRoadCenterlineEntity.cpp" />
     <ClCompile Include="..\cad_adapter\objectarx\alignment\ObjectArxAlignmentCommand.cpp" />
+    <ClCompile Include="..\cad_adapter\objectarx\cross_section\DnRoadModelEntity.cpp" />
     <ClCompile Include="..\cad_adapter\objectarx\cross_section\DnSubgradeTemplateEntity.cpp" />
+    <ClCompile Include="..\cad_adapter\objectarx\cross_section\RoadModelDialogBridge.cpp" />
+    <ClCompile Include="..\cad_adapter\objectarx\cross_section\ObjectArxRoadModelCommand.cpp" />
     <ClCompile Include="..\cad_adapter\objectarx\cross_section\ObjectArxSubgradeTemplateCommand.cpp" />
     <ClCompile Include="..\cad_adapter\objectarx\cross_section\SubgradeTemplateDialogBridge.cpp" />
     <ClCompile Include="..\cad_adapter\objectarx\profile\DnProfileGradeGraphEntity.cpp" />

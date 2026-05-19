@@ -590,6 +590,41 @@ Acad::ErrorStatus DnSubgradeTemplateEntity::subTransformBy(const AcGeMatrix3d& t
     return Acad::eOk;
 }
 
+Acad::ErrorStatus DnSubgradeTemplateEntity::subGetGripPoints(
+    AcGePoint3dArray& gripPoints,
+    AcDbIntArray&,
+    AcDbIntArray&) const
+{
+    assertReadEnabled();
+    gripPoints.append(insertionPoint_);
+    return Acad::eOk;
+}
+
+Acad::ErrorStatus DnSubgradeTemplateEntity::subMoveGripPointsAt(
+    const AcDbIntArray& indices,
+    const AcGeVector3d& offset)
+{
+    assertWriteEnabled();
+    if (indices.length() == 0 || offset.isZeroLength()) {
+        return Acad::eOk;
+    }
+
+    bool moveInsertionPoint = false;
+    for (int i = 0; i < indices.length(); ++i) {
+        if (indices.at(i) == 0) {
+            moveInsertionPoint = true;
+            break;
+        }
+    }
+    if (!moveInsertionPoint) {
+        return Acad::eOk;
+    }
+
+    insertionPoint_ += offset;
+    recordGraphicsModified(true);
+    return Acad::eOk;
+}
+
 namespace roadproto::cad_adapter::objectarx {
 
 void initializeSubgradeTemplateEntityClass()

@@ -558,3 +558,89 @@
 - 该问题会导致 WPF 双击编辑窗口把已有实体参数误解析为一级道路、右侧、行车道和变化坡度，出现预览与 DWG 实体不一致。
 - 更新路基模板创建、编辑和 WPF 桥接业务文档，移除说明段落中的英文表述。
 - 增加核心测试检查桥接写入重载，防止枚举文本再次被误写为布尔值。
+
+## v0.1.11 - 2026-05-18
+
+- 版本标识：`v0.1.11_20260518_RoadModel`。
+- ARX 文件：`RoadProto_v0.1.11_20260518_RoadModel.arx`。
+- 阶段：横断面戴帽道路模型。
+- 是否可作为稳定测试版本：是。核心测试、托管桥接测试、WPF Debug 构建和 ARX Debug 构建已验证；完整 AutoCAD 图形界面的 Ribbon 点击、WPF 弹窗、双击编辑和 DWG 保存重开仍需人工点验。
+
+### 新增内容
+
+- 新增横断面戴帽道路模型领域能力：`RoadModelTemplateResolver`、`RoadModelStationSampler` 和 `RoadModelBuilder`，支持模板优先级、采样点收集、竖曲线高程和三维部件线生成。
+- 新增 `RoadModelBuildService`，在 application 层组织道路模型配置、道路中线采样、竖曲线和路基模板来源。
+- 新增 `DnRoadModelEntity` 自定义实体，支持 `RoadModelData` DWG 持久化、三维部件线绘制、几何范围和变换。
+- 新增道路模型 WPF 窗口，提供 `路基模板` tab 表格，支持起终点桩号、模板 handle、模板名称和行优先级调整。
+- 新增道路模型 C++ / WPF 请求响应桥接，覆盖 UTF-8、转义、`assignmentCount` 和 InvariantCulture 数值读写。
+- 新增 `RD_SECTION_ROAD_MODEL_CREATE`、`RD_SECTION_ROAD_MODEL_EDIT`、`RD_SECTION_ROAD_MODEL_EDIT_HANDLE` 和 `RD_SECTION_ROAD_MODEL_APPLY_DIALOG_FILE` 命令。
+- 托管 Ribbon `横断面设计` 面板新增 `横断面戴帽` 和 `编辑道路模型` 按钮；双击 `DNROADMODELENTITY` 可进入同一编辑窗口。
+
+### 修改内容
+
+- 更新横断面设计模块文档、道路模型创建/编辑/WPF 桥接业务文档、复用能力目录、道路模型复用说明、README 和测试说明。
+- 更新构建版本信息为 `v0.1.11_20260518_RoadModel`。
+- 道路模型创建和回写会校验竖曲线所属拉坡图与当前道路中线一致，避免混用不同道路的平面和纵断面数据。
+- ARX 初始化失败路径会清理已注册的自定义实体类，降低重复加载风险。
+
+### 构建验证
+
+- 核心测试：`RoadProtoCoreTests.vcxproj` Debug 构建通过，`RoadProtoCoreTests.exe` 输出 `All RoadProto core tests passed.`。
+- 托管桥接测试：`tests/RoadProtoManagedBridgeTests` 运行通过。
+- WPF：`RoadProto.Terrain.UI.csproj` Debug 构建通过。
+- Debug ARX：`artifacts/x64/Debug/RoadProto_v0.1.11_20260518_RoadModel.arx` 构建通过。
+
+### 已知问题
+
+- 当前道路模型只生成三维部件线框，不生成道路面、结构层体积、材质或算量。
+- 模板表第一版使用模板 handle 输入，后续应提供 CAD 选择或模板库选择器。
+- 道路模型保存上游对象 handle，但尚未接入统一实体关系管理机制自动标脏或重建。
+- Core Console 和自动测试无法覆盖完整 AutoCAD 图形界面的 Ribbon 点击、WPF 弹窗、双击编辑和 DWG 保存重开，需要人工验证。
+
+## v0.1.12 - 2026-05-18
+
+- 版本标识：`v0.1.12_20260518_RoadModelWpfFix`。
+- ARX 文件：`RoadProto_v0.1.12_20260518_RoadModelWpfFix.arx`。
+- 阶段：横断面戴帽道路模型 WPF 热修。
+- 修正 `RoadModelWindow.xaml` 中道路中线 handle 只读文本框的绑定模式：显式使用 `Mode=OneWay`，避免 `TextBox.Text` 默认 TwoWay 绑定只读属性时在打开横断面戴帽窗口时抛出 WPF 异常。
+- 托管桥接测试新增道路模型窗口源码契约，防止只读 handle 绑定再次退回 TwoWay。
+- 验证：托管桥接测试通过；Release WPF 构建通过；Release ARX 构建通过；使用 `C:\Users\admin\Desktop\test\MY01.dwg` 在 AutoCAD 2022 中加载热修 ARX/DLL，并以 handle `243` 的道路中线执行 `RD_SECTION_ROAD_MODEL_CREATE`，已弹出 `横断面戴帽` WPF 窗口，未出现 AutoCAD 错误中断。
+
+## v0.1.13 - 2026-05-19
+
+- 版本标识：`v0.1.13_20260519_RoadModelPickGrip`。
+- ARX 文件：`RoadProto_v0.1.13_20260519_RoadModelPickGrip.arx`。
+- 阶段：横断面戴帽行内点选模板与路基模板夹点优化。
+- 是否可作为稳定测试版本：是。托管桥接测试、核心测试、Release WPF 构建、Release ARX 构建和 `MY01.dwg` 测试副本生成模型均已验证。
+
+### 新增内容
+
+- 横断面戴帽 `路基模板` 表格新增行内 `点选` 按钮，用户可从 CAD 图中选择 `DnSubgradeTemplateEntity` 并回填当前行模板 handle 和模板名称。
+- 道路模型 WPF 请求/响应 DTO 新增 `action`、`pickAssignmentIndex` 和 `selectedAssignmentIndex` 字段，用于保持表格状态并返回 CAD 选择模板。
+- C++ ObjectARX 回写命令新增 `pickTemplate` 动作处理，点选模板后重新打开同一个横断面戴帽窗口继续编辑或生成。
+- `DnSubgradeTemplateEntity` 新增插入点夹点，支持在 CAD 图中拖动移动模板实体位置。
+
+### 修改内容
+
+- 更新 README、横断面戴帽道路模型创建/编辑/WPF 桥接业务文档、路基模板编辑文档、横断面模块文档、复用能力目录、道路模型复用说明、路基模板复用说明和测试说明。
+- 更新构建版本信息为 `v0.1.13_20260519_RoadModelPickGrip`。
+
+### 构建验证
+
+- 托管桥接测试：`dotnet run --project tests\RoadProtoManagedBridgeTests\RoadProtoManagedBridgeTests.csproj` 输出 `All RoadProto managed bridge tests passed.`。
+- 核心测试：`RoadProtoCoreTests.vcxproj` Debug 构建通过，`RoadProtoCoreTests.exe` 输出 `All RoadProto core tests passed.`。
+- 行内点选模板验证：托管桥接测试覆盖 `action=pickTemplate`、`pickAssignmentIndex` 和 `selectedAssignmentIndex` 文件读写；核心测试覆盖 WPF 行内 `点选` 按钮、C++ `pickTemplate` 动作和 `selectTypedEntity<DnSubgradeTemplateEntity>` 选择入口。
+- WPF：`RoadProto.Terrain.UI.csproj` Release 构建通过，0 警告，0 错误。
+- Release ARX：`RoadProtoArx.vcxproj` Release 构建通过，生成 `artifacts/x64/Release/RoadProto_v0.1.13_20260519_RoadModelPickGrip.arx`，0 警告，0 错误。
+
+### AutoCAD 图形验证
+
+- 使用 `C:\Users\admin\Desktop\test\MY01.dwg` 的测试副本 `C:\Users\admin\Desktop\test\RoadProtoFeatureLoad\MY01_RoadModelPickGripTest.dwg` 验证，未修改原始 `MY01.dwg`。
+- 实体探测结果：handle `243` 为 `DNROADCENTERLINEENTITY`，handle `289` 为 `DNPROFILEVERTICALCURVEENTITY`，handle `50C` 为 `DNSUBGRADETEMPLATEENTITY`。
+- 生成模型验证：以道路中线 `243`、竖曲线 `289`、路基模板 `50C` 和桩号范围 `0` 到 `100000` 执行回写生成，测试副本中 `DNROADMODELENTITY` 数量从 `0` 增加到 `1`，新增道路模型 handle 为 `557`。
+
+### 已知问题
+
+- 当前道路模型仍只生成三维部件线框，不生成道路面、结构层体积、材质或算量。
+- 行内点选模板当前使用临时文件 Bridge 和 AutoCAD 选择流程，后续正式产品化时仍应补充模板库选择和更细的行级错误定位。
+- 路基模板夹点移动已完成 ObjectARX 实体能力和编译验证，自动化脚本未覆盖鼠标拖拽交互本身，仍建议后续人工点验一次 CAD 图形交互手感。

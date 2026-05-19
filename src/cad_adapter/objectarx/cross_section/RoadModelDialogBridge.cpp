@@ -1,0 +1,404 @@
+#include "cad_adapter/objectarx/cross_section/RoadModelDialogBridge.h"
+
+#include "acdocman.h"
+
+#include <Windows.h>
+
+#include <chrono>
+#include <cctype>
+#include <cmath>
+#include <cstdlib>
+#include <filesystem>
+#include <fstream>
+#include <iomanip>
+#include <sstream>
+#include <unordered_map>
+#include <utility>
+
+namespace roadproto::cad_adapter::objectarx::cross_section {
+namespace {
+
+constexpr int kMaxDialogAssignments = 10000;
+
+std::string wideToUtf8(const std::wstring& value)
+{
+    if (value.empty()) {
+        return {};
+    }
+
+    const int size = WideCharToMultiByte(
+        CP_UTF8,
+        0,
+        value.c_str(),
+        static_cast<int>(value.size()),
+        nullptr,
+        0,
+        nullptr,
+        nullptr);
+    if (size <= 0) {
+        return {};
+    }
+
+    std::string output(static_cast<std::size_t>(size), '\0');
+    WideCharToMultiByte(
+        CP_UTF8,
+        0,
+        value.c_str(),
+        static_cast<int>(value.size()),
+        output.data(),
+        size,
+        nullptr,
+        nullptr);
+    return output;
+}
+
+std::wstring utf8ToWide(const std::string& value)
+{
+    if (value.empty()) {
+        return {};
+    }
+
+    const int size = MultiByteToWideChar(
+        CP_UTF8,
+        0,
+        value.c_str(),
+        static_cast<int>(value.size()),
+        nullptr,
+        0);
+    if (size <= 0) {
+        return {};
+    }
+
+    std::wstring output(static_cast<std::size_t>(size), L'\0');
+    MultiByteToWideChar(CP_UTF8, 0, value.c_str(), static_cast<int>(value.size()), output.data(), size);
+    return output;
+}
+
+std::string escapeValue(const std::wstring& value)
+{
+    const auto utf8 = wideToUtf8(value);
+    std::ostringstream escaped;
+    escaped << std::uppercase << std::hex;
+    for (const unsigned char ch : utf8) {
+        if (ch == '%' || ch == '\r' || ch == '\n') {
+            escaped << '%' << std::setw(2) << std::setfill('0') << static_cast<int>(ch);
+        } else {
+            escaped << static_cast<char>(ch);
+        }
+    }
+    return escaped.str();
+}
+
+std::wstring unescapeValue(const std::string& value)
+{
+    std::string output;
+    output.reserve(value.size());
+    for (std::size_t i = 0; i < value.size(); ++i) {
+        if (value[i] == '%' && i + 2 < value.size()
+            && std::isxdigit(static_cast<unsigned char>(value[i + 1]))
+            && std::isxdigit(static_cast<unsigned char>(value[i + 2]))) {
+            const auto code = value.substr(i + 1, 2);
+            output.push_back(static_cast<char>(std::strtoul(code.c_str(), nullptr, 16)));
+            i += 2;
+        } else {
+            output.push_back(value[i]);
+        }
+    }
+    return utf8ToWide(output);
+}
+
+std::wstring tempFilePath(const wchar_t* suffix)
+{
+    wchar_t tempPath[MAX_PATH] = {};
+    GetTempPathW(MAX_PATH, tempPath);
+
+    const auto now = std::chrono::high_resolution_clock::now().time_since_epoch().count();
+    std::wstringstream name;
+    name << L"RoadProtoRoadModel_" << GetCurrentProcessId() << L"_" << now << suffix;
+    return (std::filesystem::path(tempPath) / name.str()).wstring();
+}
+
+std::wstring pendingRequestPath()
+{
+    wchar_t tempPath[MAX_PATH] = {};
+    GetTempPathW(MAX_PATH, tempPath);
+
+    std::wstringstream name;
+    name << L"RoadProtoRoadModelDialog_" << GetCurrentProcessId() << L".pending";
+    return (std::filesystem::path(tempPath) / name.str()).wstring();
+}
+
+bool writePendingRequestPath(const std::wstring& requestPath, std::wstring& errorMessage)
+{
+    std::ofstream stream(std::filesystem::path(pendingRequestPath()), std::ios::binary);
+    if (!stream) {
+        errorMessage = L"Cannot write road model dialog pending request path.";
+        return false;
+    }
+
+    stream << wideToUtf8(requestPath);
+    return true;
+}
+
+void writeKeyValue(std::ostream& stream, const std::wstring& key, const std::wstring& value)
+{
+    stream << wideToUtf8(key) << '=' << escapeValue(value) << '\n';
+}
+
+void writeKeyValue(std::ostream& stream, const std::wstring& key, bool value)
+{
+    stream << wideToUtf8(key) << '=' << (value ? 1 : 0) << '\n';
+}
+
+void writeKeyValue(std::ostream& stream, const std::wstring& key, double value)
+{
+    stream << wideToUtf8(key) << '=' << std::setprecision(17) << value << '\n';
+}
+
+void writeKeyValue(std::ostream& stream, const std::wstring& key, std::size_t value)
+{
+    stream << wideToUtf8(key) << '=' << value << '\n';
+}
+
+void writeKeyValue(std::ostream& stream, const std::wstring& key, int value)
+{
+    stream << wideToUtf8(key) << '=' << value << '\n';
+}
+
+bool writeRequestFile(
+    const RoadModelDialogRequest& request,
+    const std::wstring& requestPath,
+    const std::wstring& responsePath,
+    std::wstring& errorMessage)
+{
+    std::ofstream stream(std::filesystem::path(requestPath), std::ios::binary);
+    if (!stream) {
+        errorMessage = L"Cannot write road model dialog request file.";
+        return false;
+    }
+
+    writeKeyValue(stream, L"handle", request.handle);
+    writeKeyValue(stream, L"roadCenterlineHandle", request.roadCenterlineHandle);
+    writeKeyValue(stream, L"profileVerticalCurveHandle", request.profileVerticalCurveHandle);
+    writeKeyValue(stream, L"responsePath", responsePath);
+    writeKeyValue(stream, L"sampleInterval", request.sampleInterval);
+    writeKeyValue(stream, L"selectedAssignmentIndex", request.selectedAssignmentIndex);
+    writeKeyValue(stream, L"assignmentCount", request.assignments.size());
+
+    for (std::size_t i = 0; i < request.assignments.size(); ++i) {
+        const auto& assignment = request.assignments[i];
+        const auto prefix = L"assignment." + std::to_wstring(i);
+        writeKeyValue(stream, prefix + L".startStation", assignment.startStation);
+        writeKeyValue(stream, prefix + L".endStation", assignment.endStation);
+        writeKeyValue(stream, prefix + L".templateHandle", assignment.templateHandle);
+        writeKeyValue(stream, prefix + L".templateName", assignment.templateName);
+    }
+
+    return true;
+}
+
+std::unordered_map<std::wstring, std::wstring> readKeyValueFile(const std::wstring& path)
+{
+    std::ifstream stream(std::filesystem::path(path), std::ios::binary);
+    std::unordered_map<std::wstring, std::wstring> values;
+    std::string line;
+    while (std::getline(stream, line)) {
+        if (!line.empty() && line.back() == '\r') {
+            line.pop_back();
+        }
+        if (line.empty() || line[0] == '#') {
+            continue;
+        }
+        const auto separator = line.find('=');
+        if (separator == std::string::npos) {
+            continue;
+        }
+        auto key = utf8ToWide(line.substr(0, separator));
+        if (!key.empty() && key.front() == 0xFEFF) {
+            key.erase(key.begin());
+        }
+        values[key] = unescapeValue(line.substr(separator + 1));
+    }
+    return values;
+}
+
+std::wstring valueOrDefault(
+    const std::unordered_map<std::wstring, std::wstring>& values,
+    const std::wstring& key,
+    const std::wstring& fallback = L"")
+{
+    const auto found = values.find(key);
+    return found == values.end() ? fallback : found->second;
+}
+
+bool boolValue(
+    const std::unordered_map<std::wstring, std::wstring>& values,
+    const std::wstring& key,
+    bool fallback = false)
+{
+    const auto value = valueOrDefault(values, key, fallback ? L"1" : L"0");
+    return value == L"1" || value == L"true" || value == L"True";
+}
+
+RoadModelDialogAction actionValue(
+    const std::unordered_map<std::wstring, std::wstring>& values,
+    const std::wstring& key)
+{
+    const auto value = valueOrDefault(values, key, L"none");
+    return value == L"pickTemplate" || value == L"PickTemplate"
+        ? RoadModelDialogAction::PickTemplate
+        : RoadModelDialogAction::None;
+}
+
+bool tryIntValue(
+    const std::unordered_map<std::wstring, std::wstring>& values,
+    const std::wstring& key,
+    int& result)
+{
+    try {
+        std::size_t parsedLength = 0;
+        const auto value = valueOrDefault(values, key);
+        if (value.empty()) {
+            return false;
+        }
+        const auto parsed = std::stoi(value, &parsedLength);
+        if (parsedLength != value.size()) {
+            return false;
+        }
+        result = parsed;
+        return true;
+    } catch (...) {
+        return false;
+    }
+}
+
+bool tryDoubleValue(
+    const std::unordered_map<std::wstring, std::wstring>& values,
+    const std::wstring& key,
+    double& result)
+{
+    try {
+        std::size_t parsedLength = 0;
+        const auto value = valueOrDefault(values, key);
+        if (value.empty()) {
+            return false;
+        }
+        result = std::stod(value, &parsedLength);
+        return parsedLength == value.size() && std::isfinite(result);
+    } catch (...) {
+        return false;
+    }
+}
+
+void removeFileIfExists(const std::wstring& path)
+{
+    if (path.empty()) {
+        return;
+    }
+
+    std::error_code error;
+    std::filesystem::remove(std::filesystem::path(path), error);
+}
+
+} // namespace
+
+bool queueRoadModelWpfDialog(
+    const RoadModelDialogRequest& request,
+    std::wstring& errorMessage)
+{
+    const auto requestPath = tempFilePath(L".request");
+    const auto responsePath = request.responsePath.empty() ? tempFilePath(L".response") : request.responsePath;
+    if (!writeRequestFile(request, requestPath, responsePath, errorMessage)) {
+        return false;
+    }
+    if (!writePendingRequestPath(requestPath, errorMessage)) {
+        removeFileIfExists(requestPath);
+        return false;
+    }
+
+    auto* document = acDocManager == nullptr ? nullptr : acDocManager->curDocument();
+    if (document == nullptr) {
+        removeFileIfExists(pendingRequestPath());
+        removeFileIfExists(requestPath);
+        removeFileIfExists(responsePath);
+        errorMessage = L"No active AutoCAD document is available.";
+        return false;
+    }
+
+    const std::wstring command = L"RD_SECTION_ROAD_MODEL_SHOW_WPF_DIALOG\n";
+    acDocManager->sendStringToExecute(document, command.c_str(), true, false, false);
+    return true;
+}
+
+bool readRoadModelDialogResponse(
+    const std::wstring& responsePath,
+    RoadModelDialogResponse& response,
+    std::wstring& errorMessage)
+{
+    if (responsePath.empty()) {
+        errorMessage = L"Road model dialog response path is empty.";
+        return false;
+    }
+
+    std::ifstream test(std::filesystem::path(responsePath), std::ios::binary);
+    if (!test) {
+        errorMessage = L"Cannot open road model dialog response file.";
+        return false;
+    }
+    test.close();
+
+    const auto values = readKeyValueFile(responsePath);
+    response.action = actionValue(values, L"action");
+    response.accepted = boolValue(values, L"accepted", false);
+    int pickAssignmentIndex = -1;
+    response.pickAssignmentIndex = tryIntValue(values, L"pickAssignmentIndex", pickAssignmentIndex)
+        ? pickAssignmentIndex
+        : -1;
+    response.handle = valueOrDefault(values, L"handle");
+    response.roadCenterlineHandle = valueOrDefault(values, L"roadCenterlineHandle");
+    response.profileVerticalCurveHandle = valueOrDefault(values, L"profileVerticalCurveHandle");
+
+    if (!response.accepted && response.action != RoadModelDialogAction::PickTemplate) {
+        removeFileIfExists(responsePath);
+        return true;
+    }
+
+    if (!tryDoubleValue(values, L"sampleInterval", response.sampleInterval)
+        || !roadproto::domain::cross_section::RoadModelRules::isSupportedSampleInterval(response.sampleInterval)) {
+        errorMessage = L"Road model dialog response has invalid sample interval.";
+        return false;
+    }
+
+    int assignmentCount = 0;
+    if (!tryIntValue(values, L"assignmentCount", assignmentCount)
+        || assignmentCount < 0
+        || assignmentCount > kMaxDialogAssignments) {
+        errorMessage = L"Road model dialog response has invalid assignment count.";
+        return false;
+    }
+
+    response.assignments.clear();
+    response.assignments.reserve(static_cast<std::size_t>(assignmentCount));
+    for (int i = 0; i < assignmentCount; ++i) {
+        const auto prefix = L"assignment." + std::to_wstring(i);
+        roadproto::domain::cross_section::RoadModelTemplateAssignment assignment;
+        if (!tryDoubleValue(values, prefix + L".startStation", assignment.startStation)
+            || !tryDoubleValue(values, prefix + L".endStation", assignment.endStation)) {
+            errorMessage = L"Road model dialog response has invalid assignment station.";
+            return false;
+        }
+        assignment.templateHandle = valueOrDefault(values, prefix + L".templateHandle");
+        assignment.templateName = valueOrDefault(values, prefix + L".templateName");
+        response.assignments.push_back(std::move(assignment));
+    }
+
+    if (response.accepted
+        && !roadproto::domain::cross_section::RoadModelRules::validateAssignments(response.assignments, errorMessage)) {
+        return false;
+    }
+
+    removeFileIfExists(responsePath);
+    return true;
+}
+
+} // namespace roadproto::cad_adapter::objectarx::cross_section

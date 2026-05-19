@@ -45,8 +45,10 @@
 | 纵断面竖曲线自定义实体 | V0.1.9 follow-up 原型，独立关联拉坡图，支持 DWG 持久化、拉坡图 frame 映射、直坡/曲线/理论切线分色绘制、起终点/PVI/半径夹点和 PVI 增删 | `src/cad_adapter/objectarx/profile/DnProfileVerticalCurveEntity.*` |
 | 纵断面竖曲线 WPF 编辑 Bridge | V0.1.9 follow-up 原型，通过请求/响应文件编辑名称、起终点、PVI 高程和半径，并由 C++ 严格解析后回写实体 | `src/cad_adapter/objectarx/profile/ProfileVerticalCurveDialogBridge.*` |
 | 路基模板领域模型与默认值 | V0.1.10 原型，支持道路等级、左右侧部件、宽度、高度差、固定/变化坡度、变宽表、坡度变化表、颜色和路面结构层关联预留字段；二级、三级、四级道路已有默认组成 | `src/domain/cross_section/SubgradeTemplateModel.*` |
-| 路基模板自定义实体 | V0.1.10 原型，独立绘制中线和左右侧部件，支持中文部件标注、DWG 持久化、几何范围和变换 | `src/cad_adapter/objectarx/cross_section/DnSubgradeTemplateEntity.*` |
+| 路基模板自定义实体 | V0.1.13 原型，独立绘制中线和左右侧部件，支持中文部件标注、DWG 持久化、几何范围、变换和插入点夹点移动 | `src/cad_adapter/objectarx/cross_section/DnSubgradeTemplateEntity.*` |
 | 路基模板 WPF 编辑 Bridge | V0.1.10 原型，通过请求/响应文件编辑模板参数、部件参数、变宽表和坡度变化表 | `src/cad_adapter/objectarx/cross_section/SubgradeTemplateDialogBridge.*` |
+| 横断面道路模型 | V0.1.13 原型，按道路中线、竖曲线和路基模板范围生成三维部件线，支持优先级解析、行内点选模板、采样、DWG 持久化和编辑回写 | `src/domain/cross_section/RoadModel.*` |
+| 道路模型自定义实体 | V0.1.11 原型，保存 `RoadModelData` 并绘制三维部件线，支持 DWG 持久化、几何范围和变换 | `src/cad_adapter/objectarx/cross_section/DnRoadModelEntity.*` |
 
 ## 模块专用能力
 
@@ -101,5 +103,16 @@
 - `SubgradeTemplateRules` 保存显示比例、宽度加宽、坡度查询、变化坡度固定值隔离和路面结构层厚度启用规则。
 - `SubgradeTemplateCreateService` 只生成默认模板数据，不处理 CAD 点取和 WPF 交互。
 - `DnSubgradeTemplateEntity` 是 CAD 持久化和显示能力，负责绘制中线、左右侧部件和 DWG 保存重开。
+- `DnSubgradeTemplateEntity` 提供插入点夹点，支持模板实体在图中整体移动。
 - `SubgradeTemplateDialogBridge` 是原型阶段 UI 解耦能力，通过请求/响应文件在 WPF 与 C++ ObjectARX 之间传递模板和部件参数。
 - 路线桩号关联、按桩号应用变宽/变坡、路面结构层实体关联和联动重建仍需后续扩展。
+
+## V0.1.11 横断面道路模型复用边界
+
+- `RoadModelTemplateResolver` 是模板优先级解析能力，按表格行顺序处理重叠桩号范围。
+- `RoadModelStationSampler` 是道路模型采样点收集能力，合并道路端点、模板边界、竖曲线关键点和固定采样间距点。
+- `RoadModelBuilder` 是三维道路部件线生成能力，把道路中线平面采样、竖曲线设计高程和路基模板部件组合为 `RoadModelData`。
+- `RoadModelBuildService` 是应用层构建入口，负责校验 handle、配置、采样和模板来源后调用 domain builder。
+- `DnRoadModelEntity` 是 CAD 持久化和显示能力，负责绘制三维部件线、DWG 保存重开、范围和变换。
+- `RoadModelDialogBridge` 是原型阶段 UI 解耦能力，通过请求/响应文件在 WPF 与 C++ ObjectARX 之间传递模板范围表和行内点选模板动作。
+- 当前道路模型只生成三维线框，自动联动重建、道路面模型、结构层实体和算量仍需后续扩展。

@@ -1,0 +1,120 @@
+<Window x:Class="RoadProto.Terrain.UI.RoadModelWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="横断面戴帽"
+        Width="820"
+        Height="560"
+        MinWidth="760"
+        MinHeight="500"
+        WindowStartupLocation="CenterScreen"
+        Background="#F3F5F7">
+    <Window.Resources>
+        <Style TargetType="TextBlock">
+            <Setter Property="FontFamily" Value="Microsoft YaHei UI" />
+            <Setter Property="Foreground" Value="#1F2933" />
+        </Style>
+        <Style TargetType="Button">
+            <Setter Property="MinHeight" Value="32" />
+            <Setter Property="Padding" Value="14,5" />
+            <Setter Property="Margin" Value="0,0,8,0" />
+        </Style>
+        <Style TargetType="TextBox">
+            <Setter Property="MinHeight" Value="30" />
+            <Setter Property="Padding" Value="8,4" />
+        </Style>
+    </Window.Resources>
+
+    <Grid Margin="22">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <TextBlock Grid.Row="0"
+                   Text="横断面戴帽"
+                   FontSize="24"
+                   FontWeight="SemiBold"
+                   Margin="0,0,0,16" />
+
+        <TabControl Grid.Row="1">
+            <TabItem Header="路基模板">
+                <Grid Margin="16">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                    </Grid.RowDefinitions>
+
+                    <Grid Grid.Row="0" Margin="0,0,0,12">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="110" />
+                            <ColumnDefinition Width="160" />
+                            <ColumnDefinition Width="24" />
+                            <ColumnDefinition Width="130" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Grid.Column="0" Text="采样间隔" VerticalAlignment="Center" />
+                        <TextBox x:Name="SampleIntervalTextBox"
+                                 Grid.Column="1"
+                                 Text="{Binding SampleIntervalText, UpdateSourceTrigger=PropertyChanged}" />
+                        <TextBlock Grid.Column="3" Text="道路中线 handle" VerticalAlignment="Center" />
+                        <TextBox x:Name="RoadCenterlineHandleTextBox"
+                                 Grid.Column="4"
+                                 IsReadOnly="True"
+                                 Text="{Binding RoadCenterlineHandle, Mode=OneWay}" />
+                    </Grid>
+
+                    <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,0,0,12">
+                        <Button Content="新增" Click="OnAddAssignment" />
+                        <Button Content="删除" Click="OnDeleteAssignment" />
+                        <Button Content="上移" Click="OnMoveAssignmentUp" />
+                        <Button Content="下移" Click="OnMoveAssignmentDown" />
+                        <Button Content="点选模板" Click="OnPickTemplate" />
+                    </StackPanel>
+
+                    <DataGrid Grid.Row="2"
+                              AutoGenerateColumns="False"
+                              CanUserAddRows="False"
+                              ItemsSource="{Binding Assignments}"
+                              SelectedItem="{Binding SelectedAssignment, Mode=TwoWay}"
+                              HeadersVisibility="Column"
+                              GridLinesVisibility="Horizontal">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="起点桩号" Binding="{Binding StartStation}" Width="*" />
+                            <DataGridTextColumn Header="终点桩号" Binding="{Binding EndStation}" Width="*" />
+                            <DataGridTextColumn Header="路基模板 handle" Binding="{Binding TemplateHandle}" Width="1.4*" />
+                            <DataGridTextColumn Header="路基模板名称" Binding="{Binding TemplateName}" Width="1.6*" />
+                            <DataGridTemplateColumn Header="点选模板" Width="100">
+                                <DataGridTemplateColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <Button Content="点选"
+                                                Margin="0"
+                                                Padding="8,3"
+                                                Click="OnPickTemplate" />
+                                    </DataTemplate>
+                                </DataGridTemplateColumn.CellTemplate>
+                            </DataGridTemplateColumn>
+                        </DataGrid.Columns>
+                    </DataGrid>
+                </Grid>
+            </TabItem>
+            <TabItem Header="其他" IsEnabled="False" />
+        </TabControl>
+
+        <Grid Grid.Row="2" Margin="0,16,0,0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <TextBlock x:Name="ErrorTextBlock"
+                       Foreground="#B42318"
+                       TextWrapping="Wrap"
+                       VerticalAlignment="Center" />
+            <StackPanel Grid.Column="1" Orientation="Horizontal">
+                <Button Content="生成模型" Click="OnGenerateModel" />
+                <Button Content="取消" Click="OnCancel" Margin="0" />
+            </StackPanel>
+        </Grid>
+    </Grid>
+</Window>

@@ -2,9 +2,9 @@
 <Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <PropertyGroup>
     <RoadProtoRoot>$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)..\'))</RoadProtoRoot>
-    <RoadProtoVersion>v0.1.10</RoadProtoVersion>
-    <RoadProtoBuildDate>20260512</RoadProtoBuildDate>
-    <RoadProtoStage>SubgradeTemplate</RoadProtoStage>
+    <RoadProtoVersion>v0.1.13</RoadProtoVersion>
+    <RoadProtoBuildDate>20260519</RoadProtoBuildDate>
+    <RoadProtoStage>RoadModelPickGrip</RoadProtoStage>
     <RoadProtoArxBaseName>RoadProto_$(RoadProtoVersion)_$(RoadProtoBuildDate)_$(RoadProtoStage)</RoadProtoArxBaseName>
     <RoadProtoArtifactsDir>$(RoadProtoRoot)artifacts\x64\$(Configuration)\</RoadProtoArtifactsDir>
   </PropertyGroup>

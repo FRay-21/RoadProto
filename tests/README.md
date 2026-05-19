@@ -104,3 +104,26 @@ AutoCAD 图形界面需要手工验证 `RD_SECTION_SUBGRADE_TEMPLATE_CREATE`、`
 - 确认后图中生成 `DnSubgradeTemplateEntity`，显示中线和左右侧路基部件，部件标注使用中文。
 - 双击实体可重新打开同一参数窗口，并显示上次保存的配置；修改后实体刷新。
 - 保存 DWG 后重开并 `REGEN`，路基模板实体和参数保持正常。
+
+## V0.1.11 横断面戴帽道路模型验证范围
+
+核心测试覆盖 `RoadModelTemplateResolver` 的模板优先级解析、`RoadModelStationSampler` 的采样点收集、`RoadModelBuilder` 的三维部件线生成和 `RoadModelBuildService` 的配置校验。
+
+核心测试覆盖 `CROSS_SECTION` 模块中 `RD_SECTION_ROAD_MODEL_CREATE`、`RD_SECTION_ROAD_MODEL_EDIT`、`RD_SECTION_ROAD_MODEL_EDIT_HANDLE` 和 `RD_SECTION_ROAD_MODEL_APPLY_DIALOG_FILE` 的命令元数据、业务文档路径和 Ribbon 可见入口。
+
+核心测试通过源码契约覆盖 `RoadModelDialogBridge`、`DnRoadModelEntity`、`DnSubgradeTemplateEntity` 和 `ObjectArxRoadModelCommand` 的关键 ObjectARX 接入点：请求/响应文件字段、道路模型实体 DWG 持久化、三维绘制、路基模板移动夹点、初始化卸载、创建/编辑/回写命令流程、行内点选模板和竖曲线归属校验。
+
+托管桥接测试覆盖道路模型 WPF 请求/响应文件读写、点选模板动作字段和行号字段，并检查 `RoadModelWindow.xaml` 中只读道路中线 handle 文本框必须使用 OneWay 绑定，避免打开横断面戴帽窗口时触发 WPF TwoWay 绑定只读属性异常。
+
+托管 bridge 测试覆盖道路模型 WPF 请求/响应文件的 UTF-8 读写、转义、`assignmentCount`、InvariantCulture 数值解析和缺失 `responsePath` 拒绝。
+
+AutoCAD 图形界面需要手工验证 `RD_SECTION_ROAD_MODEL_CREATE`、`RD_SECTION_ROAD_MODEL_EDIT`、`RD_SECTION_ROAD_MODEL_EDIT_HANDLE`、`RD_SECTION_ROAD_MODEL_APPLY_DIALOG_FILE` 和 `DnRoadModelEntity`：
+
+- 点击 `RoadProto / 横断面设计 / 横断面戴帽` 后，命令要求选择道路中线。
+- 同一中线只有一条关联竖曲线时可自动匹配；没有唯一竖曲线时提示选择竖曲线。
+- 选择不属于当前中线的竖曲线时应拒绝生成模型。
+- WPF `路基模板` tab 可编辑起终点桩号、模板 handle、模板名称和行优先级，并可在某一行点选图中路基模板实体回填 handle 和名称。
+- 点击 `生成模型` 后图中生成 `DnRoadModelEntity`，并绘制三维道路部件线。
+- 双击道路模型或运行 `RD_SECTION_ROAD_MODEL_EDIT` 可重新打开同一窗口，保留并调整上次保存的模板范围。
+- 保存 DWG 后重开并 `REGEN`，道路模型实体和三维部件线保持正常。
+- 选择路基模板实体时应出现插入点夹点，拖动后模板整体位置随夹点移动。

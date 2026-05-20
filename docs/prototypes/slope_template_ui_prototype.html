@@ -1,0 +1,1008 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>RoadProto 边坡模板 UI 原型</title>
+  <style>
+    :root {
+      --bg: #eef2f5;
+      --surface: #ffffff;
+      --surface-2: #f7f9fb;
+      --line: #c9d1dc;
+      --line-strong: #9aa8b8;
+      --text: #1f2933;
+      --muted: #657488;
+      --accent: #216b8f;
+      --accent-soft: #d8edf5;
+      --green: #27825f;
+      --amber: #a45f19;
+      --red: #b42318;
+      --shadow: 0 16px 38px rgba(33, 49, 63, 0.14);
+      font-family: "Microsoft YaHei UI", "Segoe UI", Arial, sans-serif;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      color: var(--text);
+      background: var(--bg);
+      font-size: 14px;
+    }
+
+    button,
+    input,
+    select {
+      font: inherit;
+    }
+
+    .page {
+      min-height: 100vh;
+      padding: 18px;
+    }
+
+    .prototype-shell {
+      max-width: 1420px;
+      min-width: 1080px;
+      margin: 0 auto;
+    }
+
+    .topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 12px;
+    }
+
+    .title {
+      font-size: 22px;
+      font-weight: 650;
+    }
+
+    .mode-tabs,
+    .tabs,
+    .subtabs {
+      display: flex;
+      gap: 6px;
+      align-items: center;
+    }
+
+    .mode-tab,
+    .tab,
+    .subtab {
+      border: 1px solid var(--line);
+      background: var(--surface);
+      color: var(--text);
+      min-height: 32px;
+      padding: 6px 14px;
+      border-radius: 6px 6px 0 0;
+      cursor: pointer;
+    }
+
+    .mode-tab {
+      border-radius: 6px;
+    }
+
+    .mode-tab.active,
+    .tab.active,
+    .subtab.active {
+      background: var(--accent-soft);
+      border-color: #94c4d6;
+      color: #16475f;
+      font-weight: 650;
+    }
+
+    .window {
+      background: var(--surface);
+      border: 1px solid var(--line);
+      box-shadow: var(--shadow);
+      min-height: 690px;
+      display: none;
+    }
+
+    .window.active {
+      display: block;
+    }
+
+    .window-header {
+      padding: 16px 18px 10px;
+      border-bottom: 1px solid var(--line);
+      background: #fbfcfd;
+    }
+
+    .window-title {
+      font-size: 24px;
+      font-weight: 650;
+      margin-bottom: 14px;
+    }
+
+    .form-row {
+      display: grid;
+      grid-template-columns: repeat(12, minmax(0, 1fr));
+      gap: 10px;
+      align-items: end;
+    }
+
+    label {
+      display: block;
+      color: var(--muted);
+      font-size: 12px;
+      margin-bottom: 4px;
+    }
+
+    input,
+    select {
+      width: 100%;
+      min-height: 30px;
+      padding: 5px 8px;
+      border: 1px solid var(--line);
+      background: var(--surface);
+      color: var(--text);
+      border-radius: 4px;
+    }
+
+    input[readonly] {
+      background: var(--surface-2);
+      color: var(--muted);
+    }
+
+    .field-2 { grid-column: span 2; }
+    .field-3 { grid-column: span 3; }
+    .field-4 { grid-column: span 4; }
+    .field-5 { grid-column: span 5; }
+
+    .content {
+      padding: 14px 18px 16px;
+    }
+
+    .slope-layout {
+      display: grid;
+      grid-template-columns: minmax(620px, 1fr) 390px;
+      gap: 14px;
+      min-height: 560px;
+    }
+
+    .preview-card,
+    .side-panel,
+    .table-panel {
+      border: 1px solid var(--line);
+      background: var(--surface);
+    }
+
+    .preview-card {
+      display: grid;
+      grid-template-rows: auto 1fr;
+      min-height: 544px;
+    }
+
+    .preview-toolbar,
+    .panel-head,
+    .table-toolbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      padding: 9px 10px;
+      border-bottom: 1px solid var(--line);
+      background: var(--surface-2);
+    }
+
+    .panel-title {
+      font-weight: 650;
+    }
+
+    .muted {
+      color: var(--muted);
+    }
+
+    .canvas-wrap {
+      position: relative;
+      overflow: hidden;
+      min-height: 498px;
+      background:
+        linear-gradient(#f1f5f8 1px, transparent 1px),
+        linear-gradient(90deg, #f1f5f8 1px, transparent 1px),
+        #fbfcfd;
+      background-size: 28px 28px;
+    }
+
+    svg {
+      display: block;
+      width: 100%;
+      height: 100%;
+      min-height: 498px;
+    }
+
+    .axis {
+      stroke: #9aa8b8;
+      stroke-width: 1.2;
+      stroke-dasharray: 5 5;
+    }
+
+    .ground {
+      fill: none;
+      stroke: #6e7f91;
+      stroke-width: 2;
+      stroke-dasharray: 7 5;
+    }
+
+    .subgrade {
+      fill: none;
+      stroke: #245b7a;
+      stroke-width: 3;
+    }
+
+    .slope-line {
+      fill: none;
+      stroke: var(--green);
+      stroke-width: 3;
+      stroke-linejoin: round;
+    }
+
+    .slope-line.cut {
+      stroke: var(--amber);
+    }
+
+    .selected-line {
+      stroke: #d04735;
+      stroke-width: 5;
+    }
+
+    .label-chip {
+      fill: var(--surface);
+      stroke: var(--line-strong);
+      stroke-width: 1;
+    }
+
+    .svg-text {
+      fill: #243746;
+      font-size: 12px;
+    }
+
+    .side-panel {
+      min-height: 544px;
+      display: grid;
+      grid-template-rows: auto auto 1fr;
+    }
+
+    .panel-body {
+      padding: 10px;
+      overflow: auto;
+    }
+
+    .button-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      padding: 10px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .btn {
+      border: 1px solid var(--line-strong);
+      background: var(--surface);
+      min-height: 30px;
+      padding: 5px 12px;
+      border-radius: 5px;
+      cursor: pointer;
+    }
+
+    .btn.primary {
+      border-color: #1f6587;
+      background: var(--accent);
+      color: #fff;
+    }
+
+    .btn.manage {
+      border-color: #1f6587;
+      background: #edf7fa;
+      color: #16475f;
+      font-weight: 650;
+    }
+
+    .btn.ghost {
+      border-color: transparent;
+      background: transparent;
+      color: var(--accent);
+    }
+
+    .list {
+      border: 1px solid var(--line);
+      background: var(--surface);
+      max-height: 132px;
+      overflow: auto;
+      margin-bottom: 10px;
+    }
+
+    .list-item {
+      display: grid;
+      grid-template-columns: 22px 1fr auto;
+      align-items: center;
+      gap: 8px;
+      padding: 7px 8px;
+      border-bottom: 1px solid #edf0f3;
+    }
+
+    .list-item:last-child {
+      border-bottom: 0;
+    }
+
+    .list-item.active {
+      background: #fbe9e7;
+      outline: 1px solid #d04735;
+      outline-offset: -1px;
+    }
+
+    .dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: var(--green);
+    }
+
+    .dot.cut {
+      background: var(--amber);
+    }
+
+    .property-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 9px;
+    }
+
+    .property-grid .wide {
+      grid-column: 1 / -1;
+    }
+
+    .checks {
+      display: grid;
+      gap: 8px;
+      padding: 10px 0 2px;
+    }
+
+    .check-line {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      min-height: 28px;
+    }
+
+    .check-line input {
+      width: auto;
+      min-height: auto;
+    }
+
+    .road-model-layout {
+      display: grid;
+      grid-template-rows: auto 1fr;
+      gap: 12px;
+      min-height: 560px;
+    }
+
+    .global-params {
+      border: 1px solid var(--line);
+      background: var(--surface-2);
+      padding: 12px;
+    }
+
+    .tab-body {
+      border: 1px solid var(--line);
+      background: var(--surface);
+      min-height: 470px;
+      display: none;
+    }
+
+    .tab-body.active {
+      display: block;
+    }
+
+    .slope-tab-layout {
+      display: grid;
+      grid-template-rows: auto 1fr;
+      gap: 10px;
+      padding: 12px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      background: var(--surface);
+      table-layout: fixed;
+    }
+
+    th,
+    td {
+      border-bottom: 1px solid #e3e8ee;
+      border-right: 1px solid #e9edf2;
+      padding: 8px;
+      text-align: left;
+      vertical-align: middle;
+      height: 38px;
+    }
+
+    th:last-child,
+    td:last-child {
+      border-right: 0;
+    }
+
+    th {
+      background: #f2f5f8;
+      color: #4c5d70;
+      font-weight: 650;
+    }
+
+    tr.selected td {
+      background: #f4fbfd;
+      box-shadow: inset 3px 0 0 var(--accent);
+    }
+
+    .tag {
+      display: inline-flex;
+      align-items: center;
+      min-height: 24px;
+      padding: 2px 8px;
+      margin: 2px 4px 2px 0;
+      border-radius: 4px;
+      border: 1px solid #b7d2dd;
+      background: #edf7fa;
+      white-space: nowrap;
+    }
+
+    .tag.fill {
+      border-color: #a8d1bd;
+      background: #eef8f2;
+      color: #236247;
+    }
+
+    .tag.cut {
+      border-color: #e2c39f;
+      background: #fff5e8;
+      color: #7c4a16;
+    }
+
+    .footer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 18px 16px;
+      border-top: 1px solid var(--line);
+      background: #fbfcfd;
+    }
+
+    .error {
+      color: var(--red);
+    }
+
+    .generation-status {
+      display: grid;
+      gap: 5px;
+      min-width: 430px;
+      max-width: 520px;
+    }
+
+    .progress-meta {
+      display: flex;
+      justify-content: space-between;
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .progress-track {
+      height: 9px;
+      border: 1px solid #b9c7d4;
+      border-radius: 5px;
+      overflow: hidden;
+      background: #e9eef3;
+    }
+
+    .progress-fill {
+      height: 100%;
+      width: 62%;
+      background: linear-gradient(90deg, #216b8f, #27825f);
+    }
+
+    .modal-layer {
+      position: fixed;
+      inset: 0;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      background: rgba(31, 41, 51, 0.28);
+      padding: 22px;
+    }
+
+    .modal-layer.active {
+      display: flex;
+    }
+
+    .modal {
+      width: 760px;
+      border: 1px solid var(--line);
+      background: var(--surface);
+      box-shadow: var(--shadow);
+    }
+
+    .modal-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 14px 16px;
+      border-bottom: 1px solid var(--line);
+      background: var(--surface-2);
+    }
+
+    .modal-body {
+      padding: 14px 16px;
+    }
+
+    .modal-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 8px;
+      padding: 12px 16px 14px;
+      border-top: 1px solid var(--line);
+    }
+
+    .empty-cell {
+      color: var(--muted);
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <div class="prototype-shell">
+      <div class="topbar">
+        <div class="title">RoadProto 横断面边坡 UI 原型</div>
+        <div class="mode-tabs">
+          <button class="mode-tab active" data-window="slope-template-window">边坡模板窗口</button>
+          <button class="mode-tab" data-window="road-model-window">横断面戴帽窗口</button>
+        </div>
+      </div>
+
+      <section id="slope-template-window" class="window active">
+        <div class="window-header">
+          <div class="window-title">边坡模板</div>
+          <div class="form-row">
+            <div class="field-3">
+              <label>模板名称</label>
+              <input value="边坡模板1">
+            </div>
+            <div class="field-2">
+              <label>显示比例</label>
+              <select>
+                <option>1:10</option>
+                <option>1:20</option>
+                <option>1:50</option>
+              </select>
+            </div>
+            <div class="field-4">
+              <label>模板类型</label>
+              <div class="tabs" data-tab-group="template-kind">
+                <button class="tab active" data-kind="fill">填方边坡</button>
+                <button class="tab" data-kind="cut">挖方边坡</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="content">
+          <div class="slope-layout">
+            <div class="preview-card">
+              <div class="preview-toolbar">
+                <div class="panel-title">模板预览</div>
+                <div class="muted">线框预览，红色为当前选中部件</div>
+              </div>
+              <div class="canvas-wrap">
+                <svg viewBox="0 0 760 500" aria-label="边坡模板预览">
+                  <line class="axis" x1="70" y1="230" x2="700" y2="230"></line>
+                  <line class="axis" x1="130" y1="90" x2="130" y2="400"></line>
+                  <polyline class="ground" points="90,166 190,188 275,216 348,250 440,278 540,322 680,355"></polyline>
+                  <polyline class="subgrade" points="92,230 130,230"></polyline>
+                  <polyline id="preview-fill-line" class="slope-line" points="130,230 220,290 275,294 365,354 420,358 510,418"></polyline>
+                  <polyline id="preview-cut-line" class="slope-line cut" points="130,230 220,170 275,166 365,106 420,102 510,42" style="display:none"></polyline>
+                  <line class="selected-line" x1="130" y1="230" x2="220" y2="290"></line>
+
+                  <rect class="label-chip" x="140" y="257" width="76" height="24" rx="4"></rect>
+                  <text class="svg-text" x="148" y="274">边坡 1:1.5</text>
+                  <rect class="label-chip" x="236" y="276" width="66" height="24" rx="4"></rect>
+                  <text class="svg-text" x="244" y="293">护坡道 3%</text>
+                  <rect class="label-chip" x="318" y="318" width="76" height="24" rx="4"></rect>
+                  <text class="svg-text" x="326" y="335">边坡 1:1.5</text>
+                  <text class="svg-text" x="96" y="219">路基外侧点</text>
+                  <text class="svg-text" x="560" y="346">地面线</text>
+                </svg>
+              </div>
+            </div>
+
+            <aside class="side-panel">
+              <div class="panel-head">
+                <div class="panel-title">部件</div>
+                <div>
+                  <button class="btn">上移</button>
+                  <button class="btn">下移</button>
+                </div>
+              </div>
+              <div class="button-row">
+                <button class="btn">新增部件</button>
+                <button class="btn">删除选中</button>
+              </div>
+              <div class="panel-body">
+                <div class="list">
+                  <div class="list-item active">
+                    <span class="dot"></span>
+                    <span>填方边坡 1：1.5，坡高 4.00</span>
+                    <span class="muted">01</span>
+                  </div>
+                  <div class="list-item">
+                    <span class="dot"></span>
+                    <span>护坡道，宽 1.00，横坡 3%</span>
+                    <span class="muted">02</span>
+                  </div>
+                  <div class="list-item">
+                    <span class="dot"></span>
+                    <span>填方边坡 1：1.5，坡高 4.00</span>
+                    <span class="muted">03</span>
+                  </div>
+                  <div class="list-item">
+                    <span class="dot"></span>
+                    <span>护坡道，宽 1.00，横坡 3%</span>
+                    <span class="muted">04</span>
+                  </div>
+                  <div class="list-item">
+                    <span class="dot"></span>
+                    <span>填方边坡 1：1.5，坡高 4.00</span>
+                    <span class="muted">05</span>
+                  </div>
+                </div>
+
+                <div class="property-grid">
+                  <div class="wide">
+                    <label>部件类型</label>
+                    <select>
+                      <option>填方边坡</option>
+                      <option>挖方边坡</option>
+                      <option>护坡道</option>
+                    </select>
+                  </div>
+                  <div class="wide">
+                    <label>编辑方式</label>
+                    <select>
+                      <option>固定坡率 + 坡高，自动计算宽度</option>
+                      <option>固定坡率 + 宽度，自动计算坡高</option>
+                      <option>固定坡高 + 宽度，自动计算坡率</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label>坡率</label>
+                    <input value="1:1.5">
+                  </div>
+                  <div>
+                    <label>坡高</label>
+                    <input value="4.00">
+                  </div>
+                  <div>
+                    <label>宽度</label>
+                    <input value="6.00" readonly>
+                  </div>
+                  <div>
+                    <label>坡高增值</label>
+                    <input value="2.00">
+                  </div>
+                  <div class="wide">
+                    <label>当前计算结果</label>
+                    <input value="宽度 = 6.00，试探至坡高 6.00" readonly>
+                  </div>
+                </div>
+
+                <div class="checks">
+                  <label class="check-line">
+                    <input type="checkbox" checked>
+                    <span>交地则结束放坡</span>
+                  </label>
+                  <label class="check-line">
+                    <input type="checkbox">
+                    <span>重复最后一组参数直至交地</span>
+                  </label>
+                </div>
+              </div>
+            </aside>
+          </div>
+        </div>
+
+        <div class="footer">
+          <span class="muted">DXF: DNSLOPETEMPLATEENTITY</span>
+          <div>
+            <button class="btn primary">确定</button>
+            <button class="btn">取消</button>
+          </div>
+        </div>
+      </section>
+
+      <section id="road-model-window" class="window">
+        <div class="window-header">
+          <div class="window-title">横断面戴帽</div>
+          <div class="form-row">
+            <div class="field-2">
+              <label>采样间隔</label>
+              <input value="10.00">
+            </div>
+            <div class="field-2">
+              <label>左侧搜索宽度</label>
+              <input value="50.00">
+            </div>
+            <div class="field-2">
+              <label>右侧搜索宽度</label>
+              <input value="50.00">
+            </div>
+            <div class="field-4">
+              <label>道路中线 handle</label>
+              <input value="243" readonly>
+            </div>
+          </div>
+        </div>
+
+        <div class="content road-model-layout">
+          <div class="tabs" data-tab-group="road-model">
+            <button class="tab active" data-tab="subgrade-tab">路基模板</button>
+            <button class="tab" data-tab="slope-tab">边坡模板</button>
+          </div>
+
+          <div id="subgrade-tab" class="tab-body active">
+            <div class="table-panel">
+              <div class="table-toolbar">
+                <div class="panel-title">路基模板范围</div>
+                <div>
+                  <button class="btn">新增</button>
+                  <button class="btn">删除</button>
+                  <button class="btn">上移</button>
+                  <button class="btn">下移</button>
+                  <button class="btn">点选模板</button>
+                </div>
+              </div>
+              <table>
+                <thead>
+                  <tr>
+                    <th style="width: 16%">起点桩号</th>
+                    <th style="width: 16%">终点桩号</th>
+                    <th style="width: 24%">路基模板 handle</th>
+                    <th>路基模板名称</th>
+                    <th style="width: 110px">操作</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr class="selected">
+                    <td>0.000</td>
+                    <td>1000.000</td>
+                    <td>50C</td>
+                    <td>二级路标准路基</td>
+                    <td><button class="btn">点选</button></td>
+                  </tr>
+                  <tr>
+                    <td>1000.000</td>
+                    <td>1800.000</td>
+                    <td class="empty-cell">未选择</td>
+                    <td class="empty-cell">未选择</td>
+                    <td><button class="btn">点选</button></td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div id="slope-tab" class="tab-body">
+            <div class="slope-tab-layout">
+              <div class="subtabs" data-tab-group="slope-side">
+                <button class="subtab active" data-tab="left-slope-side">左侧边坡模板</button>
+                <button class="subtab" data-tab="right-slope-side">右侧边坡模板</button>
+              </div>
+
+              <div id="left-slope-side" class="tab-body active">
+                <div class="table-panel">
+                  <div class="table-toolbar">
+                    <div class="panel-title">左侧模板组</div>
+                    <div>
+                      <button class="btn">新增模板组</button>
+                      <button class="btn">删除</button>
+                      <button class="btn">上移</button>
+                      <button class="btn">下移</button>
+                    </div>
+                  </div>
+                  <table>
+                    <thead>
+                      <tr>
+                        <th style="width: 90px">序号</th>
+                        <th style="width: 15%">起点桩号</th>
+                        <th style="width: 15%">终点桩号</th>
+                        <th>组内模板，按顺序搜索</th>
+                        <th style="width: 130px">模板组</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr class="selected">
+                        <td>左-01</td>
+                        <td>0.000</td>
+                        <td>1000.000</td>
+                        <td>
+                          <span class="tag fill">填方边坡模板 A</span>
+                          <span class="tag cut">挖方边坡模板 B</span>
+                          <span class="tag fill">填方缓坡模板 C</span>
+                        </td>
+                        <td><button class="btn manage" data-open-modal="group-modal">管理模板组</button></td>
+                      </tr>
+                      <tr>
+                        <td>左-02</td>
+                        <td>1000.000</td>
+                        <td>1800.000</td>
+                        <td><span class="tag cut">挖方岩质模板 D</span></td>
+                        <td><button class="btn manage" data-open-modal="group-modal">管理模板组</button></td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              <div id="right-slope-side" class="tab-body">
+                <div class="table-panel">
+                  <div class="table-toolbar">
+                    <div class="panel-title">右侧模板组</div>
+                    <div>
+                      <button class="btn">新增模板组</button>
+                      <button class="btn">删除</button>
+                      <button class="btn">上移</button>
+                      <button class="btn">下移</button>
+                    </div>
+                  </div>
+                  <table>
+                    <thead>
+                      <tr>
+                        <th style="width: 90px">序号</th>
+                        <th style="width: 15%">起点桩号</th>
+                        <th style="width: 15%">终点桩号</th>
+                        <th>组内模板，按顺序搜索</th>
+                        <th style="width: 130px">模板组</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr class="selected">
+                        <td>右-01</td>
+                        <td>0.000</td>
+                        <td>1800.000</td>
+                        <td>
+                          <span class="tag fill">填方普通模板 A</span>
+                          <span class="tag fill">填方加宽模板 E</span>
+                        </td>
+                        <td><button class="btn manage" data-open-modal="group-modal">管理模板组</button></td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="footer">
+          <div class="generation-status">
+            <div class="progress-meta">
+              <span>生成模型进度</span>
+              <span>62%</span>
+            </div>
+            <div class="progress-track"><div class="progress-fill"></div></div>
+            <span class="muted">正在生成第 18 / 29 个横断面</span>
+          </div>
+          <div>
+            <button class="btn primary">生成模型</button>
+            <button class="btn">取消</button>
+          </div>
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <div id="group-modal" class="modal-layer">
+    <div class="modal" role="dialog" aria-modal="true">
+      <div class="modal-head">
+        <div class="panel-title">管理模板组：左-01</div>
+        <button class="btn ghost" data-close-modal>关闭</button>
+      </div>
+      <div class="modal-body">
+        <div class="button-row" style="padding: 0 0 12px; border-bottom: 0;">
+          <button class="btn">点选边坡模板</button>
+          <button class="btn">删除</button>
+          <button class="btn">上移</button>
+          <button class="btn">下移</button>
+        </div>
+        <table>
+          <thead>
+            <tr>
+              <th style="width: 80px">优先级</th>
+              <th style="width: 130px">类型</th>
+              <th style="width: 140px">模板 handle</th>
+              <th>模板名称</th>
+              <th style="width: 170px">控制条件</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr class="selected">
+              <td>01</td>
+              <td><span class="tag fill">填方</span></td>
+              <td>6A1</td>
+              <td>填方边坡模板 A</td>
+              <td>交地则结束</td>
+            </tr>
+            <tr>
+              <td>02</td>
+              <td><span class="tag cut">挖方</span></td>
+              <td>6A5</td>
+              <td>挖方边坡模板 B</td>
+              <td>重复最后一组</td>
+            </tr>
+            <tr>
+              <td>03</td>
+              <td><span class="tag fill">填方</span></td>
+              <td>6B2</td>
+              <td>填方缓坡模板 C</td>
+              <td>无</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="modal-actions">
+        <button class="btn primary" data-close-modal>确定</button>
+        <button class="btn" data-close-modal>取消</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const modeTabs = document.querySelectorAll(".mode-tab");
+    const windows = document.querySelectorAll(".window");
+    modeTabs.forEach((button) => {
+      button.addEventListener("click", () => {
+        modeTabs.forEach((item) => item.classList.remove("active"));
+        windows.forEach((item) => item.classList.remove("active"));
+        button.classList.add("active");
+        document.getElementById(button.dataset.window).classList.add("active");
+      });
+    });
+
+    document.querySelectorAll("[data-tab]").forEach((button) => {
+      button.addEventListener("click", () => {
+        const group = button.parentElement;
+        group.querySelectorAll(".tab, .subtab").forEach((item) => item.classList.remove("active"));
+        button.classList.add("active");
+
+        const target = document.getElementById(button.dataset.tab);
+        const scope = target.parentElement;
+        scope.querySelectorAll(":scope > .tab-body").forEach((item) => item.classList.remove("active"));
+        target.classList.add("active");
+      });
+    });
+
+    document.querySelectorAll("[data-kind]").forEach((button) => {
+      button.addEventListener("click", () => {
+        document.querySelectorAll("[data-kind]").forEach((item) => item.classList.remove("active"));
+        button.classList.add("active");
+        const fill = button.dataset.kind === "fill";
+        document.getElementById("preview-fill-line").style.display = fill ? "block" : "none";
+        document.getElementById("preview-cut-line").style.display = fill ? "none" : "block";
+      });
+    });
+
+    document.querySelectorAll("[data-open-modal]").forEach((button) => {
+      button.addEventListener("click", () => {
+        document.getElementById(button.dataset.openModal).classList.add("active");
+      });
+    });
+
+    document.querySelectorAll("[data-close-modal]").forEach((button) => {
+      button.addEventListener("click", () => {
+        button.closest(".modal-layer").classList.remove("active");
+      });
+    });
+  </script>
+</body>
+</html>

@@ -224,6 +224,92 @@ static void RoadModelRequestReadsAssignmentsUsingInvariantCultureAndEscaping()
     }
 }
 
+static void SlopeTemplateDialogFileRoundTripsComponents()
+{
+    var path = NewTempFile();
+    try
+    {
+        File.WriteAllLines(path, new[]
+        {
+            "handle=SL-1",
+            "responsePath=C:/temp/slope-template.response",
+            "insertionX=1.5",
+            "insertionY=2.25",
+            "insertionZ=3.75",
+            "templateName=边坡%0A模板",
+            "displayScale=10",
+            "kind=Cut",
+            "stopAtGround=1",
+            "repeatLastGroupUntilGround=true",
+            "componentCount=1",
+            "component.0.type=Berm",
+            "component.0.constraintMode=SlopeAndWidth",
+            "component.0.slope=0.03",
+            "component.0.height=0.5",
+            "component.0.width=1.25",
+            "component.0.groundSearchHeightIncrement=2.5",
+            "component.0.colorR=10",
+            "component.0.colorG=20",
+            "component.0.colorB=30",
+        }, Encoding.UTF8);
+
+        WithCulture("fr-FR", () =>
+        {
+            var request = SlopeTemplateDialogFile.ReadRequest(path);
+            Check(request.Handle == "SL-1", "slope template request should keep handle");
+            Check(request.TemplateName == "边坡\n模板", "slope template name should unescape newline");
+            Check(request.Kind == SlopeTemplateKind.Cut, "slope template kind should parse");
+            Check(request.StopAtGround, "slope template stop-at-ground should parse");
+            Check(request.RepeatLastGroupUntilGround, "slope template repeat-last-group should parse");
+            Check(request.Components.Count == 1, "slope template component count should parse");
+            Check(request.Components[0].Type == SlopeComponentType.Berm, "slope component type should parse");
+            Check(request.Components[0].ConstraintMode == SlopeGeometryConstraintMode.SlopeAndWidth, "slope component mode should parse");
+            Check(Math.Abs(request.Components[0].GroundSearchHeightIncrement - 2.5) < 1.0e-9, "slope component search increment should parse invariant decimal");
+        });
+
+        var response = new SlopeTemplateDialogResponse
+        {
+            Accepted = true,
+            Handle = "SL%1",
+            InsertionX = 1.5,
+            InsertionY = 2.25,
+            InsertionZ = 3.75,
+            TemplateName = "边坡\n模板",
+            DisplayScale = 10,
+            Kind = SlopeTemplateKind.Fill,
+            StopAtGround = true,
+            RepeatLastGroupUntilGround = false,
+        };
+        response.Components.Add(new SlopeComponentDto
+        {
+            Type = SlopeComponentType.FillSlope,
+            ConstraintMode = SlopeGeometryConstraintMode.SlopeAndHeight,
+            Slope = -0.6666666666666666,
+            Height = 4,
+            Width = 6,
+            GroundSearchHeightIncrement = 2,
+            ColorR = 30,
+            ColorG = 132,
+            ColorB = 88,
+        });
+
+        SlopeTemplateDialogFile.WriteResponse(path, response);
+        var content = File.ReadAllText(path, Encoding.UTF8);
+        Check(content.Contains("accepted=1"), "slope template response should record accepted state");
+        Check(content.Contains("handle=SL%251"), "slope template response should escape percent in handle");
+        Check(content.Contains("templateName=边坡%0A模板"), "slope template response should escape newline in name");
+        Check(content.Contains("componentCount=1"), "slope template response should write component count");
+        Check(content.Contains("component.0.groundSearchHeightIncrement=2"), "slope template response should write search increment");
+    }
+    finally
+    {
+        if (File.Exists(path))
+        {
+            File.Delete(path);
+        }
+    }
+}
+
 static void RoadModelResponseWritesAssignmentsUsingInvariantCultureAndEscaping()
 {
     var path = NewTempFile();
@@ -322,6 +408,88 @@ static void RoadModelResponseWritesPickTemplateActionAndRowIndex()
     }
 }
 
+static void RoadModelSlopeGroupsRoundTripUsingInvariantCultureAndEscaping()
+{
+    var path = NewTempFile();
+    try
+    {
+        File.WriteAllLines(path, new[]
+        {
+            "handle=RM-1",
+            "responsePath=C:/temp/road-model.response",
+            "roadCenterlineHandle=CL-1",
+            "profileVerticalCurveHandle=VC-1",
+            "sampleInterval=10",
+            "leftSlopeSearchWidth=45.5",
+            "rightSlopeSearchWidth=55.25",
+            "selectedLeftSlopeGroupIndex=1",
+            "selectedRightSlopeGroupIndex=0",
+            "assignmentCount=0",
+            "leftSlopeGroupCount=1",
+            "leftSlopeGroup.0.startStation=0.5",
+            "leftSlopeGroup.0.endStation=100.25",
+            "leftSlopeGroup.0.templateCount=2",
+            "leftSlopeGroup.0.template.0.templateHandle=SL%251",
+            "leftSlopeGroup.0.template.0.templateName=填方%0A模板",
+            "leftSlopeGroup.0.template.1.templateHandle=SL-2",
+            "leftSlopeGroup.0.template.1.templateName=备用",
+            "rightSlopeGroupCount=0",
+        }, Encoding.UTF8);
+
+        WithCulture("fr-FR", () =>
+        {
+            var request = RoadModelDialogFile.ReadRequest(path);
+            Check(Math.Abs(request.LeftSlopeSearchWidth - 45.5) < 1.0e-9, "left slope search width should parse with invariant culture");
+            Check(Math.Abs(request.RightSlopeSearchWidth - 55.25) < 1.0e-9, "right slope search width should parse with invariant culture");
+            Check(request.SelectedLeftSlopeGroupIndex == 1, "request should keep selected left slope group");
+            Check(request.SelectedRightSlopeGroupIndex == 0, "request should keep selected right slope group");
+            Check(request.LeftSlopeGroups.Count == 1, "request should read left slope group count");
+            Check(request.LeftSlopeGroups[0].Templates.Count == 2, "request should read slope templates in group");
+            Check(request.LeftSlopeGroups[0].Templates[0].TemplateHandle == "SL%1", "slope template handle should unescape percent");
+            Check(request.LeftSlopeGroups[0].Templates[0].TemplateName == "填方\n模板", "slope template name should unescape newline");
+        });
+
+        var response = new RoadModelDialogResponse
+        {
+            Action = RoadModelDialogAction.PickLeftSlopeTemplate,
+            Accepted = false,
+            PickSlopeGroupIndex = 0,
+            Handle = "RM-1",
+            RoadCenterlineHandle = "CL-1",
+            ProfileVerticalCurveHandle = "VC-1",
+            SampleInterval = 10,
+            LeftSlopeSearchWidth = 45.5,
+            RightSlopeSearchWidth = 55.25,
+        };
+        response.LeftSlopeGroups.Add(new RoadModelSlopeTemplateGroupDto
+        {
+            StartStation = 0.5,
+            EndStation = 100.25,
+            Templates = new List<RoadModelSlopeTemplateReferenceDto>
+            {
+                new() { TemplateHandle = "SL%1", TemplateName = "填方\n模板" },
+            },
+        });
+
+        RoadModelDialogFile.WriteResponse(path, response);
+        var content = File.ReadAllText(path, Encoding.UTF8);
+        Check(content.Contains("action=pickLeftSlopeTemplate"), "road model response should request left slope template picking");
+        Check(content.Contains("pickSlopeGroupIndex=0"), "road model response should keep selected slope group index");
+        Check(content.Contains("leftSlopeSearchWidth=45.5"), "response should write left slope search width using invariant culture");
+        Check(content.Contains("leftSlopeGroupCount=1"), "response should write left slope group count");
+        Check(content.Contains("leftSlopeGroup.0.templateCount=1"), "response should write template count in slope group");
+        Check(content.Contains("leftSlopeGroup.0.template.0.templateHandle=SL%251"), "response should escape slope template handle percent");
+        Check(content.Contains("leftSlopeGroup.0.template.0.templateName=填方%0A模板"), "response should escape slope template name newline");
+    }
+    finally
+    {
+        if (File.Exists(path))
+        {
+            File.Delete(path);
+        }
+    }
+}
+
 static void RoadModelRequestReadsSelectedAssignmentIndex()
 {
     var path = NewTempFile();
@@ -390,6 +558,83 @@ static void RoadModelRequestRejectsMissingOrEmptyResponsePath()
     }
 }
 
+static void RoadModelSectionViewerRequestReadsPreviewsUsingInvariantCultureAndEscaping()
+{
+    var path = NewTempFile();
+    try
+    {
+        File.WriteAllLines(path, new[]
+        {
+            "handle=RM%251",
+            "roadCenterlineHandle=CL%0A1",
+            "previewCount=1",
+            "preview.0.station=10.5",
+            "preview.0.stationLabel=K0+010.5",
+            "preview.0.statusMessage=已生成%0A预览",
+            "preview.0.hasGroundLine=1",
+            "preview.0.segmentCount=2",
+            "preview.0.segment.0.kind=Subgrade",
+            "preview.0.segment.0.label=路基模板",
+            "preview.0.segment.0.colorR=1",
+            "preview.0.segment.0.colorG=2",
+            "preview.0.segment.0.colorB=3",
+            "preview.0.segment.0.pointCount=2",
+            "preview.0.segment.0.point.0.offset=0",
+            "preview.0.segment.0.point.0.elevation=101.25",
+            "preview.0.segment.0.point.1.offset=-3.5",
+            "preview.0.segment.0.point.1.elevation=101.18",
+            "preview.0.segment.1.kind=Ground",
+            "preview.0.segment.1.label=地面线",
+            "preview.0.segment.1.colorR=132",
+            "preview.0.segment.1.colorG=96",
+            "preview.0.segment.1.colorB=56",
+            "preview.0.segment.1.pointCount=2",
+            "preview.0.segment.1.point.0.offset=-10",
+            "preview.0.segment.1.point.0.elevation=98.5",
+            "preview.0.segment.1.point.1.offset=10",
+            "preview.0.segment.1.point.1.elevation=103.75",
+        }, Encoding.UTF8);
+
+        WithCulture("fr-FR", () =>
+        {
+            var request = RoadModelSectionViewerFile.ReadRequest(path);
+            Check(request.Handle == "RM%1", "section viewer request should unescape handle percent");
+            Check(request.RoadCenterlineHandle == "CL\n1", "section viewer request should unescape centerline newline");
+            Check(request.Previews.Count == 1, "section viewer request should read preview count");
+            Check(Math.Abs(request.Previews[0].Station - 10.5) < 1.0e-9, "section viewer station should parse invariant decimal");
+            Check(request.Previews[0].StatusMessage == "已生成\n预览", "section viewer status should unescape newline");
+            Check(request.Previews[0].HasGroundLine, "section viewer should keep ground line flag");
+            Check(request.Previews[0].Segments.Count == 2, "section viewer should read segments");
+            Check(request.Previews[0].Segments[0].Kind == RoadModelSectionViewerSegmentKind.Subgrade, "section viewer should parse segment kind");
+            Check(request.Previews[0].Segments[0].Points.Count == 2, "section viewer should read segment points");
+            Check(Math.Abs(request.Previews[0].Segments[0].Points[1].Offset + 3.5) < 1.0e-9, "section viewer point offset should parse invariant decimal");
+        });
+    }
+    finally
+    {
+        if (File.Exists(path))
+        {
+            File.Delete(path);
+        }
+    }
+}
+
+static void RoadModelSectionViewerWindowContainsStationListPreviewAndLegend()
+{
+    var xamlPath = Path.Combine(
+        FindRepoRoot(),
+        "src",
+        "ui",
+        "wpf",
+        "RoadProto.Terrain.UI",
+        "RoadModelSectionViewerWindow.xaml");
+    var xaml = File.ReadAllText(xamlPath, Encoding.UTF8);
+    Check(xaml.Contains("Title=\"查看横断面\""), "section viewer window title should be 查看横断面");
+    Check(xaml.Contains("x:Name=\"StationListBox\""), "section viewer should include station selector");
+    Check(xaml.Contains("x:Name=\"PreviewCanvas\""), "section viewer should include preview canvas");
+    Check(xaml.Contains("路基模板") && xaml.Contains("边坡模板") && xaml.Contains("地面线"), "section viewer should show layer legend");
+}
+
 static void RoadModelWindowReadOnlyHandleBindingIsOneWay()
 {
     var xamlPath = Path.Combine(
@@ -409,14 +654,36 @@ static void RoadModelWindowReadOnlyHandleBindingIsOneWay()
     Check(
         xaml.Contains("Click=\"OnPickTemplate\""),
         "road model window should wire template picking button");
+    Check(
+        xaml.Contains("Header=\"边坡模板\""),
+        "road model window should include slope template tab");
+    Check(
+        xaml.Contains("Click=\"OnPickLeftSlopeTemplate\"") && xaml.Contains("Click=\"OnPickRightSlopeTemplate\""),
+        "road model window should wire left and right slope template picking buttons");
+    Check(
+        xaml.Contains("Header=\"管理模板组\""),
+        "road model window should expose per-row slope template group management");
+    Check(
+        xaml.Contains("Click=\"OnManageLeftSlopeGroup\"") && xaml.Contains("Click=\"OnManageRightSlopeGroup\""),
+        "road model window should wire left and right slope template group management buttons");
+    Check(
+        xaml.Contains("当前模板组管理") && xaml.Contains("组内模板"),
+        "road model window should show selected group management controls");
+    Check(
+        xaml.Contains("Click=\"OnDeleteLeftSlopeTemplate\"") && xaml.Contains("Click=\"OnMoveLeftSlopeTemplateUp\""),
+        "road model window should allow editing templates inside a group");
 }
 
 ResponseWritesPickTerrainAction();
 SubgradeRequestReadsPersistedEntityComponents();
+SlopeTemplateDialogFileRoundTripsComponents();
 RoadModelRequestReadsAssignmentsUsingInvariantCultureAndEscaping();
 RoadModelResponseWritesAssignmentsUsingInvariantCultureAndEscaping();
 RoadModelResponseWritesPickTemplateActionAndRowIndex();
+RoadModelSlopeGroupsRoundTripUsingInvariantCultureAndEscaping();
 RoadModelRequestReadsSelectedAssignmentIndex();
 RoadModelRequestRejectsMissingOrEmptyResponsePath();
+RoadModelSectionViewerRequestReadsPreviewsUsingInvariantCultureAndEscaping();
+RoadModelSectionViewerWindowContainsStationListPreviewAndLegend();
 RoadModelWindowReadOnlyHandleBindingIsOneWay();
 Console.WriteLine("All RoadProto managed bridge tests passed.");

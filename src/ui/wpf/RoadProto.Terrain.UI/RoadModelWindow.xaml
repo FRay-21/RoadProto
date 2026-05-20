@@ -2,10 +2,10 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="横断面戴帽"
-        Width="820"
-        Height="560"
-        MinWidth="760"
-        MinHeight="500"
+        Width="980"
+        Height="640"
+        MinWidth="860"
+        MinHeight="560"
         WindowStartupLocation="CenterScreen"
         Background="#F3F5F7">
     <Window.Resources>
@@ -99,7 +99,163 @@
                     </DataGrid>
                 </Grid>
             </TabItem>
-            <TabItem Header="其他" IsEnabled="False" />
+
+            <TabItem Header="边坡模板">
+                <Grid Margin="16">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                    </Grid.RowDefinitions>
+
+                    <Grid Grid.Row="0" Margin="0,0,0,12">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="120" />
+                            <ColumnDefinition Width="140" />
+                            <ColumnDefinition Width="24" />
+                            <ColumnDefinition Width="120" />
+                            <ColumnDefinition Width="140" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Text="左侧搜索宽度" VerticalAlignment="Center" />
+                        <TextBox Grid.Column="1" Text="{Binding LeftSlopeSearchWidthText, UpdateSourceTrigger=PropertyChanged}" />
+                        <TextBlock Grid.Column="3" Text="右侧搜索宽度" VerticalAlignment="Center" />
+                        <TextBox Grid.Column="4" Text="{Binding RightSlopeSearchWidthText, UpdateSourceTrigger=PropertyChanged}" />
+                    </Grid>
+
+                    <TabControl Grid.Row="1">
+                        <TabItem Header="左侧边坡模板">
+                            <Grid Margin="0,12,0,0">
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="*" />
+                                    <RowDefinition Height="Auto" />
+                                </Grid.RowDefinitions>
+                                <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,12">
+                                    <Button Content="新增组" Click="OnAddLeftSlopeGroup" />
+                                    <Button Content="删除组" Click="OnDeleteLeftSlopeGroup" />
+                                    <Button Content="上移" Click="OnMoveLeftSlopeGroupUp" />
+                                    <Button Content="下移" Click="OnMoveLeftSlopeGroupDown" />
+                                    <Button Content="点选模板" Click="OnPickLeftSlopeTemplate" />
+                                    <Button Content="清空组内模板" Click="OnClearLeftSlopeTemplates" />
+                                </StackPanel>
+                                <DataGrid Grid.Row="1"
+                                          AutoGenerateColumns="False"
+                                          CanUserAddRows="False"
+                                          ItemsSource="{Binding LeftSlopeGroups}"
+                                          SelectedItem="{Binding SelectedLeftSlopeGroup, Mode=TwoWay}"
+                                          HeadersVisibility="Column"
+                                          GridLinesVisibility="Horizontal">
+                                    <DataGrid.Columns>
+                                        <DataGridTextColumn Header="起点桩号" Binding="{Binding StartStation}" Width="*" />
+                                        <DataGridTextColumn Header="终点桩号" Binding="{Binding EndStation}" Width="*" />
+                                        <DataGridTextColumn Header="组内模板顺序" Binding="{Binding TemplateSummary}" IsReadOnly="True" Width="2.4*" />
+                                        <DataGridTemplateColumn Header="管理模板组" Width="120">
+                                            <DataGridTemplateColumn.CellTemplate>
+                                                <DataTemplate>
+                                                    <Button Content="管理模板组" Click="OnManageLeftSlopeGroup" />
+                                                </DataTemplate>
+                                            </DataGridTemplateColumn.CellTemplate>
+                                        </DataGridTemplateColumn>
+                                    </DataGrid.Columns>
+                                </DataGrid>
+                                <GroupBox Grid.Row="2" Header="当前模板组管理" Margin="0,12,0,0">
+                                    <Grid Margin="8">
+                                        <Grid.RowDefinitions>
+                                            <RowDefinition Height="Auto" />
+                                            <RowDefinition Height="Auto" />
+                                        </Grid.RowDefinitions>
+                                        <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,8">
+                                            <Button Content="点选边坡模板" Click="OnPickLeftSlopeTemplate" />
+                                            <Button Content="删除组内模板" Click="OnDeleteLeftSlopeTemplate" />
+                                            <Button Content="组内模板上移" Click="OnMoveLeftSlopeTemplateUp" />
+                                            <Button Content="组内模板下移" Click="OnMoveLeftSlopeTemplateDown" />
+                                            <Button Content="清空组内模板" Click="OnClearLeftSlopeTemplates" />
+                                        </StackPanel>
+                                        <DataGrid Grid.Row="1"
+                                                  Height="120"
+                                                  AutoGenerateColumns="False"
+                                                  CanUserAddRows="False"
+                                                  ItemsSource="{Binding SelectedLeftSlopeGroup.Templates}"
+                                                  SelectedItem="{Binding SelectedLeftSlopeTemplate, Mode=TwoWay}"
+                                                  HeadersVisibility="Column"
+                                                  GridLinesVisibility="Horizontal">
+                                            <DataGrid.Columns>
+                                                <DataGridTextColumn Header="模板 handle" Binding="{Binding TemplateHandle}" IsReadOnly="True" Width="*" />
+                                                <DataGridTextColumn Header="模板名称" Binding="{Binding TemplateName}" IsReadOnly="True" Width="2*" />
+                                            </DataGrid.Columns>
+                                        </DataGrid>
+                                    </Grid>
+                                </GroupBox>
+                            </Grid>
+                        </TabItem>
+                        <TabItem Header="右侧边坡模板">
+                            <Grid Margin="0,12,0,0">
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="*" />
+                                    <RowDefinition Height="Auto" />
+                                </Grid.RowDefinitions>
+                                <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,12">
+                                    <Button Content="新增组" Click="OnAddRightSlopeGroup" />
+                                    <Button Content="删除组" Click="OnDeleteRightSlopeGroup" />
+                                    <Button Content="上移" Click="OnMoveRightSlopeGroupUp" />
+                                    <Button Content="下移" Click="OnMoveRightSlopeGroupDown" />
+                                    <Button Content="点选模板" Click="OnPickRightSlopeTemplate" />
+                                    <Button Content="清空组内模板" Click="OnClearRightSlopeTemplates" />
+                                </StackPanel>
+                                <DataGrid Grid.Row="1"
+                                          AutoGenerateColumns="False"
+                                          CanUserAddRows="False"
+                                          ItemsSource="{Binding RightSlopeGroups}"
+                                          SelectedItem="{Binding SelectedRightSlopeGroup, Mode=TwoWay}"
+                                          HeadersVisibility="Column"
+                                          GridLinesVisibility="Horizontal">
+                                    <DataGrid.Columns>
+                                        <DataGridTextColumn Header="起点桩号" Binding="{Binding StartStation}" Width="*" />
+                                        <DataGridTextColumn Header="终点桩号" Binding="{Binding EndStation}" Width="*" />
+                                        <DataGridTextColumn Header="组内模板顺序" Binding="{Binding TemplateSummary}" IsReadOnly="True" Width="2.4*" />
+                                        <DataGridTemplateColumn Header="管理模板组" Width="120">
+                                            <DataGridTemplateColumn.CellTemplate>
+                                                <DataTemplate>
+                                                    <Button Content="管理模板组" Click="OnManageRightSlopeGroup" />
+                                                </DataTemplate>
+                                            </DataGridTemplateColumn.CellTemplate>
+                                        </DataGridTemplateColumn>
+                                    </DataGrid.Columns>
+                                </DataGrid>
+                                <GroupBox Grid.Row="2" Header="当前模板组管理" Margin="0,12,0,0">
+                                    <Grid Margin="8">
+                                        <Grid.RowDefinitions>
+                                            <RowDefinition Height="Auto" />
+                                            <RowDefinition Height="Auto" />
+                                        </Grid.RowDefinitions>
+                                        <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,8">
+                                            <Button Content="点选边坡模板" Click="OnPickRightSlopeTemplate" />
+                                            <Button Content="删除组内模板" Click="OnDeleteRightSlopeTemplate" />
+                                            <Button Content="组内模板上移" Click="OnMoveRightSlopeTemplateUp" />
+                                            <Button Content="组内模板下移" Click="OnMoveRightSlopeTemplateDown" />
+                                            <Button Content="清空组内模板" Click="OnClearRightSlopeTemplates" />
+                                        </StackPanel>
+                                        <DataGrid Grid.Row="1"
+                                                  Height="120"
+                                                  AutoGenerateColumns="False"
+                                                  CanUserAddRows="False"
+                                                  ItemsSource="{Binding SelectedRightSlopeGroup.Templates}"
+                                                  SelectedItem="{Binding SelectedRightSlopeTemplate, Mode=TwoWay}"
+                                                  HeadersVisibility="Column"
+                                                  GridLinesVisibility="Horizontal">
+                                            <DataGrid.Columns>
+                                                <DataGridTextColumn Header="模板 handle" Binding="{Binding TemplateHandle}" IsReadOnly="True" Width="*" />
+                                                <DataGridTextColumn Header="模板名称" Binding="{Binding TemplateName}" IsReadOnly="True" Width="2*" />
+                                            </DataGrid.Columns>
+                                        </DataGrid>
+                                    </Grid>
+                                </GroupBox>
+                            </Grid>
+                        </TabItem>
+                    </TabControl>
+                </Grid>
+            </TabItem>
         </TabControl>
 
         <Grid Grid.Row="2" Margin="0,16,0,0">

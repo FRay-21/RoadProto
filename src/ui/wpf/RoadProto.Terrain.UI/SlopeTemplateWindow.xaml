@@ -1,0 +1,131 @@
+<Window x:Class="RoadProto.Terrain.UI.SlopeTemplateWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="边坡模板"
+        Width="1040"
+        Height="680"
+        MinWidth="940"
+        MinHeight="600"
+        WindowStartupLocation="CenterOwner"
+        Loaded="Window_Loaded">
+    <Grid Margin="12">
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="*" />
+            <ColumnDefinition Width="380" />
+        </Grid.ColumnDefinitions>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <Grid Grid.ColumnSpan="2" Margin="0,0,0,10">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="76" />
+                <ColumnDefinition Width="220" />
+                <ColumnDefinition Width="70" />
+                <ColumnDefinition Width="120" />
+                <ColumnDefinition Width="70" />
+                <ColumnDefinition Width="140" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+            <TextBlock Text="模板名称" VerticalAlignment="Center" />
+            <TextBox x:Name="TemplateNameBox" Grid.Column="1" Height="28" TextChanged="GlobalInput_Changed" />
+            <TextBlock Grid.Column="2" Text="显示比例" VerticalAlignment="Center" Margin="12,0,0,0" />
+            <ComboBox x:Name="DisplayScaleComboBox" Grid.Column="3" Height="28" SelectionChanged="GlobalInput_Changed" />
+            <TextBlock Grid.Column="4" Text="类型" VerticalAlignment="Center" Margin="12,0,0,0" />
+            <ComboBox x:Name="KindComboBox" Grid.Column="5" Height="28" SelectionChanged="GlobalInput_Changed" />
+            <StackPanel Grid.Column="6" Orientation="Horizontal" HorizontalAlignment="Right">
+                <CheckBox x:Name="StopAtGroundCheckBox" Content="交地则结束放坡" VerticalAlignment="Center" Margin="0,0,18,0" Checked="GlobalInput_Changed" Unchecked="GlobalInput_Changed" />
+                <CheckBox x:Name="RepeatLastGroupCheckBox" Content="重复最后一组直至交地" VerticalAlignment="Center" Checked="GlobalInput_Changed" Unchecked="GlobalInput_Changed" />
+            </StackPanel>
+        </Grid>
+
+        <Border Grid.Row="1" Grid.Column="0" BorderBrush="#B8C0CC" BorderThickness="1" Background="#FFFFFF" ClipToBounds="True">
+            <Canvas x:Name="PreviewCanvas" Background="#FAFBFC" ClipToBounds="True" SizeChanged="PreviewCanvas_SizeChanged" />
+        </Border>
+
+        <ScrollViewer Grid.Row="1" Grid.Column="1" Margin="12,0,0,0" VerticalScrollBarVisibility="Auto">
+            <StackPanel>
+                <Grid Margin="0,0,0,8">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="64" />
+                        <ColumnDefinition Width="64" />
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Text="部件" FontWeight="SemiBold" VerticalAlignment="Center" />
+                    <Button Grid.Column="1" Content="上移" Width="56" Click="MoveUp_Click" />
+                    <Button Grid.Column="2" Content="下移" Width="56" Click="MoveDown_Click" />
+                </Grid>
+
+                <ListBox x:Name="ComponentListBox"
+                         Height="150"
+                         DisplayMemberPath="DisplayName"
+                         SelectionChanged="ComponentListBox_SelectionChanged" />
+
+                <Grid Margin="0,10,0,8">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="90" />
+                    </Grid.ColumnDefinitions>
+                    <ComboBox x:Name="AddTypeComboBox" Height="28" />
+                    <Button Grid.Column="1" Content="新增部件" Margin="8,0,0,0" Click="AddComponent_Click" />
+                </Grid>
+                <Button Content="删除选中部件" Height="30" Margin="0,0,0,12" Click="DeleteComponent_Click" />
+
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="128" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="34" />
+                        <RowDefinition Height="34" />
+                        <RowDefinition Height="34" />
+                        <RowDefinition Height="34" />
+                        <RowDefinition Height="34" />
+                        <RowDefinition Height="34" />
+                        <RowDefinition Height="34" />
+                    </Grid.RowDefinitions>
+
+                    <TextBlock Text="部件类型" VerticalAlignment="Center" />
+                    <ComboBox x:Name="ComponentTypeComboBox" Grid.Column="1" Height="28" SelectionChanged="ComponentInput_Changed" />
+
+                    <TextBlock Grid.Row="1" Text="编辑方式" VerticalAlignment="Center" />
+                    <ComboBox x:Name="ConstraintModeComboBox" Grid.Row="1" Grid.Column="1" Height="28" SelectionChanged="ComponentInput_Changed" />
+
+                    <TextBlock Grid.Row="2" Text="坡率" VerticalAlignment="Center" />
+                    <TextBox x:Name="SlopeBox" Grid.Row="2" Grid.Column="1" Height="26" TextChanged="ComponentInput_Changed" />
+
+                    <TextBlock Grid.Row="3" Text="坡高" VerticalAlignment="Center" />
+                    <TextBox x:Name="HeightBox" Grid.Row="3" Grid.Column="1" Height="26" TextChanged="ComponentInput_Changed" />
+
+                    <TextBlock Grid.Row="4" Text="宽度" VerticalAlignment="Center" />
+                    <TextBox x:Name="WidthBox" Grid.Row="4" Grid.Column="1" Height="26" TextChanged="ComponentInput_Changed" />
+
+                    <TextBlock Grid.Row="5" Text="搜索坡高增值" VerticalAlignment="Center" />
+                    <TextBox x:Name="GroundSearchIncrementBox" Grid.Row="5" Grid.Column="1" Height="26" TextChanged="ComponentInput_Changed" />
+
+                    <TextBlock Grid.Row="6" Text="颜色 RGB" VerticalAlignment="Center" />
+                    <Grid Grid.Row="6" Grid.Column="1">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="34" />
+                        </Grid.ColumnDefinitions>
+                        <TextBox x:Name="ColorRBox" Height="26" TextChanged="ComponentInput_Changed" />
+                        <TextBox x:Name="ColorGBox" Grid.Column="1" Height="26" Margin="4,0" TextChanged="ComponentInput_Changed" />
+                        <TextBox x:Name="ColorBBox" Grid.Column="2" Height="26" TextChanged="ComponentInput_Changed" />
+                        <Border x:Name="ColorPreviewBorder" Grid.Column="3" Height="24" Margin="6,1,0,1" BorderBrush="#888" BorderThickness="1" />
+                    </Grid>
+                </Grid>
+            </StackPanel>
+        </ScrollViewer>
+
+        <StackPanel Grid.Row="2" Grid.ColumnSpan="2" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,12,0,0">
+            <Button Content="确定" Width="90" Height="32" Margin="0,0,8,0" IsDefault="True" Click="Ok_Click" />
+            <Button Content="取消" Width="90" Height="32" IsCancel="True" />
+        </StackPanel>
+    </Grid>
+</Window>

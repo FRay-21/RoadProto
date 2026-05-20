@@ -28,6 +28,7 @@
 | Delaunay / TIN 构建 | V0.1.3 已实现，基于 `delaunator-cpp` | `src/domain/terrain/TerrainTinBuilder.*` |
 | 第三方 Delaunay 头文件 | V0.1.3 已引入，MIT License | `third_party/delaunator-cpp/` |
 | TIN 高程查询 | V0.1.3 已实现 | `src/domain/terrain/TerrainSurfaceQuery.*` |
+| TIN 三角形空间索引 | V0.1.18 已实现，生成期为横断面剖切建立临时 flat 网格索引，按剖切线段穿越格子筛选候选三角形，不写入 DWG，不形成长期内存缓存 | `src/domain/terrain/TerrainTriangleSpatialIndex.*` |
 | RMesh 地形数模文件读写 | V0.1.6 已实现，支持 `.rmesh` 导入导出和跨 DWG 流转 | `src/domain/terrain/TerrainMeshFile.*` |
 | 回旋线与平曲线五单元构建 | V0.1.8 原型，支持主点切线长、旧切线长保护、直线-缓和曲线-圆曲线-缓和曲线-直线构建和采样 | `src/domain/alignment/HorizontalAlignmentBuilder.*` |
 | 平面线形元素链与不完整缓和曲线 | V0.1.8 扩展，支持圆曲线、有限半径到有限半径的不完整缓和曲线、正负曲率过渡和元素链采样 | `src/domain/alignment/AlignmentElementChainBuilder.*` |
@@ -47,8 +48,12 @@
 | 路基模板领域模型与默认值 | V0.1.10 原型，支持道路等级、左右侧部件、宽度、高度差、固定/变化坡度、变宽表、坡度变化表、颜色和路面结构层关联预留字段；二级、三级、四级道路已有默认组成 | `src/domain/cross_section/SubgradeTemplateModel.*` |
 | 路基模板自定义实体 | V0.1.13 原型，独立绘制中线和左右侧部件，支持中文部件标注、DWG 持久化、几何范围、变换和插入点夹点移动 | `src/cad_adapter/objectarx/cross_section/DnSubgradeTemplateEntity.*` |
 | 路基模板 WPF 编辑 Bridge | V0.1.10 原型，通过请求/响应文件编辑模板参数、部件参数、变宽表和坡度变化表 | `src/cad_adapter/objectarx/cross_section/SubgradeTemplateDialogBridge.*` |
-| 横断面道路模型 | V0.1.13 原型，按道路中线、竖曲线和路基模板范围生成三维部件线，支持优先级解析、行内点选模板、采样、DWG 持久化和编辑回写 | `src/domain/cross_section/RoadModel.*` |
-| 道路模型自定义实体 | V0.1.11 原型，保存 `RoadModelData` 并绘制三维部件线，支持 DWG 持久化、几何范围和变换 | `src/cad_adapter/objectarx/cross_section/DnRoadModelEntity.*` |
+| 边坡模板领域模型与默认值 | V0.1.14 原型，支持填方/挖方预设、边坡/护坡道部件、坡率/坡高/宽度三选二、部件级搜索增值和交地控制条件 | `src/domain/cross_section/SlopeTemplateModel.*` |
+| 边坡模板自定义实体 | V0.1.14 原型，独立线框显示边坡模板，支持 DWG 持久化、几何范围、变换和双击编辑入口 | `src/cad_adapter/objectarx/cross_section/DnSlopeTemplateEntity.*` |
+| 边坡模板 WPF 编辑 Bridge | V0.1.14 原型，通过请求/响应文件编辑边坡模板参数和部件列表 | `src/cad_adapter/objectarx/cross_section/SlopeTemplateDialogBridge.*` |
+| 横断面道路模型 | V0.1.18 原型，按道路中线、竖曲线、路基模板范围和边坡模板组生成断面节点链、地面剖面快照与三维网格线框，支持优先级解析、行内点选模板、模板组管理、生成进度回调、TIN 网格候选剖切、采样桩号保存、横断面预览、DWG 持久化和编辑回写 | `src/domain/cross_section/RoadModel.*` |
+| 道路模型自定义实体 | V0.1.18 原型，保存 `RoadModelData`、采样桩号、断面节点链、地面剖面快照和网格线框，并绘制横向肋线、纵向连接线、最外侧边界线、端部封闭线和过渡线，支持 DWG 持久化、几何范围和变换 | `src/cad_adapter/objectarx/cross_section/DnRoadModelEntity.*` |
+| 道路模型横断面查看 Bridge | V0.1.18 原型，通过请求文件把道路模型断面节点和地面快照预览传给 WPF 只读查看窗口 | `src/cad_adapter/objectarx/cross_section/RoadModelSectionViewerBridge.*` |
 
 ## 模块专用能力
 
@@ -111,8 +116,14 @@
 
 - `RoadModelTemplateResolver` 是模板优先级解析能力，按表格行顺序处理重叠桩号范围。
 - `RoadModelStationSampler` 是道路模型采样点收集能力，合并道路端点、模板边界、竖曲线关键点和固定采样间距点。
-- `RoadModelBuilder` 是三维道路部件线生成能力，把道路中线平面采样、竖曲线设计高程和路基模板部件组合为 `RoadModelData`。
+- `RoadModelBuilder` 是三维道路线框生成能力，把道路中线平面采样、竖曲线设计高程、路基模板部件、边坡模板规则和 TIN 地面剖面组合为 `RoadModelData`，并生成断面节点链和网格线框。
+- `TerrainTriangleSpatialIndex` 是 TIN 剖切候选过滤能力，生成期为 TIN 建立临时 flat 网格索引，剖切时只遍历当前搜索线段穿越网格内的候选三角形；索引不写入实体，不形成长期内存缓存。
+- `RoadModelSection` 保存生成时左右地面剖面快照，边坡放坡、道路模型持久化和查看横断面使用同一份剖面数据。
+- `RoadModelSlopeTemplateGroupResolver` 是边坡模板组优先级解析能力，按左/右侧模板组和组内模板顺序搜索首个戴帽成功模板。
+- `RoadModelBuildInput::progressCallback` 是不依赖 ObjectARX 的构建进度回调，可由 AutoCAD 状态栏、后续 Palette 或其他 UI 技术栈自行适配。
+- `RoadModelSectionPreviewBuilder` 是已生成道路模型的横断面预览能力，按桩号把三维路基线、边坡线和地面快照转换为二维偏距-高程线段；没有快照的旧实体才读取 TIN 临时剖切。
 - `RoadModelBuildService` 是应用层构建入口，负责校验 handle、配置、采样和模板来源后调用 domain builder。
-- `DnRoadModelEntity` 是 CAD 持久化和显示能力，负责绘制三维部件线、DWG 保存重开、范围和变换。
+- `DnRoadModelEntity` 是 CAD 持久化和显示能力，负责保存三维路基与边坡兼容部件线、生成时采样桩号、断面节点链、网格线框、DWG 保存重开、范围和变换。
 - `RoadModelDialogBridge` 是原型阶段 UI 解耦能力，通过请求/响应文件在 WPF 与 C++ ObjectARX 之间传递模板范围表和行内点选模板动作。
+- `RoadModelSectionViewerBridge` 是原型阶段 UI 解耦能力，通过请求文件在 C++ ObjectARX 与 WPF 之间传递多个桩号的只读断面预览。
 - 当前道路模型只生成三维线框，自动联动重建、道路面模型、结构层实体和算量仍需后续扩展。

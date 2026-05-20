@@ -11,6 +11,10 @@
     <Compile Include="..\..\src\ui\wpf\RoadProto.Terrain.UI\Bridge\AlignmentDialogFile.cs" Link="Bridge\AlignmentDialogFile.cs" />
     <Compile Include="..\..\src\ui\wpf\RoadProto.Terrain.UI\Bridge\RoadModelDialogDtos.cs" Link="Bridge\RoadModelDialogDtos.cs" />
     <Compile Include="..\..\src\ui\wpf\RoadProto.Terrain.UI\Bridge\RoadModelDialogFile.cs" Link="Bridge\RoadModelDialogFile.cs" />
+    <Compile Include="..\..\src\ui\wpf\RoadProto.Terrain.UI\Bridge\RoadModelSectionViewerDtos.cs" Link="Bridge\RoadModelSectionViewerDtos.cs" />
+    <Compile Include="..\..\src\ui\wpf\RoadProto.Terrain.UI\Bridge\RoadModelSectionViewerFile.cs" Link="Bridge\RoadModelSectionViewerFile.cs" />
+    <Compile Include="..\..\src\ui\wpf\RoadProto.Terrain.UI\Bridge\SlopeTemplateDialogDtos.cs" Link="Bridge\SlopeTemplateDialogDtos.cs" />
+    <Compile Include="..\..\src\ui\wpf\RoadProto.Terrain.UI\Bridge\SlopeTemplateDialogFile.cs" Link="Bridge\SlopeTemplateDialogFile.cs" />
     <Compile Include="..\..\src\ui\wpf\RoadProto.Terrain.UI\Bridge\SubgradeTemplateDialogDtos.cs" Link="Bridge\SubgradeTemplateDialogDtos.cs" />
     <Compile Include="..\..\src\ui\wpf\RoadProto.Terrain.UI\Bridge\SubgradeTemplateDialogFile.cs" Link="Bridge\SubgradeTemplateDialogFile.cs" />
   </ItemGroup>

@@ -7,10 +7,13 @@
 #include "cad_adapter/objectarx/ObjectArxSelectionSetGuard.h"
 #include "cad_adapter/objectarx/alignment/DnRoadCenterlineEntity.h"
 #include "cad_adapter/objectarx/cross_section/DnRoadModelEntity.h"
+#include "cad_adapter/objectarx/cross_section/DnSlopeTemplateEntity.h"
 #include "cad_adapter/objectarx/cross_section/DnSubgradeTemplateEntity.h"
 #include "cad_adapter/objectarx/cross_section/RoadModelDialogBridge.h"
+#include "cad_adapter/objectarx/cross_section/RoadModelSectionViewerBridge.h"
 #include "cad_adapter/objectarx/profile/DnProfileGradeGraphEntity.h"
 #include "cad_adapter/objectarx/profile/DnProfileVerticalCurveEntity.h"
+#include "cad_adapter/objectarx/terrain/DnTerrainTinEntity.h"
 
 #include "aced.h"
 #include "adscodes.h"
@@ -20,10 +23,17 @@
 #include <algorithm>
 #include <cmath>
 #include <cwctype>
+#include <limits>
 #include <sstream>
 #include <string>
 #include <utility>
 #include <vector>
+#endif
+
+#ifndef ROADPROTO_TEST_BUILD
+int acedSetStatusBarProgressMeter(const ACHAR* pszLabel, int nMinPos, int nMaxPos);
+int acedSetStatusBarProgressMeterPos(int nPos);
+void acedRestoreStatusBar();
 #endif
 
 namespace roadproto::cad_adapter::objectarx::cross_section {
@@ -36,11 +46,56 @@ using roadproto::application::cross_section::RoadModelBuildService;
 using roadproto::domain::alignment::AlignmentPoint2d;
 using roadproto::domain::alignment::AlignmentSamplePoint;
 using roadproto::domain::cross_section::RoadModelConfig;
+using roadproto::domain::cross_section::RoadModelData;
+using roadproto::domain::cross_section::RoadModelSection;
+using roadproto::domain::cross_section::RoadModelSectionPreviewBuilder;
+using roadproto::domain::cross_section::RoadModelSectionPreviewRequest;
+using roadproto::domain::cross_section::RoadModelSlopeTemplateGroup;
+using roadproto::domain::cross_section::RoadModelSlopeTemplateReference;
+using roadproto::domain::cross_section::RoadModelSlopeTemplateSource;
 using roadproto::domain::cross_section::RoadModelTemplateAssignment;
 using roadproto::domain::cross_section::RoadModelTemplateSource;
+using roadproto::domain::cross_section::RoadModelTerrainSurface;
 using roadproto::domain::profile::ProfileVerticalCurveData;
 
 constexpr double kStationEpsilon = 1e-8;
+
+class StatusProgressMeter {
+public:
+    StatusProgressMeter(const ACHAR* label, int minPosition, int maxPosition)
+        : active_(acedSetStatusBarProgressMeter(label, minPosition, maxPosition) == 0)
+        , minPosition_(minPosition)
+        , maxPosition_(maxPosition)
+        , lastPosition_(minPosition)
+    {
+    }
+
+    ~StatusProgressMeter()
+    {
+        if (active_) {
+            acedRestoreStatusBar();
+        }
+    }
+
+    void setPosition(int position)
+    {
+        if (!active_) {
+            return;
+        }
+        const auto clamped = std::clamp(position, minPosition_, maxPosition_);
+        if (clamped == lastPosition_) {
+            return;
+        }
+        lastPosition_ = clamped;
+        acedSetStatusBarProgressMeterPos(clamped);
+    }
+
+private:
+    bool active_ = false;
+    int minPosition_ = 0;
+    int maxPosition_ = 100;
+    int lastPosition_ = 0;
+};
 
 std::wstring trimDialogCommandPath(std::wstring path)
 {
@@ -255,6 +310,54 @@ bool readSubgradeTemplate(const std::wstring& handle, RoadModelTemplateSource& s
     return !source.templateHandle.empty();
 }
 
+bool readSlopeTemplate(const std::wstring& handle, RoadModelSlopeTemplateSource& source)
+{
+    AcDbObjectId entityId;
+    if (!resolveObjectIdFromHandle(handle, entityId)) {
+        return false;
+    }
+
+    DnSlopeTemplateEntity* entity = nullptr;
+    if (acdbOpenObject(entity, entityId, AcDb::kForRead) != Acad::eOk || entity == nullptr) {
+        return false;
+    }
+    if (!entity->isKindOf(DnSlopeTemplateEntity::desc())) {
+        entity->close();
+        return false;
+    }
+
+    source.templateHandle = handle;
+    source.data = entity->templateData();
+    entity->close();
+    return !source.templateHandle.empty();
+}
+
+bool readTerrainSurface(const std::wstring& handle, RoadModelTerrainSurface& surface)
+{
+    if (handle.empty()) {
+        return false;
+    }
+
+    AcDbObjectId entityId;
+    if (!resolveObjectIdFromHandle(handle, entityId)) {
+        return false;
+    }
+
+    DnTerrainTinEntity* entity = nullptr;
+    if (acdbOpenObject(entity, entityId, AcDb::kForRead) != Acad::eOk || entity == nullptr) {
+        return false;
+    }
+    if (!entity->isKindOf(DnTerrainTinEntity::desc())) {
+        entity->close();
+        return false;
+    }
+
+    surface.points = entity->getPoints();
+    surface.triangles = entity->getTriangles();
+    entity->close();
+    return !surface.points.empty() && !surface.triangles.empty();
+}
+
 bool collectProfileGraphHandlesForCenterline(
     const std::wstring& centerlineHandle,
     std::vector<std::wstring>& graphHandles)
@@ -392,6 +495,64 @@ bool profileGraphBelongsToCenterline(
     return belongs;
 }
 
+std::wstring terrainTinHandleForProfileGraph(const std::wstring& profileGraphHandle)
+{
+    if (profileGraphHandle.empty()) {
+        return L"";
+    }
+
+    AcDbObjectId graphId;
+    if (!resolveObjectIdFromHandle(profileGraphHandle, graphId)) {
+        return L"";
+    }
+
+    DnProfileGradeGraphEntity* graph = nullptr;
+    if (acdbOpenObject(graph, graphId, AcDb::kForRead) != Acad::eOk || graph == nullptr) {
+        return L"";
+    }
+
+    std::wstring terrainHandle;
+    if (graph->isKindOf(DnProfileGradeGraphEntity::desc())) {
+        terrainHandle = graph->graphData().terrainTinHandle;
+    }
+    graph->close();
+    return terrainHandle;
+}
+
+const RoadModelSection* findRoadModelSectionAtStation(
+    const std::vector<RoadModelSection>& sections,
+    double station)
+{
+    const RoadModelSection* best = nullptr;
+    double bestDistance = std::numeric_limits<double>::infinity();
+    for (const auto& section : sections) {
+        const double distance = std::fabs(section.station - station);
+        if (distance < bestDistance) {
+            best = &section;
+            bestDistance = distance;
+        }
+    }
+    return bestDistance <= kStationEpsilon ? best : nullptr;
+}
+
+bool hasUsableGroundSnapshot(const RoadModelSection& section)
+{
+    return section.leftGroundProfile.size() + section.rightGroundProfile.size() >= 2;
+}
+
+bool needsTerrainSurfaceForSectionPreview(
+    const RoadModelData& data,
+    const std::vector<double>& stations)
+{
+    for (const auto station : stations) {
+        const auto* section = findRoadModelSectionAtStation(data.sections, station);
+        if (section == nullptr || !hasUsableGroundSnapshot(*section)) {
+            return true;
+        }
+    }
+    return false;
+}
+
 bool queueDialogForRoadModelEdit(AcDbObjectId roadModelId)
 {
     auto& editor = app::ApplicationContext::instance().editor();
@@ -414,6 +575,10 @@ bool queueDialogForRoadModelEdit(AcDbObjectId roadModelId)
     request.profileVerticalCurveHandle = config.profileVerticalCurveHandle;
     request.sampleInterval = config.sampleInterval;
     request.assignments = config.assignments;
+    request.leftSlopeSearchWidth = config.slopeConfig.leftSearchWidth;
+    request.rightSlopeSearchWidth = config.slopeConfig.rightSearchWidth;
+    request.leftSlopeGroups = config.slopeConfig.leftGroups;
+    request.rightSlopeGroups = config.slopeConfig.rightGroups;
     entity->close();
 
     std::wstring errorMessage;
@@ -455,6 +620,36 @@ bool promptSubgradeTemplateForRoadModel(std::wstring& templateHandle, std::wstri
     return !templateHandle.empty();
 }
 
+bool promptSlopeTemplateForRoadModel(std::wstring& templateHandle, std::wstring& templateName)
+{
+    auto& editor = app::ApplicationContext::instance().editor();
+    editor.writeMessage(L"请选择要加入该模板组的边坡模板实体。");
+
+    AcDbObjectId templateId;
+    if (!selectTypedEntity<DnSlopeTemplateEntity>(templateId)) {
+        editor.writeWarning(L"未选择边坡模板实体。");
+        return false;
+    }
+
+    DnSlopeTemplateEntity* entity = nullptr;
+    if (acdbOpenObject(entity, templateId, AcDb::kForRead) != Acad::eOk || entity == nullptr) {
+        editor.writeError(L"无法打开边坡模板实体。");
+        return false;
+    }
+    if (!entity->isKindOf(DnSlopeTemplateEntity::desc())) {
+        entity->close();
+        editor.writeWarning(L"选择对象不是 RoadProto 边坡模板实体。");
+        return false;
+    }
+
+    templateHandle = entityHandleText(entity);
+    templateName = entity->templateData().properties.name.empty()
+        ? templateHandle
+        : entity->templateData().properties.name;
+    entity->close();
+    return !templateHandle.empty();
+}
+
 bool handlePickTemplateAction(const RoadModelDialogResponse& response)
 {
     auto& editor = app::ApplicationContext::instance().editor();
@@ -466,6 +661,10 @@ bool handlePickTemplateAction(const RoadModelDialogResponse& response)
     request.sampleInterval = response.sampleInterval;
     request.selectedAssignmentIndex = response.pickAssignmentIndex;
     request.assignments = response.assignments;
+    request.leftSlopeSearchWidth = response.leftSlopeSearchWidth;
+    request.rightSlopeSearchWidth = response.rightSlopeSearchWidth;
+    request.leftSlopeGroups = response.leftSlopeGroups;
+    request.rightSlopeGroups = response.rightSlopeGroups;
 
     if (response.pickAssignmentIndex < 0
         || response.pickAssignmentIndex >= static_cast<int>(request.assignments.size())) {
@@ -477,6 +676,44 @@ bool handlePickTemplateAction(const RoadModelDialogResponse& response)
             auto& assignment = request.assignments[static_cast<std::size_t>(response.pickAssignmentIndex)];
             assignment.templateHandle = templateHandle;
             assignment.templateName = templateName;
+        }
+    }
+
+    std::wstring errorMessage;
+    if (!queueRoadModelWpfDialog(request, errorMessage)) {
+        editor.writeError(L"重新打开道路模型 WPF 对话框失败: " + errorMessage);
+        return false;
+    }
+    return true;
+}
+
+bool handlePickSlopeTemplateAction(const RoadModelDialogResponse& response, bool leftSide)
+{
+    auto& editor = app::ApplicationContext::instance().editor();
+
+    RoadModelDialogRequest request;
+    request.handle = response.handle;
+    request.roadCenterlineHandle = response.roadCenterlineHandle;
+    request.profileVerticalCurveHandle = response.profileVerticalCurveHandle;
+    request.sampleInterval = response.sampleInterval;
+    request.leftSlopeSearchWidth = response.leftSlopeSearchWidth;
+    request.rightSlopeSearchWidth = response.rightSlopeSearchWidth;
+    request.assignments = response.assignments;
+    request.leftSlopeGroups = response.leftSlopeGroups;
+    request.rightSlopeGroups = response.rightSlopeGroups;
+    request.selectedLeftSlopeGroupIndex = leftSide ? response.pickSlopeGroupIndex : -1;
+    request.selectedRightSlopeGroupIndex = leftSide ? -1 : response.pickSlopeGroupIndex;
+
+    auto& groups = leftSide ? request.leftSlopeGroups : request.rightSlopeGroups;
+    if (response.pickSlopeGroupIndex < 0
+        || response.pickSlopeGroupIndex >= static_cast<int>(groups.size())) {
+        editor.writeWarning(L"边坡模板组点选行索引无效，已重新打开横断面戴帽窗口。");
+    } else {
+        std::wstring templateHandle;
+        std::wstring templateName;
+        if (promptSlopeTemplateForRoadModel(templateHandle, templateName)) {
+            auto& group = groups[static_cast<std::size_t>(response.pickSlopeGroupIndex)];
+            group.templates.push_back(RoadModelSlopeTemplateReference{templateHandle, templateName});
         }
     }
 
@@ -511,7 +748,8 @@ void writeCreatedRoadModelMessage(
 {
     std::wstringstream stream;
     stream << L"Created road model entity, handle: " << handle
-           << L", component line count: " << data.componentLines.size() << L".";
+           << L", component line count: " << data.componentLines.size()
+           << L", slope line count: " << data.slopeLines.size() << L".";
     editor.writeMessage(stream.str());
 }
 
@@ -607,6 +845,104 @@ void runRoadModelEditHandleCommand()
     queueDialogForRoadModelEdit(entityId);
 }
 
+void runRoadModelViewSectionCommand()
+{
+    auto& editor = app::ApplicationContext::instance().editor();
+    editor.writeMessage(L"RD_SECTION_ROAD_MODEL_VIEW_SECTION: select a road model entity.");
+
+    AcDbObjectId roadModelId;
+    if (!selectTypedEntity<DnRoadModelEntity>(roadModelId)) {
+        editor.writeWarning(L"No road model entity was selected.");
+        return;
+    }
+
+    DnRoadModelEntity* entity = nullptr;
+    if (acdbOpenObject(entity, roadModelId, AcDb::kForRead) != Acad::eOk || entity == nullptr) {
+        editor.writeError(L"Cannot open road model entity.");
+        return;
+    }
+    if (!entity->isKindOf(DnRoadModelEntity::desc())) {
+        entity->close();
+        editor.writeWarning(L"The selected object is not a road model entity.");
+        return;
+    }
+
+    const auto roadModelHandle = entityHandleText(entity);
+    RoadModelData data = entity->roadModelData();
+    entity->close();
+
+    AcDbObjectId centerlineId;
+    if (!resolveObjectIdFromHandle(data.config.roadCenterlineHandle, centerlineId)) {
+        editor.writeWarning(L"No road centerline entity was found for the selected road model.");
+        return;
+    }
+
+    std::wstring centerlineHandle;
+    std::vector<AlignmentSamplePoint> alignmentSamples;
+    if (!readRoadCenterline(centerlineId, centerlineHandle, alignmentSamples)) {
+        editor.writeError(L"Cannot read road centerline data for section preview.");
+        return;
+    }
+
+    ProfileVerticalCurveData verticalCurve;
+    if (!data.config.profileVerticalCurveHandle.empty()) {
+        AcDbObjectId verticalCurveId;
+        std::wstring verticalCurveHandle;
+        if (resolveObjectIdFromHandle(data.config.profileVerticalCurveHandle, verticalCurveId)) {
+            readVerticalCurve(verticalCurveId, verticalCurveHandle, verticalCurve);
+        }
+    }
+
+    auto stations = data.sampledStations;
+    if (stations.empty() && !alignmentSamples.empty()) {
+        stations = roadproto::domain::cross_section::RoadModelStationSampler::collectStations(
+            alignmentSamples.front().station,
+            alignmentSamples.back().station,
+            verticalCurve,
+            data.config.assignments,
+            data.config.sampleInterval);
+    }
+    if (stations.empty()) {
+        editor.writeWarning(L"The selected road model has no sampled station data for section preview.");
+        return;
+    }
+
+    RoadModelTerrainSurface terrainSurface;
+    if (needsTerrainSurfaceForSectionPreview(data, stations)) {
+        const auto terrainHandle = terrainTinHandleForProfileGraph(verticalCurve.profileGraphHandle);
+        if (!terrainHandle.empty()) {
+            readTerrainSurface(terrainHandle, terrainSurface);
+        }
+    }
+
+    RoadModelSectionViewerRequest request;
+    request.handle = roadModelHandle;
+    request.roadCenterlineHandle = centerlineHandle;
+    request.previews.reserve(stations.size());
+    RoadModelSectionPreviewRequest previewRequest;
+    previewRequest.data = data;
+    previewRequest.alignmentSamples = alignmentSamples;
+    previewRequest.terrainSurface = terrainSurface;
+    for (const auto station : stations) {
+        previewRequest.station = station;
+
+        auto preview = RoadModelSectionPreviewBuilder::build(previewRequest);
+        if (preview.succeeded) {
+            request.previews.push_back(RoadModelSectionViewerPreview{std::move(preview)});
+        }
+    }
+
+    if (request.previews.empty()) {
+        editor.writeWarning(L"No section preview could be generated for the selected road model.");
+        return;
+    }
+
+    std::wstring errorMessage;
+    if (!queueRoadModelSectionViewerWpfDialog(request, errorMessage)) {
+        editor.writeError(L"Failed to open road model section viewer: " + errorMessage);
+    }
+}
+
 void runRoadModelApplyDialogFileCommand()
 {
     auto& editor = app::ApplicationContext::instance().editor();
@@ -625,6 +961,14 @@ void runRoadModelApplyDialogFileCommand()
 
     if (response.action == RoadModelDialogAction::PickTemplate) {
         handlePickTemplateAction(response);
+        return;
+    }
+    if (response.action == RoadModelDialogAction::PickLeftSlopeTemplate) {
+        handlePickSlopeTemplateAction(response, true);
+        return;
+    }
+    if (response.action == RoadModelDialogAction::PickRightSlopeTemplate) {
+        handlePickSlopeTemplateAction(response, false);
         return;
     }
 
@@ -667,6 +1011,10 @@ void runRoadModelApplyDialogFileCommand()
     config.profileVerticalCurveHandle = verticalCurveHandle;
     config.sampleInterval = response.sampleInterval;
     config.assignments = response.assignments;
+    config.slopeConfig.leftSearchWidth = response.leftSlopeSearchWidth;
+    config.slopeConfig.rightSearchWidth = response.rightSlopeSearchWidth;
+    config.slopeConfig.leftGroups = response.leftSlopeGroups;
+    config.slopeConfig.rightGroups = response.rightSlopeGroups;
 
     std::vector<RoadModelTemplateSource> templateSources;
     templateSources.reserve(config.assignments.size());
@@ -684,17 +1032,76 @@ void runRoadModelApplyDialogFileCommand()
         templateSources.push_back(std::move(source));
     }
 
+    std::vector<RoadModelSlopeTemplateSource> slopeTemplateSources;
+    const auto collectSlopeTemplates = [&editor, &slopeTemplateSources](const std::vector<RoadModelSlopeTemplateGroup>& groups) {
+        for (const auto& group : groups) {
+            for (const auto& reference : group.templates) {
+                if (reference.templateHandle.empty()) {
+                    continue;
+                }
+                const auto alreadyAdded = std::any_of(
+                    slopeTemplateSources.begin(),
+                    slopeTemplateSources.end(),
+                    [&reference](const auto& source) {
+                        return source.templateHandle == reference.templateHandle;
+                    });
+                if (alreadyAdded) {
+                    continue;
+                }
+                RoadModelSlopeTemplateSource source;
+                if (!readSlopeTemplate(reference.templateHandle, source)) {
+                    editor.writeError(L"Cannot read slope template entity for handle: " + reference.templateHandle);
+                    return false;
+                }
+                slopeTemplateSources.push_back(std::move(source));
+            }
+        }
+        return true;
+    };
+    if (!collectSlopeTemplates(config.slopeConfig.leftGroups)
+        || !collectSlopeTemplates(config.slopeConfig.rightGroups)) {
+        return;
+    }
+
+    RoadModelTerrainSurface terrainSurface;
+    const auto terrainHandle = terrainTinHandleForProfileGraph(verticalCurve.profileGraphHandle);
+    if (!terrainHandle.empty()) {
+        readTerrainSurface(terrainHandle, terrainSurface);
+    }
+
     RoadModelBuildInput input;
     input.config = std::move(config);
     input.alignmentSamples = std::move(alignmentSamples);
     input.verticalCurve = std::move(verticalCurve);
     input.templates = std::move(templateSources);
+    input.slopeTemplates = std::move(slopeTemplateSources);
+    input.terrainSurface = std::move(terrainSurface);
+
+    StatusProgressMeter progressMeter(L"横断面戴帽生成模型", 0, 100);
+    input.progressCallback = [&progressMeter](int percent, const std::wstring&) {
+        progressMeter.setPosition(percent);
+    };
 
     RoadModelBuildService service;
     const auto result = service.build(input);
     if (!result.succeeded) {
         editor.writeError(L"Road model build failed: " + resultErrorText(L"invalid road model input.", result.errorMessage));
         return;
+    }
+    if (result.diagnostics.terrainTriangleCount > 0) {
+        const auto averageCandidates = result.diagnostics.groundProfileQueryCount == 0
+            ? 0
+            : result.diagnostics.groundProfileCandidateTotal / result.diagnostics.groundProfileQueryCount;
+        editor.writeMessage(
+            L"Road model terrain index: enabled=" + std::to_wstring(result.diagnostics.terrainIndexEnabled ? 1 : 0) +
+            L", grid=" + std::to_wstring(result.diagnostics.terrainIndexColumns) +
+            L"x" + std::to_wstring(result.diagnostics.terrainIndexRows) +
+            L", triangles=" + std::to_wstring(result.diagnostics.terrainTriangleCount) +
+            L", refs=" + std::to_wstring(result.diagnostics.terrainIndexTriangleReferences) +
+            L", global=" + std::to_wstring(result.diagnostics.terrainIndexGlobalTriangles) +
+            L", groundQueries=" + std::to_wstring(result.diagnostics.groundProfileQueryCount) +
+            L", avgCandidates=" + std::to_wstring(averageCandidates) +
+            L", maxCandidates=" + std::to_wstring(result.diagnostics.groundProfileCandidateMax));
     }
 
     if (response.handle.empty()) {
@@ -758,6 +1165,10 @@ void runRoadModelApplyDialogFileCommand()
 {
 }
 
+void runRoadModelViewSectionCommand()
+{
+}
+
 #endif
 
 } // namespace
@@ -780,6 +1191,11 @@ core::CommandProcedure roadModelEditHandleCommandProcedure()
 core::CommandProcedure roadModelApplyDialogFileCommandProcedure()
 {
     return &runRoadModelApplyDialogFileCommand;
+}
+
+core::CommandProcedure roadModelViewSectionCommandProcedure()
+{
+    return &runRoadModelViewSectionCommand;
 }
 
 } // namespace roadproto::cad_adapter::objectarx::cross_section

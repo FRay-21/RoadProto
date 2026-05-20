@@ -19,6 +19,8 @@ namespace roadproto::cad_adapter::objectarx::cross_section {
 namespace {
 
 constexpr int kMaxDialogAssignments = 10000;
+constexpr int kMaxDialogSlopeGroups = 10000;
+constexpr int kMaxDialogSlopeTemplates = 10000;
 
 std::string wideToUtf8(const std::wstring& value)
 {
@@ -182,7 +184,11 @@ bool writeRequestFile(
     writeKeyValue(stream, L"profileVerticalCurveHandle", request.profileVerticalCurveHandle);
     writeKeyValue(stream, L"responsePath", responsePath);
     writeKeyValue(stream, L"sampleInterval", request.sampleInterval);
+    writeKeyValue(stream, L"leftSlopeSearchWidth", request.leftSlopeSearchWidth);
+    writeKeyValue(stream, L"rightSlopeSearchWidth", request.rightSlopeSearchWidth);
     writeKeyValue(stream, L"selectedAssignmentIndex", request.selectedAssignmentIndex);
+    writeKeyValue(stream, L"selectedLeftSlopeGroupIndex", request.selectedLeftSlopeGroupIndex);
+    writeKeyValue(stream, L"selectedRightSlopeGroupIndex", request.selectedRightSlopeGroupIndex);
     writeKeyValue(stream, L"assignmentCount", request.assignments.size());
 
     for (std::size_t i = 0; i < request.assignments.size(); ++i) {
@@ -193,6 +199,22 @@ bool writeRequestFile(
         writeKeyValue(stream, prefix + L".templateHandle", assignment.templateHandle);
         writeKeyValue(stream, prefix + L".templateName", assignment.templateName);
     }
+    const auto writeSlopeGroups = [&stream](const std::wstring& prefix, const auto& groups) {
+        writeKeyValue(stream, prefix + L"Count", groups.size());
+        for (std::size_t i = 0; i < groups.size(); ++i) {
+            const auto groupPrefix = prefix + L"." + std::to_wstring(i);
+            writeKeyValue(stream, groupPrefix + L".startStation", groups[i].startStation);
+            writeKeyValue(stream, groupPrefix + L".endStation", groups[i].endStation);
+            writeKeyValue(stream, groupPrefix + L".templateCount", groups[i].templates.size());
+            for (std::size_t j = 0; j < groups[i].templates.size(); ++j) {
+                const auto templatePrefix = groupPrefix + L".template." + std::to_wstring(j);
+                writeKeyValue(stream, templatePrefix + L".templateHandle", groups[i].templates[j].templateHandle);
+                writeKeyValue(stream, templatePrefix + L".templateName", groups[i].templates[j].templateName);
+            }
+        }
+    };
+    writeSlopeGroups(L"leftSlopeGroup", request.leftSlopeGroups);
+    writeSlopeGroups(L"rightSlopeGroup", request.rightSlopeGroups);
 
     return true;
 }
@@ -245,9 +267,16 @@ RoadModelDialogAction actionValue(
     const std::wstring& key)
 {
     const auto value = valueOrDefault(values, key, L"none");
-    return value == L"pickTemplate" || value == L"PickTemplate"
-        ? RoadModelDialogAction::PickTemplate
-        : RoadModelDialogAction::None;
+    if (value == L"pickTemplate" || value == L"PickTemplate") {
+        return RoadModelDialogAction::PickTemplate;
+    }
+    if (value == L"pickLeftSlopeTemplate" || value == L"PickLeftSlopeTemplate") {
+        return RoadModelDialogAction::PickLeftSlopeTemplate;
+    }
+    if (value == L"pickRightSlopeTemplate" || value == L"PickRightSlopeTemplate") {
+        return RoadModelDialogAction::PickRightSlopeTemplate;
+    }
+    return RoadModelDialogAction::None;
 }
 
 bool tryIntValue(
@@ -354,11 +383,18 @@ bool readRoadModelDialogResponse(
     response.pickAssignmentIndex = tryIntValue(values, L"pickAssignmentIndex", pickAssignmentIndex)
         ? pickAssignmentIndex
         : -1;
+    int pickSlopeGroupIndex = -1;
+    response.pickSlopeGroupIndex = tryIntValue(values, L"pickSlopeGroupIndex", pickSlopeGroupIndex)
+        ? pickSlopeGroupIndex
+        : -1;
     response.handle = valueOrDefault(values, L"handle");
     response.roadCenterlineHandle = valueOrDefault(values, L"roadCenterlineHandle");
     response.profileVerticalCurveHandle = valueOrDefault(values, L"profileVerticalCurveHandle");
 
-    if (!response.accepted && response.action != RoadModelDialogAction::PickTemplate) {
+    const auto isPickAction = response.action == RoadModelDialogAction::PickTemplate
+        || response.action == RoadModelDialogAction::PickLeftSlopeTemplate
+        || response.action == RoadModelDialogAction::PickRightSlopeTemplate;
+    if (!response.accepted && !isPickAction) {
         removeFileIfExists(responsePath);
         return true;
     }
@@ -366,6 +402,13 @@ bool readRoadModelDialogResponse(
     if (!tryDoubleValue(values, L"sampleInterval", response.sampleInterval)
         || !roadproto::domain::cross_section::RoadModelRules::isSupportedSampleInterval(response.sampleInterval)) {
         errorMessage = L"Road model dialog response has invalid sample interval.";
+        return false;
+    }
+    if (!tryDoubleValue(values, L"leftSlopeSearchWidth", response.leftSlopeSearchWidth)
+        || !roadproto::domain::cross_section::RoadModelRules::isSupportedSearchWidth(response.leftSlopeSearchWidth)
+        || !tryDoubleValue(values, L"rightSlopeSearchWidth", response.rightSlopeSearchWidth)
+        || !roadproto::domain::cross_section::RoadModelRules::isSupportedSearchWidth(response.rightSlopeSearchWidth)) {
+        errorMessage = L"Road model dialog response has invalid slope search width.";
         return false;
     }
 
@@ -392,8 +435,57 @@ bool readRoadModelDialogResponse(
         response.assignments.push_back(std::move(assignment));
     }
 
+    const auto readSlopeGroups = [&values, &errorMessage](
+        const std::wstring& prefix,
+        std::vector<roadproto::domain::cross_section::RoadModelSlopeTemplateGroup>& groups) {
+        int groupCount = 0;
+        if (!tryIntValue(values, prefix + L"Count", groupCount)
+            || groupCount < 0
+            || groupCount > kMaxDialogSlopeGroups) {
+            errorMessage = L"Road model dialog response has invalid slope template group count.";
+            return false;
+        }
+        groups.clear();
+        groups.reserve(static_cast<std::size_t>(groupCount));
+        for (int i = 0; i < groupCount; ++i) {
+            const auto groupPrefix = prefix + L"." + std::to_wstring(i);
+            roadproto::domain::cross_section::RoadModelSlopeTemplateGroup group;
+            if (!tryDoubleValue(values, groupPrefix + L".startStation", group.startStation)
+                || !tryDoubleValue(values, groupPrefix + L".endStation", group.endStation)) {
+                errorMessage = L"Road model dialog response has invalid slope group station.";
+                return false;
+            }
+            int templateCount = 0;
+            if (!tryIntValue(values, groupPrefix + L".templateCount", templateCount)
+                || templateCount < 0
+                || templateCount > kMaxDialogSlopeTemplates) {
+                errorMessage = L"Road model dialog response has invalid slope template count.";
+                return false;
+            }
+            group.templates.reserve(static_cast<std::size_t>(templateCount));
+            for (int j = 0; j < templateCount; ++j) {
+                const auto templatePrefix = groupPrefix + L".template." + std::to_wstring(j);
+                roadproto::domain::cross_section::RoadModelSlopeTemplateReference reference;
+                reference.templateHandle = valueOrDefault(values, templatePrefix + L".templateHandle");
+                reference.templateName = valueOrDefault(values, templatePrefix + L".templateName");
+                group.templates.push_back(std::move(reference));
+            }
+            groups.push_back(std::move(group));
+        }
+        return true;
+    };
+    if (!readSlopeGroups(L"leftSlopeGroup", response.leftSlopeGroups)
+        || !readSlopeGroups(L"rightSlopeGroup", response.rightSlopeGroups)) {
+        return false;
+    }
+
     if (response.accepted
         && !roadproto::domain::cross_section::RoadModelRules::validateAssignments(response.assignments, errorMessage)) {
+        return false;
+    }
+    if (response.accepted
+        && (!roadproto::domain::cross_section::RoadModelRules::validateSlopeTemplateGroups(response.leftSlopeGroups, errorMessage)
+            || !roadproto::domain::cross_section::RoadModelRules::validateSlopeTemplateGroups(response.rightSlopeGroups, errorMessage))) {
         return false;
     }
 

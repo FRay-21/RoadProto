@@ -71,6 +71,7 @@
 ### 构建验证
 
 - 核心测试：`RoadProtoCoreTests.vcxproj` Debug 构建通过，`RoadProtoCoreTests.exe` 输出 `All RoadProto core tests passed.`。
+- 核心测试 Release：`artifacts\x64\Release\RoadProtoCoreTests.exe` 输出 `All RoadProto core tests passed.`。
 - WPF：`RoadProto.Terrain.UI.csproj` Release 构建通过，0 警告，0 错误。
 - Debug ARX：`artifacts/x64/Debug/RoadProto_v0.1.1_20260508_TerrainTin.arx` 构建通过，0 警告，0 错误。
 - Release ARX：`artifacts/x64/Release/RoadProto_v0.1.1_20260508_TerrainTin.arx` 构建通过，0 警告，0 错误。
@@ -644,3 +645,186 @@
 - 当前道路模型仍只生成三维部件线框，不生成道路面、结构层体积、材质或算量。
 - 行内点选模板当前使用临时文件 Bridge 和 AutoCAD 选择流程，后续正式产品化时仍应补充模板库选择和更细的行级错误定位。
 - 路基模板夹点移动已完成 ObjectARX 实体能力和编译验证，自动化脚本未覆盖鼠标拖拽交互本身，仍建议后续人工点验一次 CAD 图形交互手感。
+
+## v0.1.14 - 2026-05-19
+
+- 版本标识：`v0.1.14_20260519_SlopeTemplateRoadModel`。
+- ARX 文件：`RoadProto_v0.1.14_20260519_SlopeTemplateRoadModel.arx`。
+- 阶段：边坡模板与横断面戴帽边坡线框。
+- 是否可作为稳定测试版本：是。核心测试、托管桥接测试、WPF Debug/Release 构建和 ARX Debug/Release 构建已验证；完整 AutoCAD 图形界面的真实点选、双击编辑和边坡戴帽效果仍需人工点验。
+
+### 新增内容
+
+- 新增 `SlopeTemplateModel` 和 `SlopeTemplateCreateService`，支持填方/挖方初始预设、边坡/护坡道部件、坡率/坡高/宽度三选二约束、部件级搜索地面线范围坡高增值、`交地则结束放坡` 和 `重复最后一组参数直至交地`。
+- 新增 `DnSlopeTemplateEntity` 自定义实体，支持边坡模板 DWG 持久化、线框显示、几何范围、变换和 WPF 双击编辑入口。
+- 新增 `RD_SECTION_SLOPE_TEMPLATE_CREATE`、`RD_SECTION_SLOPE_TEMPLATE_EDIT_HANDLE` 和 `RD_SECTION_SLOPE_TEMPLATE_APPLY_DIALOG_FILE` 命令。
+- 新增 WPF `SlopeTemplateWindow`，左侧实时线框预览，右侧编辑模板名称、显示比例、模板类型、控制条件和部件参数。
+- 横断面戴帽 WPF 窗口新增 `边坡模板` tab，并按左侧/右侧二级 tab 独立维护搜索宽度、模板组和组内多模板优先级。
+- 道路模型构建新增边坡模板组解析、TIN 横断面剖切、从路基模板最外侧放坡和三维边坡线生成。
+- `DnRoadModelEntity` 持久化版本升级，保存并绘制边坡三维线框。
+- AutoCAD 可见 Ribbon 新增 `创建边坡模板` 按钮，并支持双击 `DNSLOPETEMPLATEENTITY` 转发到边坡模板编辑命令。
+
+### 修改内容
+
+- 更新 README 当前版本、加载路径、横断面入口说明和测试覆盖说明。
+- 更新横断面设计模块文档、模块索引、边坡模板业务文档、横断面戴帽边坡模板业务文档、道路模型创建/编辑/WPF 桥接业务文档、复用能力目录、道路模型复用说明、边坡模板复用说明和测试说明。
+- 更新构建版本信息为 `v0.1.14_20260519_SlopeTemplateRoadModel`。
+
+### 构建验证
+
+- 托管桥接测试：`dotnet run --project tests\RoadProtoManagedBridgeTests\RoadProtoManagedBridgeTests.csproj` 输出 `All RoadProto managed bridge tests passed.`。
+- 核心测试：`RoadProtoCoreTests.vcxproj` Debug 构建通过，`RoadProtoCoreTests.exe` 输出 `All RoadProto core tests passed.`。
+- WPF Debug：`RoadProto.Terrain.UI.csproj` Debug 构建通过，生成 `artifacts/managed/Debug/net48/RoadProto.Terrain.UI.dll`，0 警告，0 错误。
+- WPF Release：`RoadProto.Terrain.UI.csproj` Release 构建通过，生成 `artifacts/managed/Release/net48/RoadProto.Terrain.UI.dll`，0 警告，0 错误。
+- ARX Debug：`RoadProtoArx.vcxproj` Debug 构建通过，生成 `artifacts/x64/Debug/RoadProto_v0.1.14_20260519_SlopeTemplateRoadModel.arx`，0 警告，0 错误。
+- ARX Release：`RoadProtoArx.vcxproj` Release 构建通过，生成 `artifacts/x64/Release/RoadProto_v0.1.14_20260519_SlopeTemplateRoadModel.arx`，0 警告，0 错误。
+
+### 已知问题
+
+- 当前边坡模型第一版本只生成三维线框，不生成边坡面、结构层体积、材质或算量。
+- 当前 TIN 横断面剖切先以准确性为主，尚未引入空间索引；如果大数据量测试明显卡顿，再优化候选三角形搜索和断面缓存。
+- 自动化测试覆盖核心规则、桥接文件、编译和源码契约；AutoCAD 图形界面的真实鼠标点选、双击和 DWG 保存重开仍建议人工验证。
+
+## v0.1.15 - 2026-05-19
+
+- 版本标识：`v0.1.15_20260519_RoadModelProgressGroupUi`。
+- ARX 文件：`RoadProto_v0.1.15_20260519_RoadModelProgressGroupUi.arx`。
+- 阶段：横断面戴帽生成进度与边坡模板组管理 UI。
+- 是否可作为稳定测试版本：是。核心测试、托管桥接测试、WPF Debug/Release 构建和 ARX Debug/Release 构建均需要通过；完整 AutoCAD 图形界面仍建议人工点验。
+
+### 新增内容
+
+- `RoadModelBuildInput` 新增 `progressCallback`，由领域层在校验、竖曲线重建、桩号采样、断面生成、线框整理和完成阶段上报进度。
+- `RD_SECTION_ROAD_MODEL_APPLY_DIALOG_FILE` 在生成道路模型时接入 AutoCAD 状态栏进度条，长时间生成时不再无反馈。
+- WPF `横断面戴帽 / 边坡模板` tab 的左侧、右侧模板组表新增行内 `管理模板组` 按钮。
+- WPF 增加当前模板组管理区，支持组内模板点选、删除、上移、下移和清空。
+- HTML 原型 `docs/prototypes/slope_template_ui_prototype.html` 增加生成模型进度条示意，并强化 `管理模板组` 按钮视觉层级。
+
+### 修改内容
+
+- 更新 README、横断面戴帽业务文档、道路模型 WPF 桥接文档、横断面模块说明、复用能力目录和测试说明。
+- 更新构建版本信息为 `v0.1.15_20260519_RoadModelProgressGroupUi`。
+
+### 构建验证
+
+- 核心测试：`RoadProtoCoreTests.vcxproj` Debug 构建通过，`RoadProtoCoreTests.exe` 输出 `All RoadProto core tests passed.`。
+- 托管桥接测试：`dotnet run --project tests\RoadProtoManagedBridgeTests\RoadProtoManagedBridgeTests.csproj` 输出 `All RoadProto managed bridge tests passed.`。
+- WPF Debug：`RoadProto.Terrain.UI.csproj` Debug 构建通过，生成 `artifacts/managed/Debug/net48/RoadProto.Terrain.UI.dll`，0 警告，0 错误。
+- WPF Release：`RoadProto.Terrain.UI.csproj` Release 构建通过，生成 `artifacts/managed/Release/net48/RoadProto.Terrain.UI.dll`，0 警告，0 错误。
+- ARX Debug：`RoadProtoArx.vcxproj` Debug 构建通过，生成 `artifacts/x64/Debug/RoadProto_v0.1.15_20260519_RoadModelProgressGroupUi.arx`，0 警告，0 错误。
+- ARX Release：`RoadProtoArx.vcxproj` Release 构建通过，生成 `artifacts/x64/Release/RoadProto_v0.1.15_20260519_RoadModelProgressGroupUi.arx`，0 警告，0 错误。
+
+### 已知问题
+
+- 当前进度条按领域层构建阶段和断面区间推进，暂不显示精确 TIN 三角形搜索耗时明细。
+- 模板组内新增模板仍通过 CAD 图中点选 `DnSlopeTemplateEntity` 完成，后续正式产品化时仍需模板库选择器。
+
+## v0.1.16 - 2026-05-19
+
+- 版本标识：`v0.1.16_20260519_RoadModelSectionViewer`。
+- ARX 文件：`RoadProto_v0.1.16_20260519_RoadModelSectionViewer.arx`。
+- 阶段：道路模型横断面查看。
+- 是否可作为稳定测试版本：是。核心测试、托管桥接测试、WPF Debug/Release 构建和 ARX Debug/Release 构建均需要通过；完整 AutoCAD 图形界面仍建议人工点验。
+
+### 新增内容
+
+- 新增 `RD_SECTION_ROAD_MODEL_VIEW_SECTION` 命令和 Ribbon `查看横断面` 入口，选择 `DnRoadModelEntity` 后打开 WPF 只读横断面预览窗口。
+- 新增 `RoadModelSectionPreviewBuilder`，按桩号把已生成道路模型的三维路基线、边坡线和可选 TIN 地面线转换为二维偏距-高程预览线段。
+- 新增 `RoadModelSectionViewerBridge`，由 ObjectARX 写出查看横断面请求文件并调起托管 WPF 弹窗命令。
+- 新增 WPF `RoadModelSectionViewerWindow`，包含桩号列表、预览画布、状态文字和路基模板/边坡模板/地面线图例。
+- `DnRoadModelEntity` 持久化数据新增采样桩号，旧版道路模型没有采样桩号时仍按保存配置尝试回退采样。
+
+### 修改内容
+
+- 更新 README 当前版本、ARX 加载路径、横断面入口说明和测试覆盖说明。
+- 更新查看横断面业务文档、横断面戴帽道路模型创建/编辑/WPF 桥接业务文档、横断面模块说明、模块索引、道路模型复用说明、复用能力目录和测试说明。
+- 更新构建版本信息为 `v0.1.16_20260519_RoadModelSectionViewer`。
+
+### 构建验证
+
+- 核心测试：`RoadProtoCoreTests.vcxproj` Debug 构建通过，`RoadProtoCoreTests.exe` 输出 `All RoadProto core tests passed.`。
+- 托管桥接测试：`dotnet run --project tests\RoadProtoManagedBridgeTests\RoadProtoManagedBridgeTests.csproj` 输出 `All RoadProto managed bridge tests passed.`。
+- WPF Debug：`RoadProto.Terrain.UI.csproj` Debug 构建通过，生成 `artifacts/managed/Debug/net48/RoadProto.Terrain.UI.dll`，0 警告，0 错误。
+- WPF Release：`RoadProto.Terrain.UI.csproj` Release 构建通过，生成 `artifacts/managed/Release/net48/RoadProto.Terrain.UI.dll`，0 警告，0 错误。
+- ARX Debug：`RoadProtoArx.vcxproj` Debug 构建通过，生成 `artifacts/x64/Debug/RoadProto_v0.1.16_20260519_RoadModelSectionViewer.arx`，0 警告，0 错误。
+- ARX Release：`RoadProtoArx.vcxproj` Release 构建通过，生成 `artifacts/x64/Release/RoadProto_v0.1.16_20260519_RoadModelSectionViewer.arx`，0 警告，0 错误。
+
+### 已知问题
+
+- 查看横断面第一版是只读检查窗口，不重新执行模板优先级判断或道路模型戴帽生成。
+- 预览地面线依赖道路模型能追溯到竖曲线所属拉坡图和关联 TIN；没有可用 TIN 时只显示路基和边坡线。
+- 自动化测试覆盖核心预览规则、桥接文件、编译和源码契约；AutoCAD 图形界面的真实 Ribbon 点击、实体选择和窗口视觉效果仍建议人工验证。
+
+## v0.1.17 - 2026-05-19
+
+- 版本标识：`v0.1.17_20260519_RoadModelMeshWireframe`。
+- ARX 文件：`RoadProto_v0.1.17_20260519_RoadModelMeshWireframe.arx`。
+- 阶段：道路模型三维网格线框重定义。
+- 是否可作为稳定测试版本：是。核心测试、托管桥接测试、WPF Debug/Release 构建和 ARX Debug/Release 构建均需要通过；完整 AutoCAD 图形界面仍建议人工点验。
+
+### 新增内容
+
+- `RoadModelData` 新增采样断面节点链 `sections` 和三维网格线框 `wireLines`，用于表达每个采样桩号的路基边界、边坡边界和交地点。
+- 新增 `RoadModelSectionNodeKind`、`RoadModelWireLineKind`、`RoadModelSectionNode`、`RoadModelSection` 和 `RoadModelWireLine` 领域数据结构。
+- 道路模型线框新增横断面肋线、纵向连接线、最外侧边界线、起终点端部封闭线和节点数量不一致时的过渡线。
+- `DnRoadModelEntity` 持久化版本升级到 4，支持保存和读取断面节点链与网格线框。
+
+### 修改内容
+
+- `RoadModelBuilder` 在生成路基和边坡部件线的同时构造断面节点链，并基于相邻断面生成三维网格线框。
+- `RoadModelBuilder` 按连续有效模板区间分段生成网格线框，避免跨无模板空档生成纵向连接线；连续模板切换处仍可生成过渡线。
+- `RoadModelBuilder` 调整断面节点数量不一致时的过渡线规则：公共路基节点按对应位置纵向连接，过渡线只作用于公共外缘后的变化尾部，避免边坡颜色和边坡线进入路基模板内部。
+- `DnRoadModelEntity` 绘制逻辑优先使用 `wireLines`；旧数据没有 `wireLines` 时继续回退绘制原 `componentLines` 和 `slopeLines`。
+- `DnRoadModelEntity` 的几何范围、变换和持久化校验同步覆盖断面节点链与网格线框。
+- `RoadModelSectionPreviewBuilder` 优先使用已保存断面节点链生成横断面预览，减少从三维线反推断面的误差。
+- 路基/道路主体颜色保持现有模板部件颜色；边坡线颜色来自边坡模板部件自带颜色。
+- 更新 README 当前版本、ARX 加载路径、横断面戴帽业务文档、道路模型编辑文档、查看横断面文档、横断面模块说明、模块索引、道路模型复用说明、复用能力目录和测试说明。
+
+### 构建验证
+
+- 核心测试：`RoadProtoCoreTests.vcxproj` Debug 构建通过，`RoadProtoCoreTests.exe` 输出 `All RoadProto core tests passed.`。
+- 托管桥接测试：`dotnet run --project tests\RoadProtoManagedBridgeTests\RoadProtoManagedBridgeTests.csproj` 输出 `All RoadProto managed bridge tests passed.`。
+- WPF Debug：`RoadProto.Terrain.UI.csproj` Debug 构建通过，生成 `artifacts/managed/Debug/net48/RoadProto.Terrain.UI.dll`，3 个既有 AutoCAD 托管引用架构警告，0 错误。
+- WPF Release：`RoadProto.Terrain.UI.csproj` Release 构建通过，生成 `artifacts/managed/Release/net48/RoadProto.Terrain.UI.dll`，3 个既有 AutoCAD 托管引用架构警告，0 错误。
+- ARX Debug：`RoadProtoArx.vcxproj` Debug 构建通过，生成 `artifacts/x64/Debug/RoadProto_v0.1.17_20260519_RoadModelMeshWireframe.arx`，0 警告，0 错误。
+- ARX Release：`RoadProtoArx.vcxproj` Release 构建通过，生成 `artifacts/x64/Release/RoadProto_v0.1.17_20260519_RoadModelMeshWireframe.arx`，0 警告，0 错误。
+
+### 已知问题
+
+- 当前仍生成三维线框，不生成道路实体面、材质、结构层体积或算量结果。
+- 节点数量不一致时的过渡规则仍是线框拓扑近似，后续如需更贴近正式三维建模，可扩展为真实三角面拓扑和可见边控制。
+- AutoCAD 图形界面的真实 Ribbon 点击、实体选择、线框视觉效果和大图纸性能仍建议人工验证。
+
+## v0.1.18 - 2026-05-20
+
+- 版本标识：`v0.1.18_20260520_RoadModelSectionSnapshot`。
+- ARX 文件：`RoadProto_v0.1.18_20260520_RoadModelSectionSnapshot.arx`。
+- 阶段：道路模型地面快照与横断面查看性能优化。
+- 是否可作为稳定测试版本：是。核心测试、ARX Debug 构建和 WPF Debug 构建已验证；完整 AutoCAD 图形界面和大 TIN 性能仍建议人工点验。
+
+### 新增内容
+
+- `RoadModelSection` 新增左右侧地面剖面快照，生成道路模型时随断面节点链一起写入 `RoadModelData`。
+- `DnRoadModelEntity` 持久化版本升级到 5，支持保存和读取断面地面剖面快照；版本 4 及更早数据仍可读取，只是没有快照。
+- `RoadModelBuilder` 生成期新增 `TerrainTriangleSpatialIndex` TIN 三角形网格候选索引，横断面剖切时按搜索线段穿越网格筛选候选三角形，再沿用原有精确交点计算。
+
+### 修改内容
+
+- 边坡放坡不再在同一采样断面左右侧重复剖切 TIN；先生成断面地面剖面，再供边坡模板交地和道路模型快照共同使用。
+- `RoadModelSectionPreviewBuilder` 优先使用道路模型实体内保存的地面快照构建查看横断面地面线；旧模型没有快照时才回退临时读取 TIN。
+- `RD_SECTION_ROAD_MODEL_VIEW_SECTION` 查看横断面命令在所有目标桩号都有可用地面快照时不再读取 TIN，并将道路模型数据、道路中线采样和地形数据只复制到预览请求一次。
+- 更新 README、横断面戴帽道路模型创建文档、边坡模板文档、查看横断面文档、道路模型复用说明、复用能力目录和测试说明。
+
+### 构建验证
+
+- 核心测试：`RoadProtoCoreTests.vcxproj` Debug 构建通过，`RoadProtoCoreTests.exe` 输出 `All RoadProto core tests passed.`。
+- 托管桥接测试：`dotnet run --project tests\RoadProtoManagedBridgeTests\RoadProtoManagedBridgeTests.csproj` 输出 `All RoadProto managed bridge tests passed.`。
+- ARX / WPF Debug：`RoadProto.sln` Debug 构建通过，生成 `artifacts/x64/Debug/RoadProto_v0.1.18_20260520_RoadModelSectionSnapshot.arx` 和 `artifacts/managed/Debug/net48/RoadProto.Terrain.UI.dll`，0 警告，0 错误。
+- ARX / WPF Release：`RoadProto.sln` Release 构建通过，生成 `artifacts/x64/Release/RoadProto_v0.1.18_20260520_RoadModelSectionSnapshot.arx` 和 `artifacts/managed/Release/net48/RoadProto.Terrain.UI.dll`，0 警告，0 错误。
+- Core Console 性能复测：使用 `C:\Users\admin\Desktop\test\MY01.dwg` 测试副本，Release ARX 生成带边坡道路模型；基准旧实现 full 为 38.619s、扣除 cancel 后约 32.522s，本次优化后 cancel 为 6.089s、full 为 6.280s、扣除启动加载后约 0.191s。诊断输出显示索引启用，网格 `174x256`，TIN 三角形 `1600847`，索引引用 `2136124`，410 次地面剖切平均候选约 `997`、最大 `2068`。
+
+### 已知问题
+
+- 地面剖面快照表达的是道路模型生成时的 TIN 状态；TIN、中线、竖曲线或模板变化后，需要重新生成道路模型以刷新快照。
+- TIN 网格索引是生成过程内的临时索引，不写入 DWG，也不作为长期内存缓存；查看横断面主要依赖实体内快照提速。
+- 当前优化仅在 AutoCAD 命令行输出 TIN 索引和候选数量诊断，未加入正式耗时统计 UI；大图纸下如需进一步定位，可后续记录 TIN 索引构建、剖切求交和 WPF 请求文件大小。

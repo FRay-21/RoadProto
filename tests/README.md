@@ -23,6 +23,8 @@ artifacts\x64\Debug\RoadProtoCoreTests.exe
 - 回旋线公式、道路主点切线长、旧切线长保护、单交点五单元构建、多交点连续平曲线链构建、桩号格式化和无效平曲线参数拒绝。
 - 纵断面拉坡图领域规则：DMX 文件读取、断链桩号兼容、重复桩号保留、布局范围、纵向比例校验和创建服务默认属性。
 - 纵断面竖曲线领域规则：默认设计线创建、PVI 对称二次抛物线、BVC/EVC、高低点、任意桩号高程和坡度、PVI 增删、半径更新和命令元数据。
+- 横断面边坡模板领域规则：填方/挖方默认预设、坡率/坡高/宽度三选二约束、重复最后一组识别、编码转换和模板组优先级解析。
+- 横断面道路模型边坡和线框规则：从路基模板最外侧生成边坡线、TIN 地面剖切交地、断面地面快照、边坡模板戴帽结果、生成进度回调、采样桩号保存、断面节点链、三维网格线框和查看横断面预览。
 
 V0.1.6 继续保留 `TerrainMeshFile` 领域层测试，用于保证 `DN_TERRAIN_TIN_EXPORT` / `DN_TERRAIN_TIN_IMPORT` 依赖的跨 DWG 数模文件数据不会在读写中丢失。
 
@@ -107,15 +109,19 @@ AutoCAD 图形界面需要手工验证 `RD_SECTION_SUBGRADE_TEMPLATE_CREATE`、`
 
 ## V0.1.11 横断面戴帽道路模型验证范围
 
-核心测试覆盖 `RoadModelTemplateResolver` 的模板优先级解析、`RoadModelStationSampler` 的采样点收集、`RoadModelBuilder` 的三维部件线生成和 `RoadModelBuildService` 的配置校验。
+核心测试覆盖 `RoadModelTemplateResolver` 的模板优先级解析、`RoadModelStationSampler` 的采样点收集、`RoadModelBuilder` 的三维部件线、断面节点链、网格线框生成和 `RoadModelBuildService` 的配置校验。
 
 核心测试覆盖 `CROSS_SECTION` 模块中 `RD_SECTION_ROAD_MODEL_CREATE`、`RD_SECTION_ROAD_MODEL_EDIT`、`RD_SECTION_ROAD_MODEL_EDIT_HANDLE` 和 `RD_SECTION_ROAD_MODEL_APPLY_DIALOG_FILE` 的命令元数据、业务文档路径和 Ribbon 可见入口。
 
-核心测试通过源码契约覆盖 `RoadModelDialogBridge`、`DnRoadModelEntity`、`DnSubgradeTemplateEntity` 和 `ObjectArxRoadModelCommand` 的关键 ObjectARX 接入点：请求/响应文件字段、道路模型实体 DWG 持久化、三维绘制、路基模板移动夹点、初始化卸载、创建/编辑/回写命令流程、行内点选模板和竖曲线归属校验。
+核心测试通过源码契约覆盖 `RoadModelDialogBridge`、`DnRoadModelEntity`、`DnSubgradeTemplateEntity` 和 `ObjectArxRoadModelCommand` 的关键 ObjectARX 接入点：请求/响应文件字段、道路模型实体 DWG 持久化、三维网格线框绘制、路基模板移动夹点、初始化卸载、创建/编辑/回写命令流程、行内点选模板和竖曲线归属校验。
 
 托管桥接测试覆盖道路模型 WPF 请求/响应文件读写、点选模板动作字段和行号字段，并检查 `RoadModelWindow.xaml` 中只读道路中线 handle 文本框必须使用 OneWay 绑定，避免打开横断面戴帽窗口时触发 WPF TwoWay 绑定只读属性异常。
 
 托管 bridge 测试覆盖道路模型 WPF 请求/响应文件的 UTF-8 读写、转义、`assignmentCount`、InvariantCulture 数值解析和缺失 `responsePath` 拒绝。
+
+核心测试覆盖 `RoadModelSectionPreviewBuilder` 的路基模板线、边坡模板线、TIN 地面线预览构建和实体内地面快照优先读取，并覆盖 `RD_SECTION_ROAD_MODEL_VIEW_SECTION` 命令元数据、业务文档路径、Ribbon 入口、ObjectARX 查看命令流程和查看横断面 WPF Bridge 源码契约。
+
+托管 bridge 测试覆盖查看横断面请求文件的 UTF-8 读写、转义、InvariantCulture 数值解析、预览/线段/点数量字段，以及 `RoadModelSectionViewerWindow.xaml` 的桩号列表、预览画布和图例源码契约。
 
 AutoCAD 图形界面需要手工验证 `RD_SECTION_ROAD_MODEL_CREATE`、`RD_SECTION_ROAD_MODEL_EDIT`、`RD_SECTION_ROAD_MODEL_EDIT_HANDLE`、`RD_SECTION_ROAD_MODEL_APPLY_DIALOG_FILE` 和 `DnRoadModelEntity`：
 
@@ -123,7 +129,27 @@ AutoCAD 图形界面需要手工验证 `RD_SECTION_ROAD_MODEL_CREATE`、`RD_SECT
 - 同一中线只有一条关联竖曲线时可自动匹配；没有唯一竖曲线时提示选择竖曲线。
 - 选择不属于当前中线的竖曲线时应拒绝生成模型。
 - WPF `路基模板` tab 可编辑起终点桩号、模板 handle、模板名称和行优先级，并可在某一行点选图中路基模板实体回填 handle 和名称。
-- 点击 `生成模型` 后图中生成 `DnRoadModelEntity`，并绘制三维道路部件线。
+- 点击 `生成模型` 后图中生成 `DnRoadModelEntity`，并绘制由横断面肋线、纵向连接线、最外侧边界线、端部封闭线和过渡线组成的三维道路模型线框。
 - 双击道路模型或运行 `RD_SECTION_ROAD_MODEL_EDIT` 可重新打开同一窗口，保留并调整上次保存的模板范围。
-- 保存 DWG 后重开并 `REGEN`，道路模型实体和三维部件线保持正常。
+- 运行 `RD_SECTION_ROAD_MODEL_VIEW_SECTION` 并选择道路模型后，应打开 `查看横断面` 窗口；切换桩号时，预览图显示当前桩号的路基模板线、边坡模板线和生成时地面线快照。
+- 保存 DWG 后重开并 `REGEN`，道路模型实体和三维网格线框保持正常。
 - 选择路基模板实体时应出现插入点夹点，拖动后模板整体位置随夹点移动。
+
+## V0.1.15 边坡模板与道路模型边坡验证范围
+
+核心测试覆盖 `SlopeTemplateDefaults` 的填方/挖方默认部件、`SlopeTemplateRules` 的坡率/坡高/宽度三选二求解、搜索增值字段保留、最后一组护坡道+边坡识别和模板类型/部件类型编码转换。
+
+核心测试覆盖 `RoadModelSlopeTemplateGroupResolver` 的模板组优先级和组内模板优先级，覆盖 `RoadModelBuilder` 从路基模板最外侧生成边坡线，以及用 TIN 地面剖面搜索交地后提前结束的结果。
+
+核心测试覆盖 `CROSS_SECTION` 模块中 `RD_SECTION_SLOPE_TEMPLATE_CREATE`、`RD_SECTION_SLOPE_TEMPLATE_EDIT_HANDLE` 和 `RD_SECTION_SLOPE_TEMPLATE_APPLY_DIALOG_FILE` 的命令元数据和业务文档路径。
+
+AutoCAD 图形界面需要手工验证 `RD_SECTION_SLOPE_TEMPLATE_CREATE`、`RD_SECTION_SLOPE_TEMPLATE_EDIT_HANDLE`、`RD_SECTION_SLOPE_TEMPLATE_APPLY_DIALOG_FILE`、`RD_SECTION_ROAD_MODEL_CREATE`、`RD_SECTION_ROAD_MODEL_EDIT` 和 `DnRoadModelEntity`：
+
+- 点击 `RoadProto / 横断面设计 / 创建边坡模板` 后，命令要求点取插入点并打开 WPF 边坡模板窗口。
+- WPF 边坡模板窗口可切换填方/挖方预设，新增、删除、移动部件，并在坡率、坡高、宽度三种编辑方式之间切换。
+- 修改部件参数后，左侧线框预览实时更新。
+- 确认后图中生成 `DnSlopeTemplateEntity`，双击可再次打开窗口编辑。
+- 横断面戴帽 `边坡模板` tab 可分别配置左侧和右侧搜索宽度、模板组和组内多个模板。
+- 模板组行内 `管理模板组` 按钮应能选中当前组，下方组内模板区应支持点选、删除、上移、下移和清空。
+- 点击 `生成模型` 后，AutoCAD 状态栏应显示道路模型生成进度。
+- 从图中点选边坡模板后，模板追加到当前侧当前模板组；生成道路模型后应在 `DnRoadModelEntity` 中看到三维边坡线框。

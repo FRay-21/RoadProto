@@ -14,6 +14,7 @@
 #include "domain/alignment/IcdAlignmentFile.h"
 #include "domain/alignment/StationFormatter.h"
 #include "domain/cross_section/RoadModel.h"
+#include "domain/cross_section/SlopeTemplateModel.h"
 #include "domain/cross_section/SubgradeTemplateModel.h"
 #include "domain/profile/ProfileDmxFile.h"
 #include "domain/profile/ProfileGradeGraphLayout.h"
@@ -25,6 +26,7 @@
 #include "domain/terrain/TerrainMeshFile.h"
 #include "domain/terrain/TerrainSurfaceQuery.h"
 #include "domain/terrain/TerrainTextElevationParser.h"
+#include "domain/terrain/TerrainTriangleSpatialIndex.h"
 #include "domain/terrain/TerrainTinBuilder.h"
 #include "app/startup/ProfileStartupRegistration.h"
 #include "modules/cross_section/CrossSectionModule.h"
@@ -515,6 +517,118 @@ void subgradeTemplateCreateServiceBuildsDefaultTemplate()
     CHECK(result.templateData.components.size() == 10);
 }
 
+void slopeTemplateDefaultsBuildFillAndCutProfiles()
+{
+    using namespace roadproto::domain::cross_section;
+
+    const auto fill = SlopeTemplateDefaults::create(SlopeTemplateKind::Fill);
+    CHECK(fill.properties.kind == SlopeTemplateKind::Fill);
+    CHECK(fill.properties.name == L"边坡模板1");
+    CHECK(std::fabs(fill.properties.displayScale - 10.0) < 1.0e-9);
+    CHECK(fill.components.size() == 5);
+    CHECK(fill.components[0].type == SlopeComponentType::FillSlope);
+    CHECK(fill.components[1].type == SlopeComponentType::Berm);
+    CHECK(fill.components[2].type == SlopeComponentType::FillSlope);
+    CHECK(fill.components[3].type == SlopeComponentType::Berm);
+    CHECK(fill.components[4].type == SlopeComponentType::FillSlope);
+    CHECK(fill.components[0].constraintMode == SlopeGeometryConstraintMode::SlopeAndHeight);
+    CHECK(std::fabs(fill.components[0].slope - (-1.0 / 1.5)) < 1.0e-9);
+    CHECK(std::fabs(fill.components[0].height - 4.0) < 1.0e-9);
+    CHECK(std::fabs(fill.components[0].groundSearchHeightIncrement - 2.0) < 1.0e-9);
+    CHECK(fill.components[1].constraintMode == SlopeGeometryConstraintMode::SlopeAndWidth);
+    CHECK(std::fabs(fill.components[1].width - 1.0) < 1.0e-9);
+    CHECK(std::fabs(fill.components[1].slope - (-0.03)) < 1.0e-9);
+    CHECK(std::fabs(fill.components[1].groundSearchHeightIncrement) < 1.0e-9);
+
+    const auto cut = SlopeTemplateDefaults::create(SlopeTemplateKind::Cut);
+    CHECK(cut.properties.kind == SlopeTemplateKind::Cut);
+    CHECK(cut.components.size() == 5);
+    CHECK(cut.components[0].type == SlopeComponentType::CutSlope);
+    CHECK(cut.components[1].type == SlopeComponentType::Berm);
+    CHECK(cut.components[4].type == SlopeComponentType::CutSlope);
+    CHECK(std::fabs(cut.components[0].slope - (1.0 / 1.5)) < 1.0e-9);
+    CHECK(std::fabs(cut.components[0].height - 4.0) < 1.0e-9);
+    CHECK(std::fabs(cut.components[0].groundSearchHeightIncrement - 2.0) < 1.0e-9);
+    CHECK(std::fabs(cut.components[1].slope - 0.03) < 1.0e-9);
+}
+
+void slopeTemplateRulesResolveThreeGeometryModes()
+{
+    using namespace roadproto::domain::cross_section;
+
+    SlopeTemplateComponent component;
+    component.type = SlopeComponentType::FillSlope;
+    component.slope = -1.0 / 1.5;
+    component.height = 4.0;
+    component.width = 6.0;
+
+    component.constraintMode = SlopeGeometryConstraintMode::SlopeAndHeight;
+    auto resolved = SlopeTemplateRules::resolveGeometry(component);
+    CHECK(resolved.succeeded);
+    CHECK(std::fabs(resolved.width - 6.0) < 1.0e-9);
+    CHECK(std::fabs(resolved.height - 4.0) < 1.0e-9);
+    CHECK(std::fabs(resolved.elevationDelta + 4.0) < 1.0e-9);
+
+    component.constraintMode = SlopeGeometryConstraintMode::SlopeAndWidth;
+    component.height = 123.0;
+    resolved = SlopeTemplateRules::resolveGeometry(component);
+    CHECK(resolved.succeeded);
+    CHECK(std::fabs(resolved.height - 4.0) < 1.0e-9);
+    CHECK(std::fabs(resolved.elevationDelta + 4.0) < 1.0e-9);
+
+    component.constraintMode = SlopeGeometryConstraintMode::HeightAndWidth;
+    component.slope = 0.0;
+    component.height = 2.0;
+    component.width = 3.0;
+    resolved = SlopeTemplateRules::resolveGeometry(component);
+    CHECK(resolved.succeeded);
+    CHECK(std::fabs(resolved.slope - (-2.0 / 3.0)) < 1.0e-9);
+    CHECK(std::fabs(resolved.elevationDelta + 2.0) < 1.0e-9);
+
+    SlopeTemplateComponent cut = component;
+    cut.type = SlopeComponentType::CutSlope;
+    resolved = SlopeTemplateRules::resolveGeometry(cut);
+    CHECK(resolved.succeeded);
+    CHECK(std::fabs(resolved.slope - (2.0 / 3.0)) < 1.0e-9);
+    CHECK(std::fabs(resolved.elevationDelta - 2.0) < 1.0e-9);
+}
+
+void slopeTemplateRulesValidateRepeatLastGroup()
+{
+    using namespace roadproto::domain::cross_section;
+
+    auto data = SlopeTemplateDefaults::create(SlopeTemplateKind::Fill);
+    data.properties.repeatLastGroupUntilGround = true;
+
+    std::wstring errorMessage;
+    CHECK(SlopeTemplateRules::normalize(data, errorMessage));
+    const auto group = SlopeTemplateRules::lastRepeatGroup(data);
+    CHECK(group.has_value());
+    if (group.has_value()) {
+        CHECK(group->bermIndex == 3);
+        CHECK(group->slopeIndex == 4);
+    }
+
+    data.components.erase(data.components.begin() + 3);
+    errorMessage.clear();
+    CHECK(!SlopeTemplateRules::normalize(data, errorMessage));
+    CHECK(!errorMessage.empty());
+}
+
+void slopeTemplateCodesRoundTripAndDisplayChinese()
+{
+    using namespace roadproto::domain::cross_section;
+
+    CHECK(std::wstring(slopeTemplateKindCode(SlopeTemplateKind::Fill)) == L"Fill");
+    CHECK(std::wstring(slopeTemplateKindCode(SlopeTemplateKind::Cut)) == L"Cut");
+    CHECK(slopeTemplateKindFromCode(L"Cut") == SlopeTemplateKind::Cut);
+    CHECK(std::wstring(slopeComponentTypeDisplayName(SlopeComponentType::FillSlope)) == L"填方边坡");
+    CHECK(std::wstring(slopeComponentTypeDisplayName(SlopeComponentType::CutSlope)) == L"挖方边坡");
+    CHECK(std::wstring(slopeComponentTypeDisplayName(SlopeComponentType::Berm)) == L"护坡道");
+    CHECK(slopeComponentTypeFromCode(L"Berm") == SlopeComponentType::Berm);
+    CHECK(slopeGeometryConstraintModeFromCode(L"HeightAndWidth") == SlopeGeometryConstraintMode::HeightAndWidth);
+}
+
 void roadModelTemplateResolverUsesHigherPriorityRows()
 {
     using namespace roadproto::domain::cross_section;
@@ -760,6 +874,7 @@ void roadModelBuilderCreatesThreeDimensionalComponentLines()
 
     CHECK(result.succeeded);
     CHECK(result.sampledStations.size() == 3);
+    CHECK(result.data.sampledStations == result.sampledStations);
     CHECK(result.data.componentLines.size() >= 2);
     if (!result.data.componentLines.empty()) {
         const auto& firstLine = result.data.componentLines.front();
@@ -770,6 +885,663 @@ void roadModelBuilderCreatesThreeDimensionalComponentLines()
         }
         CHECK(firstLine.key.templateHandle == L"T1");
         CHECK(firstLine.color.r == 1);
+    }
+}
+
+void roadModelSectionPreviewBuilderCreatesSubgradePreviewAtStation()
+{
+    using namespace roadproto::domain::alignment;
+    using namespace roadproto::domain::cross_section;
+    using namespace roadproto::domain::profile;
+
+    SubgradeTemplateComponent lane;
+    lane.side = SubgradeSide::Right;
+    lane.type = SubgradeComponentType::TravelLane;
+    lane.width = 3.5;
+    lane.fixedSlope = -0.02;
+    lane.color = {1, 2, 3};
+
+    SubgradeTemplateData templateData;
+    templateData.components.push_back(lane);
+
+    RoadModelBuildInput input;
+    input.config.sampleInterval = 10.0;
+    input.config.assignments.push_back({0.0, 20.0, L"T1", L"Template 1"});
+    input.verticalCurve.controlPoints = {
+        {VerticalCurvePointRole::Start, 0.0, 100.0},
+        {VerticalCurvePointRole::End, 20.0, 102.0},
+    };
+    input.alignmentSamples = {
+        {{0.0, 0.0}, 0.0},
+        {{20.0, 0.0}, 20.0},
+    };
+    input.templates = {
+        {L"T1", templateData},
+    };
+
+    const auto result = RoadModelBuilder::build(input);
+    CHECK(result.succeeded);
+
+    RoadModelSectionPreviewRequest request;
+    request.data = result.data;
+    request.alignmentSamples = input.alignmentSamples;
+    request.station = 10.0;
+
+    const auto preview = RoadModelSectionPreviewBuilder::build(request);
+
+    CHECK(preview.succeeded);
+    CHECK(std::fabs(preview.station - 10.0) < 1e-9);
+    const auto subgrade = std::find_if(
+        preview.segments.begin(),
+        preview.segments.end(),
+        [](const RoadModelSectionPreviewSegment& segment) {
+            return segment.kind == RoadModelSectionPreviewSegmentKind::Subgrade &&
+                segment.points.size() == 2;
+        });
+    CHECK(subgrade != preview.segments.end());
+    if (subgrade != preview.segments.end()) {
+        CHECK(subgrade->color.r == 1);
+        CHECK(std::fabs(subgrade->points[0].offset) < 1e-9);
+        CHECK(std::fabs(subgrade->points[0].elevation - 101.0) < 1e-9);
+        CHECK(std::fabs(subgrade->points[1].offset + 3.5) < 1e-9);
+        CHECK(std::fabs(subgrade->points[1].elevation - 100.93) < 1e-7);
+    }
+}
+
+void roadModelSectionPreviewBuilderAddsGroundLineFromTin()
+{
+    using namespace roadproto::domain::alignment;
+    using namespace roadproto::domain::cross_section;
+    using namespace roadproto::domain::terrain;
+
+    RoadModelSectionPreviewRequest request;
+    request.station = 10.0;
+    request.data.config.slopeConfig.leftSearchWidth = 20.0;
+    request.data.config.slopeConfig.rightSearchWidth = 20.0;
+    request.alignmentSamples = {
+        {{0.0, 0.0}, 0.0},
+        {{20.0, 0.0}, 20.0},
+    };
+    request.terrainSurface.points = {
+        TinPoint{0.0, -10.0, 90.0},
+        TinPoint{20.0, -10.0, 90.0},
+        TinPoint{0.0, 10.0, 110.0},
+        TinPoint{20.0, 10.0, 110.0},
+    };
+    request.terrainSurface.triangles = {
+        TinTriangle{0, 1, 2},
+        TinTriangle{1, 3, 2},
+    };
+
+    const auto preview = RoadModelSectionPreviewBuilder::build(request);
+
+    CHECK(preview.succeeded);
+    CHECK(preview.hasGroundLine);
+    const auto ground = std::find_if(
+        preview.segments.begin(),
+        preview.segments.end(),
+        [](const RoadModelSectionPreviewSegment& segment) {
+            return segment.kind == RoadModelSectionPreviewSegmentKind::Ground;
+        });
+    CHECK(ground != preview.segments.end());
+    if (ground != preview.segments.end()) {
+        CHECK(ground->points.size() >= 2);
+        CHECK(ground->points.front().offset < ground->points.back().offset);
+    }
+}
+
+void roadModelBuilderStoresGroundProfileSnapshotsForSections()
+{
+    using namespace roadproto::domain::alignment;
+    using namespace roadproto::domain::cross_section;
+    using namespace roadproto::domain::profile;
+    using namespace roadproto::domain::terrain;
+
+    SubgradeTemplateComponent lane;
+    lane.side = SubgradeSide::Right;
+    lane.type = SubgradeComponentType::TravelLane;
+    lane.width = 4.0;
+
+    SubgradeTemplateData subgrade;
+    subgrade.components.push_back(lane);
+
+    RoadModelBuildInput input;
+    input.config.sampleInterval = 10.0;
+    input.config.assignments.push_back({0.0, 20.0, L"SUB", L"Subgrade"});
+    input.config.slopeConfig.leftSearchWidth = 20.0;
+    input.config.slopeConfig.rightSearchWidth = 20.0;
+    input.verticalCurve.controlPoints = {
+        {VerticalCurvePointRole::Start, 0.0, 100.0},
+        {VerticalCurvePointRole::End, 20.0, 100.0},
+    };
+    input.alignmentSamples = {
+        {{0.0, 0.0}, 0.0},
+        {{20.0, 0.0}, 20.0},
+    };
+    input.templates = {
+        {L"SUB", subgrade},
+    };
+    input.terrainSurface.points = {
+        TinPoint{0.0, -20.0, 90.0},
+        TinPoint{20.0, -20.0, 90.0},
+        TinPoint{0.0, 20.0, 110.0},
+        TinPoint{20.0, 20.0, 110.0},
+    };
+    input.terrainSurface.triangles = {
+        TinTriangle{0, 1, 2},
+        TinTriangle{1, 3, 2},
+    };
+
+    const auto result = RoadModelBuilder::build(input);
+
+    CHECK(result.succeeded);
+    const auto section = std::find_if(
+        result.data.sections.begin(),
+        result.data.sections.end(),
+        [](const RoadModelSection& candidate) {
+            return std::fabs(candidate.station - 10.0) < 1.0e-9;
+        });
+    CHECK(section != result.data.sections.end());
+    if (section != result.data.sections.end()) {
+        CHECK(section->leftGroundProfile.size() >= 2);
+        CHECK(section->rightGroundProfile.size() >= 2);
+        if (!section->rightGroundProfile.empty()) {
+            CHECK(section->rightGroundProfile.front().offset >= -1.0e-9);
+            CHECK(section->rightGroundProfile.back().offset <= input.config.slopeConfig.rightSearchWidth + 1.0e-9);
+        }
+    }
+}
+
+void roadModelSectionPreviewBuilderUsesStoredGroundSnapshotWithoutTin()
+{
+    using namespace roadproto::domain::alignment;
+    using namespace roadproto::domain::cross_section;
+
+    RoadModelSection section;
+    section.station = 10.0;
+    section.leftGroundProfile = {
+        {0.0, 101.0},
+        {8.0, 103.0},
+    };
+    section.rightGroundProfile = {
+        {0.0, 99.0},
+        {10.0, 96.0},
+    };
+
+    RoadModelSectionPreviewRequest request;
+    request.station = 10.0;
+    request.data.sections.push_back(section);
+    request.alignmentSamples = {
+        {{0.0, 0.0}, 0.0},
+        {{20.0, 0.0}, 20.0},
+    };
+
+    const auto preview = RoadModelSectionPreviewBuilder::build(request);
+
+    CHECK(preview.succeeded);
+    CHECK(preview.hasGroundLine);
+    const auto ground = std::find_if(
+        preview.segments.begin(),
+        preview.segments.end(),
+        [](const RoadModelSectionPreviewSegment& segment) {
+            return segment.kind == RoadModelSectionPreviewSegmentKind::Ground;
+        });
+    CHECK(ground != preview.segments.end());
+    if (ground != preview.segments.end()) {
+        CHECK(ground->points.size() == 3);
+        CHECK(std::fabs(ground->points.front().offset + 10.0) < 1.0e-9);
+        CHECK(std::fabs(ground->points.back().offset - 8.0) < 1.0e-9);
+    }
+}
+
+void roadModelBuilderReportsProgressDuringBuild()
+{
+    using namespace roadproto::domain::alignment;
+    using namespace roadproto::domain::cross_section;
+    using namespace roadproto::domain::profile;
+
+    SubgradeTemplateComponent lane;
+    lane.side = SubgradeSide::Right;
+    lane.type = SubgradeComponentType::TravelLane;
+    lane.width = 3.5;
+    lane.fixedSlope = -0.02;
+
+    SubgradeTemplateData templateData;
+    templateData.components.push_back(lane);
+
+    RoadModelBuildInput input;
+    input.config.sampleInterval = 10.0;
+    input.config.assignments.push_back({0.0, 20.0, L"T1", L"Template 1"});
+    input.verticalCurve.controlPoints = {
+        {VerticalCurvePointRole::Start, 0.0, 100.0},
+        {VerticalCurvePointRole::End, 20.0, 102.0},
+    };
+    input.alignmentSamples = {
+        {{0.0, 0.0}, 0.0},
+        {{20.0, 0.0}, 20.0},
+    };
+    input.templates = {
+        {L"T1", templateData},
+    };
+
+    std::vector<int> percents;
+    std::vector<std::wstring> messages;
+    input.progressCallback = [&](int percent, const std::wstring& message) {
+        percents.push_back(percent);
+        messages.push_back(message);
+    };
+
+    const auto result = RoadModelBuilder::build(input);
+
+    CHECK(result.succeeded);
+    CHECK(!percents.empty());
+    CHECK(percents.front() == 0);
+    CHECK(percents.back() == 100);
+    CHECK(std::is_sorted(percents.begin(), percents.end()));
+    CHECK(std::any_of(messages.begin(), messages.end(), [](const auto& message) {
+        return message.find(L"采样") != std::wstring::npos;
+    }));
+    CHECK(std::any_of(messages.begin(), messages.end(), [](const auto& message) {
+        return message.find(L"生成") != std::wstring::npos;
+    }));
+}
+
+void roadModelSlopeTemplateGroupResolverKeepsPriorityOrder()
+{
+    using namespace roadproto::domain::cross_section;
+
+    RoadModelSlopeTemplateGroup low;
+    low.startStation = 0.0;
+    low.endStation = 100.0;
+    low.templates.push_back({L"LOW_A", L"Low A"});
+    low.templates.push_back({L"LOW_B", L"Low B"});
+
+    RoadModelSlopeTemplateGroup high;
+    high.startStation = 40.0;
+    high.endStation = 60.0;
+    high.templates.push_back({L"HIGH", L"High"});
+
+    RoadModelSlopeTemplateGroupResolver resolver({high, low});
+
+    const auto station50 = resolver.resolve(50.0);
+    CHECK(station50.size() == 2);
+    if (station50.size() == 2) {
+        CHECK(station50[0]->templates[0].templateHandle == L"HIGH");
+        CHECK(station50[1]->templates[0].templateHandle == L"LOW_A");
+    }
+
+    const auto station20 = resolver.resolve(20.0);
+    CHECK(station20.size() == 1);
+    if (station20.size() == 1) {
+        CHECK(station20[0]->templates[0].templateHandle == L"LOW_A");
+    }
+}
+
+void roadModelBuilderCreatesSlopeLinesFromSubgradeOuterEdge()
+{
+    using namespace roadproto::domain::alignment;
+    using namespace roadproto::domain::cross_section;
+    using namespace roadproto::domain::profile;
+
+    SubgradeTemplateComponent lane;
+    lane.side = SubgradeSide::Right;
+    lane.type = SubgradeComponentType::TravelLane;
+    lane.width = 4.0;
+
+    SubgradeTemplateData subgrade;
+    subgrade.components.push_back(lane);
+
+    SlopeTemplateData slopeTemplate;
+    slopeTemplate.properties.name = L"Slope";
+    slopeTemplate.properties.kind = SlopeTemplateKind::Fill;
+    SlopeTemplateComponent slope;
+    slope.type = SlopeComponentType::FillSlope;
+    slope.constraintMode = SlopeGeometryConstraintMode::SlopeAndHeight;
+    slope.slope = -1.0;
+    slope.height = 2.0;
+    slope.color = {7, 8, 9};
+    slopeTemplate.components.push_back(slope);
+
+    RoadModelBuildInput input;
+    input.config.sampleInterval = 10.0;
+    input.config.assignments.push_back({0.0, 20.0, L"SUB", L"Subgrade"});
+    RoadModelSlopeTemplateGroup group;
+    group.startStation = 0.0;
+    group.endStation = 20.0;
+    group.templates.push_back({L"SLOPE", L"Slope"});
+    input.config.slopeConfig.rightGroups.push_back(group);
+    input.verticalCurve.controlPoints = {
+        {VerticalCurvePointRole::Start, 0.0, 100.0},
+        {VerticalCurvePointRole::End, 20.0, 100.0},
+    };
+    input.alignmentSamples = {
+        {{0.0, 0.0}, 0.0},
+        {{20.0, 0.0}, 20.0},
+    };
+    input.templates = {
+        {L"SUB", subgrade},
+    };
+    input.slopeTemplates = {
+        {L"SLOPE", slopeTemplate},
+    };
+
+    const auto result = RoadModelBuilder::build(input);
+
+    CHECK(result.succeeded);
+    const auto outer = std::find_if(
+        result.data.slopeLines.begin(),
+        result.data.slopeLines.end(),
+        [](const RoadModelSlopeComponentLine& line) {
+            return line.key.templateHandle == L"SLOPE" &&
+                line.key.side == SubgradeSide::Right &&
+                line.key.componentType == SlopeComponentType::FillSlope &&
+                line.key.componentIndex == 0 &&
+                line.key.boundaryIndex == 1;
+        });
+    CHECK(outer != result.data.slopeLines.end());
+    if (outer != result.data.slopeLines.end()) {
+        CHECK(outer->color.r == 7);
+        CHECK(outer->points.size() == 3);
+        if (outer->points.size() == 3) {
+            CHECK(std::fabs(outer->points.front().y + 6.0) < 1e-9);
+            CHECK(std::fabs(outer->points.front().z - 98.0) < 1e-9);
+            CHECK(std::fabs(outer->points.back().x - 20.0) < 1e-9);
+        }
+    }
+}
+
+void roadModelBuilderCreatesMeshWireframeFromSampledSections()
+{
+    using namespace roadproto::domain::alignment;
+    using namespace roadproto::domain::cross_section;
+    using namespace roadproto::domain::profile;
+
+    SubgradeTemplateComponent lane;
+    lane.side = SubgradeSide::Right;
+    lane.type = SubgradeComponentType::TravelLane;
+    lane.width = 4.0;
+    lane.color = {1, 2, 3};
+
+    SubgradeTemplateData subgrade;
+    subgrade.components.push_back(lane);
+
+    SlopeTemplateData slopeTemplate;
+    slopeTemplate.properties.name = L"Slope";
+    slopeTemplate.properties.kind = SlopeTemplateKind::Fill;
+    SlopeTemplateComponent slope;
+    slope.type = SlopeComponentType::FillSlope;
+    slope.constraintMode = SlopeGeometryConstraintMode::SlopeAndHeight;
+    slope.slope = -1.0;
+    slope.height = 2.0;
+    slope.color = {7, 8, 9};
+    slopeTemplate.components.push_back(slope);
+
+    RoadModelBuildInput input;
+    input.config.sampleInterval = 10.0;
+    input.config.assignments.push_back({0.0, 20.0, L"SUB", L"Subgrade"});
+    RoadModelSlopeTemplateGroup group;
+    group.startStation = 0.0;
+    group.endStation = 20.0;
+    group.templates.push_back({L"SLOPE", L"Slope"});
+    input.config.slopeConfig.rightGroups.push_back(group);
+    input.verticalCurve.controlPoints = {
+        {VerticalCurvePointRole::Start, 0.0, 100.0},
+        {VerticalCurvePointRole::End, 20.0, 100.0},
+    };
+    input.alignmentSamples = {
+        {{0.0, 0.0}, 0.0},
+        {{20.0, 0.0}, 20.0},
+    };
+    input.templates = {
+        {L"SUB", subgrade},
+    };
+    input.slopeTemplates = {
+        {L"SLOPE", slopeTemplate},
+    };
+
+    const auto result = RoadModelBuilder::build(input);
+
+    CHECK(result.succeeded);
+    CHECK(result.data.sections.size() == result.sampledStations.size());
+    CHECK(std::all_of(
+        result.data.sections.begin(),
+        result.data.sections.end(),
+        [](const RoadModelSection& section) {
+            return !section.rightNodes.empty();
+        }));
+
+    const auto sectionRib = std::find_if(
+        result.data.wireLines.begin(),
+        result.data.wireLines.end(),
+        [](const RoadModelWireLine& line) {
+            return line.kind == RoadModelWireLineKind::SectionRib &&
+                line.side == SubgradeSide::Right &&
+                line.points.size() == 2;
+        });
+    CHECK(sectionRib != result.data.wireLines.end());
+
+    const auto outer = std::find_if(
+        result.data.wireLines.begin(),
+        result.data.wireLines.end(),
+        [](const RoadModelWireLine& line) {
+            return line.kind == RoadModelWireLineKind::OuterBoundary &&
+                line.side == SubgradeSide::Right &&
+                line.color.r == 7 &&
+                line.color.g == 8 &&
+                line.color.b == 9;
+        });
+    CHECK(outer != result.data.wireLines.end());
+
+    const auto endCap = std::find_if(
+        result.data.wireLines.begin(),
+        result.data.wireLines.end(),
+        [](const RoadModelWireLine& line) {
+            return line.kind == RoadModelWireLineKind::EndCap &&
+                line.side == SubgradeSide::Right;
+        });
+    CHECK(endCap != result.data.wireLines.end());
+}
+
+void roadModelBuilderCreatesTransitionWireLinesWhenSectionNodeCountsDiffer()
+{
+    using namespace roadproto::domain::alignment;
+    using namespace roadproto::domain::cross_section;
+    using namespace roadproto::domain::profile;
+
+    SubgradeTemplateComponent lane;
+    lane.side = SubgradeSide::Right;
+    lane.type = SubgradeComponentType::TravelLane;
+    lane.width = 4.0;
+    lane.color = {1, 2, 3};
+
+    SubgradeTemplateData narrow;
+    narrow.components.push_back(lane);
+
+    SubgradeTemplateComponent shoulder = lane;
+    shoulder.type = SubgradeComponentType::EarthShoulder;
+    shoulder.width = 2.0;
+    shoulder.color = {4, 5, 6};
+
+    SubgradeTemplateData wide;
+    wide.components.push_back(lane);
+    wide.components.push_back(shoulder);
+
+    RoadModelBuildInput input;
+    input.config.sampleInterval = 10.0;
+    input.config.assignments.push_back({0.0, 10.0, L"NARROW", L"Narrow"});
+    input.config.assignments.push_back({10.0, 20.0, L"WIDE", L"Wide"});
+    input.verticalCurve.controlPoints = {
+        {VerticalCurvePointRole::Start, 0.0, 100.0},
+        {VerticalCurvePointRole::End, 20.0, 100.0},
+    };
+    input.alignmentSamples = {
+        {{0.0, 0.0}, 0.0},
+        {{20.0, 0.0}, 20.0},
+    };
+    input.templates = {
+        {L"NARROW", narrow},
+        {L"WIDE", wide},
+    };
+
+    const auto result = RoadModelBuilder::build(input);
+
+    CHECK(result.succeeded);
+    CHECK(std::any_of(
+        result.data.wireLines.begin(),
+        result.data.wireLines.end(),
+        [](const RoadModelWireLine& line) {
+            return line.kind == RoadModelWireLineKind::Transition &&
+                line.side == SubgradeSide::Right;
+        }));
+}
+
+void roadModelBuilderKeepsSlopeTransitionsOutsideSubgrade()
+{
+    using namespace roadproto::domain::alignment;
+    using namespace roadproto::domain::cross_section;
+    using namespace roadproto::domain::profile;
+
+    SubgradeTemplateComponent lane;
+    lane.side = SubgradeSide::Right;
+    lane.type = SubgradeComponentType::TravelLane;
+    lane.width = 4.0;
+    lane.color = {1, 2, 3};
+
+    SubgradeTemplateData subgrade;
+    subgrade.components.push_back(lane);
+
+    SlopeTemplateData slopeTemplate;
+    slopeTemplate.properties.name = L"Slope";
+    slopeTemplate.properties.kind = SlopeTemplateKind::Fill;
+    SlopeTemplateComponent slope;
+    slope.type = SlopeComponentType::FillSlope;
+    slope.constraintMode = SlopeGeometryConstraintMode::SlopeAndHeight;
+    slope.slope = -1.0;
+    slope.height = 2.0;
+    slope.color = {7, 8, 9};
+    slopeTemplate.components.push_back(slope);
+
+    RoadModelBuildInput input;
+    input.config.sampleInterval = 10.0;
+    input.config.assignments.push_back({0.0, 20.0, L"SUB", L"Subgrade"});
+    RoadModelSlopeTemplateGroup group;
+    group.startStation = 10.0;
+    group.endStation = 20.0;
+    group.templates.push_back({L"SLOPE", L"Slope"});
+    input.config.slopeConfig.rightGroups.push_back(group);
+    input.verticalCurve.controlPoints = {
+        {VerticalCurvePointRole::Start, 0.0, 100.0},
+        {VerticalCurvePointRole::End, 20.0, 100.0},
+    };
+    input.alignmentSamples = {
+        {{0.0, 0.0}, 0.0},
+        {{20.0, 0.0}, 20.0},
+    };
+    input.templates = {
+        {L"SUB", subgrade},
+    };
+    input.slopeTemplates = {
+        {L"SLOPE", slopeTemplate},
+    };
+
+    const auto result = RoadModelBuilder::build(input);
+
+    CHECK(result.succeeded);
+    bool hasSlopeColoredWireInsideSubgrade = false;
+    for (const auto& line : result.data.wireLines) {
+        if (line.color.r != 7 || line.color.g != 8 || line.color.b != 9) {
+            continue;
+        }
+
+        for (const auto& point : line.points) {
+            if (point.y > -lane.width + 1e-9) {
+                hasSlopeColoredWireInsideSubgrade = true;
+            }
+        }
+    }
+    CHECK(!hasSlopeColoredWireInsideSubgrade);
+}
+
+void roadModelBuilderStopsSlopeAtTinGroundIntersection()
+{
+    using namespace roadproto::domain::alignment;
+    using namespace roadproto::domain::cross_section;
+    using namespace roadproto::domain::profile;
+    using namespace roadproto::domain::terrain;
+
+    SubgradeTemplateComponent lane;
+    lane.side = SubgradeSide::Right;
+    lane.type = SubgradeComponentType::TravelLane;
+    lane.width = 4.0;
+
+    SubgradeTemplateData subgrade;
+    subgrade.components.push_back(lane);
+
+    SlopeTemplateData slopeTemplate;
+    slopeTemplate.properties.name = L"Slope";
+    slopeTemplate.properties.kind = SlopeTemplateKind::Fill;
+    slopeTemplate.properties.stopAtGround = true;
+    SlopeTemplateComponent slope;
+    slope.type = SlopeComponentType::FillSlope;
+    slope.constraintMode = SlopeGeometryConstraintMode::SlopeAndHeight;
+    slope.slope = -1.0;
+    slope.height = 2.0;
+    slope.color = {30, 40, 50};
+    slopeTemplate.components.push_back(slope);
+
+    RoadModelBuildInput input;
+    input.config.sampleInterval = 20.0;
+    input.config.assignments.push_back({0.0, 20.0, L"SUB", L"Subgrade"});
+    input.config.slopeConfig.rightSearchWidth = 50.0;
+    RoadModelSlopeTemplateGroup group;
+    group.startStation = 0.0;
+    group.endStation = 20.0;
+    group.templates.push_back({L"SLOPE", L"Slope"});
+    input.config.slopeConfig.rightGroups.push_back(group);
+    input.verticalCurve.controlPoints = {
+        {VerticalCurvePointRole::Start, 0.0, 100.0},
+        {VerticalCurvePointRole::End, 20.0, 100.0},
+    };
+    input.alignmentSamples = {
+        {{0.0, 0.0}, 0.0},
+        {{20.0, 0.0}, 20.0},
+    };
+    input.templates = {
+        {L"SUB", subgrade},
+    };
+    input.slopeTemplates = {
+        {L"SLOPE", slopeTemplate},
+    };
+    input.terrainSurface.points = {
+        TinPoint{0.0, 0.0, 101.0},
+        TinPoint{20.0, 0.0, 101.0},
+        TinPoint{0.0, -50.0, 81.0},
+        TinPoint{20.0, -50.0, 81.0},
+    };
+    input.terrainSurface.triangles = {
+        TinTriangle{0, 1, 2},
+        TinTriangle{1, 3, 2},
+    };
+
+    const auto result = RoadModelBuilder::build(input);
+
+    CHECK(result.succeeded);
+    const auto outer = std::find_if(
+        result.data.slopeLines.begin(),
+        result.data.slopeLines.end(),
+        [](const RoadModelSlopeComponentLine& line) {
+            return line.key.templateHandle == L"SLOPE" &&
+                line.key.boundaryIndex == 1;
+        });
+    CHECK(outer != result.data.slopeLines.end());
+    if (outer != result.data.slopeLines.end()) {
+        CHECK(outer->points.size() == 2);
+        if (outer->points.size() == 2) {
+            CHECK(std::fabs(outer->points.front().y + 5.0) < 1e-7);
+            CHECK(std::fabs(outer->points.front().z - 99.0) < 1e-7);
+            CHECK(std::fabs(outer->points.back().y + 5.0) < 1e-7);
+            CHECK(std::fabs(outer->points.back().z - 99.0) < 1e-7);
+        }
     }
 }
 
@@ -883,6 +1655,18 @@ void roadModelBuilderDoesNotConnectAcrossTemplateGaps()
         }
     }
     CHECK(!hasGapSpanningPair);
+
+    bool hasGapSpanningWire = false;
+    for (const auto& line : result.data.wireLines) {
+        for (std::size_t i = 1; i < line.points.size(); ++i) {
+            const double previousX = line.points[i - 1].x;
+            const double currentX = line.points[i].x;
+            if (std::fabs(previousX - 10.0) < 1e-9 && std::fabs(currentX - 20.0) < 1e-9) {
+                hasGapSpanningWire = true;
+            }
+        }
+    }
+    CHECK(!hasGapSpanningWire);
 }
 
 void roadModelBuilderDoesNotMergeGapWhenBoundaryPointsCoincide()
@@ -1189,6 +1973,35 @@ void crossSectionModuleRegistersSubgradeTemplateCommandsAndRibbonPanel()
         CHECK(!applyCommand->reusable);
     }
 
+    const auto slopeCreateCommand = commands.find(L"RD_SECTION_SLOPE_TEMPLATE_CREATE");
+    CHECK(slopeCreateCommand.has_value());
+    if (slopeCreateCommand.has_value()) {
+        CHECK(slopeCreateCommand->moduleCode == L"CROSS_SECTION");
+        CHECK(slopeCreateCommand->displayName == L"\u521b\u5efa\u8fb9\u5761\u6a21\u677f");
+        CHECK(slopeCreateCommand->businessDocPath == L"docs/business/cross_section/\u8fb9\u5761\u6a21\u677f_\u521b\u5efa.md");
+        CHECK(slopeCreateCommand->ribbonAttachable);
+        CHECK(slopeCreateCommand->isPrototype);
+        CHECK(slopeCreateCommand->reusable);
+    }
+
+    const auto slopeEditCommand = commands.find(L"RD_SECTION_SLOPE_TEMPLATE_EDIT_HANDLE");
+    CHECK(slopeEditCommand.has_value());
+    if (slopeEditCommand.has_value()) {
+        CHECK(slopeEditCommand->moduleCode == L"CROSS_SECTION");
+        CHECK(slopeEditCommand->businessDocPath == L"docs/business/cross_section/\u8fb9\u5761\u6a21\u677f_\u7f16\u8f91.md");
+        CHECK(!slopeEditCommand->ribbonAttachable);
+        CHECK(!slopeEditCommand->reusable);
+    }
+
+    const auto slopeApplyCommand = commands.find(L"RD_SECTION_SLOPE_TEMPLATE_APPLY_DIALOG_FILE");
+    CHECK(slopeApplyCommand.has_value());
+    if (slopeApplyCommand.has_value()) {
+        CHECK(slopeApplyCommand->moduleCode == L"CROSS_SECTION");
+        CHECK(slopeApplyCommand->businessDocPath == L"docs/business/cross_section/\u8fb9\u5761\u6a21\u677f_WPF\u6865\u63a5\u56de\u5199.md");
+        CHECK(!slopeApplyCommand->ribbonAttachable);
+        CHECK(!slopeApplyCommand->reusable);
+    }
+
     const auto roadModelCreateCommand = commands.find(L"RD_SECTION_ROAD_MODEL_CREATE");
     CHECK(roadModelCreateCommand.has_value());
     if (roadModelCreateCommand.has_value()) {
@@ -1231,9 +2044,25 @@ void crossSectionModuleRegistersSubgradeTemplateCommandsAndRibbonPanel()
         CHECK(!roadModelApplyDialogFileCommand->reusable);
     }
 
+    const auto sectionViewerCommand = commands.find(L"RD_SECTION_ROAD_MODEL_VIEW_SECTION");
+    CHECK(sectionViewerCommand.has_value());
+    if (sectionViewerCommand.has_value()) {
+        CHECK(sectionViewerCommand->moduleCode == L"CROSS_SECTION");
+        CHECK(sectionViewerCommand->displayName == L"查看横断面");
+        CHECK(sectionViewerCommand->businessDocPath == L"docs/business/cross_section/查看横断面.md");
+        CHECK(sectionViewerCommand->ribbonAttachable);
+        CHECK(sectionViewerCommand->isPrototype);
+        CHECK(sectionViewerCommand->reusable);
+    }
+
     checkBusinessDocExistsForTests(L"docs/business/cross_section/横断面戴帽_道路模型创建.md");
+    checkBusinessDocExistsForTests(L"docs/business/cross_section/横断面戴帽_边坡模板.md");
     checkBusinessDocExistsForTests(L"docs/business/cross_section/道路模型_编辑.md");
     checkBusinessDocExistsForTests(L"docs/business/cross_section/道路模型_WPF桥接回写.md");
+    checkBusinessDocExistsForTests(L"docs/business/cross_section/边坡模板_创建.md");
+    checkBusinessDocExistsForTests(L"docs/business/cross_section/边坡模板_编辑.md");
+    checkBusinessDocExistsForTests(L"docs/business/cross_section/边坡模板_WPF桥接回写.md");
+    checkBusinessDocExistsForTests(L"docs/business/cross_section/查看横断面.md");
 
     CHECK(ribbon.tab().panels.size() == 1);
     CHECK(ribbon.tab().panels.front().moduleCode == L"CROSS_SECTION");
@@ -1259,10 +2088,14 @@ void startupRegistrationIncludesCrossSectionModule()
     module->registerRibbon(ribbon);
 
     CHECK(commands.contains(L"RD_SECTION_SUBGRADE_TEMPLATE_CREATE"));
+    CHECK(commands.contains(L"RD_SECTION_SLOPE_TEMPLATE_CREATE"));
+    CHECK(commands.contains(L"RD_SECTION_SLOPE_TEMPLATE_EDIT_HANDLE"));
+    CHECK(commands.contains(L"RD_SECTION_SLOPE_TEMPLATE_APPLY_DIALOG_FILE"));
     CHECK(commands.contains(L"RD_SECTION_ROAD_MODEL_CREATE"));
     CHECK(commands.contains(L"RD_SECTION_ROAD_MODEL_EDIT"));
     CHECK(commands.contains(L"RD_SECTION_ROAD_MODEL_EDIT_HANDLE"));
     CHECK(commands.contains(L"RD_SECTION_ROAD_MODEL_APPLY_DIALOG_FILE"));
+    CHECK(commands.contains(L"RD_SECTION_ROAD_MODEL_VIEW_SECTION"));
     CHECK(ribbon.tab().panels.size() == 1);
     CHECK(ribbon.tab().panels.front().moduleCode == L"CROSS_SECTION");
 }
@@ -1286,6 +2119,12 @@ void managedRibbonExtensionRegistersSubgradeTemplateEntryPoints()
     CHECK(source.find("RD_SECTION_SUBGRADE_TEMPLATE_EDIT_HANDLE {handle}\\n") != std::string::npos);
     CHECK(source.find("DNSUBGRADETEMPLATEENTITY") != std::string::npos);
     CHECK(source.find("SubgradeTemplateDialogCommands") != std::string::npos);
+    CHECK(source.find("RD_SECTION_SLOPE_TEMPLATE_CREATE") != std::string::npos);
+    CHECK(source.find("RD_SECTION_SLOPE_TEMPLATE_EDIT_HANDLE") != std::string::npos);
+    CHECK(source.find("RD_SECTION_SLOPE_TEMPLATE_EDIT_HANDLE {handle}\\n") != std::string::npos);
+    CHECK(source.find("DNSLOPETEMPLATEENTITY") != std::string::npos);
+    CHECK(source.find("SlopeTemplateDialogCommands") != std::string::npos);
+    CHECK(source.find("SlopeTemplateButtonId") != std::string::npos);
     CHECK(source.find("RD_SECTION_ROAD_MODEL_CREATE") != std::string::npos);
     CHECK(source.find("RD_SECTION_ROAD_MODEL_EDIT") != std::string::npos);
     CHECK(source.find("RoadModelCreateButtonId") != std::string::npos);
@@ -1309,10 +2148,71 @@ void managedRibbonExtensionRegistersRoadModelEntryPoints()
     CHECK(source.find("RD_SECTION_ROAD_MODEL_EDIT") != std::string::npos);
     CHECK(source.find("RD_SECTION_ROAD_MODEL_EDIT_HANDLE") != std::string::npos);
     CHECK(source.find("RD_SECTION_ROAD_MODEL_EDIT_HANDLE {handle}\\n") != std::string::npos);
+    CHECK(source.find("RD_SECTION_ROAD_MODEL_VIEW_SECTION") != std::string::npos);
+    CHECK(source.find("RoadModelSectionViewerCommands") != std::string::npos);
     CHECK(source.find("DNROADMODELENTITY") != std::string::npos);
     CHECK(source.find("RoadModelDialogCommands") != std::string::npos);
     CHECK(source.find("RoadModelCreateButtonId") != std::string::npos);
     CHECK(source.find("RoadModelEditButtonId") != std::string::npos);
+    CHECK(source.find("RoadModelSectionViewerButtonId") != std::string::npos);
+}
+
+void roadModelSectionViewerNativeBridgeSourceContainsRequiredFields()
+{
+    const auto root = findRepositoryRootForTests();
+    const auto bridgeHeaderPath = root
+        / "src"
+        / "cad_adapter"
+        / "objectarx"
+        / "cross_section"
+        / "RoadModelSectionViewerBridge.h";
+    const auto bridgeSourcePath = root
+        / "src"
+        / "cad_adapter"
+        / "objectarx"
+        / "cross_section"
+        / "RoadModelSectionViewerBridge.cpp";
+    const auto commandHeaderPath = root
+        / "src"
+        / "cad_adapter"
+        / "objectarx"
+        / "cross_section"
+        / "ObjectArxRoadModelCommand.h";
+    const auto commandSourcePath = root
+        / "src"
+        / "cad_adapter"
+        / "objectarx"
+        / "cross_section"
+        / "ObjectArxRoadModelCommand.cpp";
+
+    CHECK(std::filesystem::exists(bridgeHeaderPath));
+    CHECK(std::filesystem::exists(bridgeSourcePath));
+    CHECK(std::filesystem::exists(commandHeaderPath));
+    CHECK(std::filesystem::exists(commandSourcePath));
+
+    const auto header = readTextFileForTests(bridgeHeaderPath);
+    const auto bridge = readTextFileForTests(bridgeSourcePath);
+    const auto commandHeader = readTextFileForTests(commandHeaderPath);
+    const auto command = readTextFileForTests(commandSourcePath);
+
+    CHECK(header.find("RoadModelSectionViewerRequest") != std::string::npos);
+    CHECK(header.find("RoadModelSectionViewerPreview") != std::string::npos);
+    CHECK(header.find("queueRoadModelSectionViewerWpfDialog") != std::string::npos);
+    CHECK(bridge.find("RoadProtoRoadModelSectionViewer_") != std::string::npos);
+    CHECK(bridge.find("RD_SECTION_ROAD_MODEL_VIEW_SECTION_SHOW_WPF_DIALOG") != std::string::npos);
+    CHECK(bridge.find("previewCount") != std::string::npos);
+    CHECK(bridge.find("segmentCount") != std::string::npos);
+    CHECK(bridge.find("pointCount") != std::string::npos);
+    CHECK(bridge.find("stationLabel") != std::string::npos);
+    CHECK(commandHeader.find("roadModelViewSectionCommandProcedure") != std::string::npos);
+    CHECK(command.find("RoadModelSectionViewerBridge.h") != std::string::npos);
+    CHECK(command.find("runRoadModelViewSectionCommand") != std::string::npos);
+    CHECK(command.find("selectTypedEntity<DnRoadModelEntity>") != std::string::npos);
+    CHECK(command.find("needsTerrainSurfaceForSectionPreview") != std::string::npos);
+    CHECK(command.find("hasUsableGroundSnapshot") != std::string::npos);
+    CHECK(command.find("RoadModelSectionPreviewRequest previewRequest") != std::string::npos);
+    CHECK(command.find("RoadModelSectionPreviewBuilder::build") != std::string::npos);
+    CHECK(command.find("queueRoadModelSectionViewerWpfDialog") != std::string::npos);
 }
 
 void roadModelWpfBridgeSourceContainsRequiredFields()
@@ -1340,28 +2240,61 @@ void roadModelWpfBridgeSourceContainsRequiredFields()
     CHECK(dto.find("RoadModelTemplateAssignmentDto") != std::string::npos);
     CHECK(dto.find("RoadModelDialogAction") != std::string::npos);
     CHECK(dto.find("PickTemplate") != std::string::npos);
+    CHECK(dto.find("PickLeftSlopeTemplate") != std::string::npos);
+    CHECK(dto.find("PickRightSlopeTemplate") != std::string::npos);
     CHECK(dto.find("PickAssignmentIndex") != std::string::npos);
     CHECK(dto.find("SelectedAssignmentIndex") != std::string::npos);
+    CHECK(dto.find("RoadModelSlopeTemplateGroupDto") != std::string::npos);
+    CHECK(dto.find("LeftSlopeSearchWidth") != std::string::npos);
+    CHECK(dto.find("RightSlopeSearchWidth") != std::string::npos);
+    CHECK(dto.find("LeftSlopeGroups") != std::string::npos);
+    CHECK(dto.find("RightSlopeGroups") != std::string::npos);
 
     CHECK(file.find("action") != std::string::npos);
     CHECK(file.find("pickTemplate") != std::string::npos);
+    CHECK(file.find("pickLeftSlopeTemplate") != std::string::npos);
+    CHECK(file.find("pickRightSlopeTemplate") != std::string::npos);
     CHECK(file.find("pickAssignmentIndex") != std::string::npos);
+    CHECK(file.find("pickSlopeGroupIndex") != std::string::npos);
     CHECK(file.find("selectedAssignmentIndex") != std::string::npos);
     CHECK(file.find("assignmentCount") != std::string::npos);
     CHECK(file.find("assignment.{i}.startStation") != std::string::npos);
+    CHECK(file.find("leftSlopeGroup") != std::string::npos);
+    CHECK(file.find("rightSlopeGroup") != std::string::npos);
     CHECK(file.find("RD_SECTION_ROAD_MODEL_APPLY_DIALOG_FILE") == std::string::npos);
 
     CHECK(xaml.find("横断面戴帽") != std::string::npos);
     CHECK(xaml.find("路基模板") != std::string::npos);
+    CHECK(xaml.find("边坡模板") != std::string::npos);
+    CHECK(xaml.find("左侧边坡模板") != std::string::npos);
+    CHECK(xaml.find("右侧边坡模板") != std::string::npos);
     CHECK(xaml.find("DataGrid") != std::string::npos);
     CHECK(xaml.find("Header=\"点选模板\"") != std::string::npos);
     CHECK(xaml.find("生成模型") != std::string::npos);
+    CHECK(xaml.find("Header=\"管理模板组\"") != std::string::npos);
+    CHECK(xaml.find("OnManageLeftSlopeGroup") != std::string::npos);
+    CHECK(xaml.find("OnManageRightSlopeGroup") != std::string::npos);
+    CHECK(xaml.find("当前模板组管理") != std::string::npos);
+    CHECK(xaml.find("组内模板") != std::string::npos);
+    CHECK(xaml.find("OnDeleteLeftSlopeTemplate") != std::string::npos);
+    CHECK(xaml.find("OnMoveLeftSlopeTemplateUp") != std::string::npos);
 
     CHECK(code.find("MoveAssignment") != std::string::npos);
     CHECK(code.find("BuildResponse") != std::string::npos);
     CHECK(code.find("OnPickTemplate") != std::string::npos);
+    CHECK(code.find("OnPickLeftSlopeTemplate") != std::string::npos);
+    CHECK(code.find("OnPickRightSlopeTemplate") != std::string::npos);
     CHECK(code.find("RoadModelDialogAction.PickTemplate") != std::string::npos);
+    CHECK(code.find("RoadModelDialogAction.PickLeftSlopeTemplate") != std::string::npos);
+    CHECK(code.find("RoadModelDialogAction.PickRightSlopeTemplate") != std::string::npos);
     CHECK(code.find("PickAssignmentIndex") != std::string::npos);
+    CHECK(code.find("PickSlopeGroupIndex") != std::string::npos);
+    CHECK(code.find("SelectedLeftSlopeTemplate") != std::string::npos);
+    CHECK(code.find("SelectedRightSlopeTemplate") != std::string::npos);
+    CHECK(code.find("OnManageLeftSlopeGroup") != std::string::npos);
+    CHECK(code.find("OnManageRightSlopeGroup") != std::string::npos);
+    CHECK(code.find("DeleteSlopeTemplate") != std::string::npos);
+    CHECK(code.find("MoveSlopeTemplate") != std::string::npos);
 }
 
 void roadModelNativeDialogBridgeSourceContainsRequiredFields()
@@ -1398,11 +2331,18 @@ void roadModelNativeDialogBridgeSourceContainsRequiredFields()
     CHECK(header.find("RoadModelDialogResponse") != std::string::npos);
     CHECK(header.find("RoadModelDialogAction") != std::string::npos);
     CHECK(header.find("PickTemplate") != std::string::npos);
+    CHECK(header.find("PickLeftSlopeTemplate") != std::string::npos);
+    CHECK(header.find("PickRightSlopeTemplate") != std::string::npos);
     CHECK(header.find("roadCenterlineHandle") != std::string::npos);
     CHECK(header.find("profileVerticalCurveHandle") != std::string::npos);
     CHECK(header.find("sampleInterval") != std::string::npos);
     CHECK(header.find("selectedAssignmentIndex") != std::string::npos);
     CHECK(header.find("pickAssignmentIndex") != std::string::npos);
+    CHECK(header.find("pickSlopeGroupIndex") != std::string::npos);
+    CHECK(header.find("leftSlopeSearchWidth") != std::string::npos);
+    CHECK(header.find("rightSlopeSearchWidth") != std::string::npos);
+    CHECK(header.find("leftSlopeGroups") != std::string::npos);
+    CHECK(header.find("rightSlopeGroups") != std::string::npos);
     CHECK(header.find("assignments") != std::string::npos);
     CHECK(header.find("queueRoadModelWpfDialog") != std::string::npos);
     CHECK(header.find("readRoadModelDialogResponse") != std::string::npos);
@@ -1412,7 +2352,13 @@ void roadModelNativeDialogBridgeSourceContainsRequiredFields()
     CHECK(bridge.find("selectedAssignmentIndex") != std::string::npos);
     CHECK(bridge.find("pickAssignmentIndex") != std::string::npos);
     CHECK(bridge.find("pickTemplate") != std::string::npos);
+    CHECK(bridge.find("pickLeftSlopeTemplate") != std::string::npos);
+    CHECK(bridge.find("pickRightSlopeTemplate") != std::string::npos);
+    CHECK(bridge.find("pickSlopeGroupIndex") != std::string::npos);
     CHECK(bridge.find("assignmentCount") != std::string::npos);
+    CHECK(bridge.find("leftSlopeGroup") != std::string::npos);
+    CHECK(bridge.find("rightSlopeGroup") != std::string::npos);
+    CHECK(bridge.find("prefix + L\"Count\"") != std::string::npos);
     CHECK(bridge.find("assignment.\" + std::to_wstring(i)") != std::string::npos);
     CHECK(bridge.find(".startStation") != std::string::npos);
     CHECK(bridge.find(".endStation") != std::string::npos);
@@ -1429,7 +2375,9 @@ void roadModelNativeDialogBridgeSourceContainsRequiredFields()
     CHECK(command.find("runRoadModelEditHandleCommand") != std::string::npos);
     CHECK(command.find("runRoadModelApplyDialogFileCommand") != std::string::npos);
     CHECK(command.find("handlePickTemplateAction") != std::string::npos);
+    CHECK(command.find("handlePickSlopeTemplateAction") != std::string::npos);
     CHECK(command.find("selectTypedEntity<DnSubgradeTemplateEntity>") != std::string::npos);
+    CHECK(command.find("selectTypedEntity<DnSlopeTemplateEntity>") != std::string::npos);
 }
 
 void roadModelCommandSourceContainsCompleteObjectArxFlow()
@@ -1449,13 +2397,20 @@ void roadModelCommandSourceContainsCompleteObjectArxFlow()
     CHECK(source.find("DnRoadCenterlineEntity") != std::string::npos);
     CHECK(source.find("DnProfileVerticalCurveEntity") != std::string::npos);
     CHECK(source.find("DnSubgradeTemplateEntity") != std::string::npos);
+    CHECK(source.find("DnSlopeTemplateEntity") != std::string::npos);
+    CHECK(source.find("DnTerrainTinEntity") != std::string::npos);
     CHECK(source.find("DnRoadModelEntity") != std::string::npos);
     CHECK(source.find("selectTypedEntity") != std::string::npos);
     CHECK(source.find("findUniqueVerticalCurveForCenterline") != std::string::npos);
     CHECK(source.find("profileGraphBelongsToCenterline") != std::string::npos
         || source.find("verticalCurveBelongsToCenterline") != std::string::npos);
     CHECK(source.find("RoadModelBuildInput") != std::string::npos);
+    CHECK(source.find("StatusProgressMeter") != std::string::npos);
+    CHECK(source.find("acedSetStatusBarProgressMeter") != std::string::npos);
+    CHECK(source.find("progressCallback") != std::string::npos);
     CHECK(source.find("readSubgradeTemplate") != std::string::npos);
+    CHECK(source.find("readSlopeTemplate") != std::string::npos);
+    CHECK(source.find("readTerrainSurface") != std::string::npos);
     CHECK(source.find("appendEntityToModelSpace") != std::string::npos);
     CHECK(source.find("setRoadModelData") != std::string::npos);
     CHECK(source.find("recordGraphicsModified") != std::string::npos);
@@ -1489,7 +2444,10 @@ void roadModelCommandSourceContainsCompleteObjectArxFlow()
 
     CHECK(source.find("readRoadModelDialogResponse", applyCommand) != std::string::npos);
     CHECK(source.find("RoadModelDialogAction::PickTemplate", applyCommand) != std::string::npos);
+    CHECK(source.find("RoadModelDialogAction::PickLeftSlopeTemplate", applyCommand) != std::string::npos);
+    CHECK(source.find("RoadModelDialogAction::PickRightSlopeTemplate", applyCommand) != std::string::npos);
     CHECK(source.find("handlePickTemplateAction", applyCommand) != std::string::npos);
+    CHECK(source.find("handlePickSlopeTemplateAction", applyCommand) != std::string::npos);
     CHECK(source.find("resolveObjectIdFromHandle(response.roadCenterlineHandle", applyCommand) != std::string::npos);
     CHECK(source.find("resolveObjectIdFromHandle(response.profileVerticalCurveHandle", applyCommand) != std::string::npos);
     const auto applyRelationValidation = source.find("profileGraphBelongsToCenterline(verticalCurve.profileGraphHandle, centerlineHandle)", applyCommand);
@@ -1499,6 +2457,8 @@ void roadModelCommandSourceContainsCompleteObjectArxFlow()
     CHECK(applyRelationValidation < applyBuild);
     CHECK(source.find("return;", applyRelationValidation) < applyBuild);
     CHECK(source.find("readSubgradeTemplate", applyCommand) != std::string::npos);
+    CHECK(source.find("readSlopeTemplate", applyCommand) != std::string::npos);
+    CHECK(source.find("terrainSurface", applyCommand) != std::string::npos);
     CHECK(source.find("RoadModelBuildInput input", applyCommand) != std::string::npos);
     CHECK(source.find("service.build(input)", applyCommand) != std::string::npos);
     CHECK(source.find("new DnRoadModelEntity", applyCommand) != std::string::npos);
@@ -1584,6 +2544,19 @@ void roadModelEntitySourceContainsRequiredObjectArxContracts()
     CHECK(source.find("DNROADMODELENTITY") != std::string::npos);
     CHECK(source.find("RoadModelData") != std::string::npos);
     CHECK(source.find("componentLines") != std::string::npos);
+    CHECK(source.find("sections") != std::string::npos);
+    CHECK(source.find("wireLines") != std::string::npos);
+    CHECK(source.find("RoadModelGroundProfilePoint") != std::string::npos);
+    CHECK(source.find("RoadModelWireLineKind") != std::string::npos);
+    CHECK(source.find("constexpr Adesk::Int16 kEntityVersion = 5") != std::string::npos);
+    CHECK(source.find("readRoadModelSection") != std::string::npos);
+    CHECK(source.find("writeRoadModelSection") != std::string::npos);
+    CHECK(source.find("readRoadModelGroundProfile") != std::string::npos);
+    CHECK(source.find("writeRoadModelGroundProfile") != std::string::npos);
+    CHECK(source.find("readRoadModelWireLine") != std::string::npos);
+    CHECK(source.find("writeRoadModelWireLine") != std::string::npos);
+    CHECK(source.find("drawRoadModelWireLines") != std::string::npos);
+    CHECK(source.find("if (!data_.wireLines.empty())") != std::string::npos);
     CHECK(source.find("subWorldDraw") != std::string::npos);
     CHECK(source.find("subGetGeomExtents") != std::string::npos);
     CHECK(source.find("subTransformBy") != std::string::npos);
@@ -1605,7 +2578,7 @@ void roadModelEntitySourceContainsRequiredObjectArxContracts()
     CHECK(source.find("version < 0") != std::string::npos);
     CHECK(source.find("!isValidSubgradeSideValue(side)") != std::string::npos);
     CHECK(source.find("!isValidSubgradeComponentTypeValue(type)") != std::string::npos);
-    CHECK(source.find("if (!isFiniteRoadModelPoint(line.points[i - 1])") != std::string::npos);
+    CHECK(source.find("if (!isFiniteRoadModelPoint(points[i - 1])") != std::string::npos);
     CHECK(source.find("if (!isFiniteRoadModelPoint(point))") != std::string::npos);
     CHECK(source.find("if (!isFiniteRoadModelPoint(point))") != source.rfind("if (!isFiniteRoadModelPoint(point))"));
     CHECK(source.find("transformedPointIsFinite") != std::string::npos);
@@ -3356,6 +4329,55 @@ void alignmentCommandMetadataUsesExpectedNames()
     CHECK(found->ribbonAttachable);
 }
 
+void terrainTriangleSpatialIndexFiltersCrossSectionCandidates()
+{
+    using namespace roadproto::domain::terrain;
+
+    constexpr int gridSize = 20;
+    std::vector<TinPoint> points;
+    points.reserve((gridSize + 1) * (gridSize + 1));
+    for (int y = 0; y <= gridSize; ++y) {
+        for (int x = 0; x <= gridSize; ++x) {
+            points.push_back(TinPoint{static_cast<double>(x), static_cast<double>(y), 0.0});
+        }
+    }
+
+    const auto pointIndex = [gridSize](int x, int y) {
+        return static_cast<std::size_t>(y * (gridSize + 1) + x);
+    };
+
+    std::vector<TinTriangle> triangles;
+    triangles.reserve(gridSize * gridSize * 2);
+    for (int y = 0; y < gridSize; ++y) {
+        for (int x = 0; x < gridSize; ++x) {
+            triangles.push_back(TinTriangle{
+                pointIndex(x, y),
+                pointIndex(x + 1, y),
+                pointIndex(x, y + 1)});
+            triangles.push_back(TinTriangle{
+                pointIndex(x + 1, y),
+                pointIndex(x + 1, y + 1),
+                pointIndex(x, y + 1)});
+        }
+    }
+
+    TerrainTriangleSpatialIndex index(points, triangles);
+    CHECK(index.enabled());
+    CHECK(index.triangleReferenceCount() > 0);
+
+    const auto candidates = index.querySegment(0.0, 10.0, 20.0, 10.0);
+    CHECK(!candidates.empty());
+    CHECK(candidates.size() < triangles.size() / 3);
+
+    const auto narrowCandidates = index.querySegment(0.0, 10.0, 1.0, 10.0);
+    CHECK(!narrowCandidates.empty());
+    CHECK(narrowCandidates.size() < candidates.size());
+
+    const auto diagonalCandidates = index.querySegment(0.0, 0.0, 20.0, 20.0);
+    CHECK(!diagonalCandidates.empty());
+    CHECK(diagonalCandidates.size() < triangles.size() / 2);
+}
+
 } // namespace
 
 int main()
@@ -3372,12 +4394,27 @@ int main()
     subgradeTemplateRulesUseWideningTableAndPavementThicknessGate();
     subgradeTemplateVariableSlopeUsesOnlySlopeTable();
     subgradeTemplateCreateServiceBuildsDefaultTemplate();
+    slopeTemplateDefaultsBuildFillAndCutProfiles();
+    slopeTemplateRulesResolveThreeGeometryModes();
+    slopeTemplateRulesValidateRepeatLastGroup();
+    slopeTemplateCodesRoundTripAndDisplayChinese();
     roadModelTemplateResolverUsesHigherPriorityRows();
     roadModelTemplateResolverRejectsInvalidRows();
     roadModelStationSamplerIncludesIntervalTemplateAndVerticalCurveStations();
     roadModelStationSamplerOnlyKeepsTemplateCoveredStations();
     roadModelStationSamplerSnapsTemplateBoundaryTolerance();
     roadModelBuilderCreatesThreeDimensionalComponentLines();
+    roadModelSectionPreviewBuilderCreatesSubgradePreviewAtStation();
+    roadModelSectionPreviewBuilderAddsGroundLineFromTin();
+    roadModelBuilderStoresGroundProfileSnapshotsForSections();
+    roadModelSectionPreviewBuilderUsesStoredGroundSnapshotWithoutTin();
+    roadModelBuilderReportsProgressDuringBuild();
+    roadModelSlopeTemplateGroupResolverKeepsPriorityOrder();
+    roadModelBuilderCreatesSlopeLinesFromSubgradeOuterEdge();
+    roadModelBuilderCreatesMeshWireframeFromSampledSections();
+    roadModelBuilderCreatesTransitionWireLinesWhenSectionNodeCountsDiffer();
+    roadModelBuilderKeepsSlopeTransitionsOutsideSubgrade();
+    roadModelBuilderStopsSlopeAtTinGroundIntersection();
     roadModelBuilderDoesNotConnectAcrossTemplateSwitches();
     roadModelBuilderDoesNotConnectAcrossTemplateGaps();
     roadModelBuilderDoesNotMergeGapWhenBoundaryPointsCoincide();
@@ -3391,6 +4428,7 @@ int main()
     managedRibbonExtensionRegistersRoadModelEntryPoints();
     roadModelWpfBridgeSourceContainsRequiredFields();
     roadModelNativeDialogBridgeSourceContainsRequiredFields();
+    roadModelSectionViewerNativeBridgeSourceContainsRequiredFields();
     roadModelCommandSourceContainsCompleteObjectArxFlow();
     roadModelEntitySourceContainsRequiredObjectArxContracts();
     subgradeTemplateEntitySourceContainsMoveGrip();
@@ -3403,6 +4441,7 @@ int main()
     terrainPointNormalizerMergesDuplicateAndTextElevationPoints();
     terrainTinBuilderCreatesTrianglesAndRejectsCollinearInput();
     terrainSurfaceQueryInterpolatesElevationInsideTriangle();
+    terrainTriangleSpatialIndexFiltersCrossSectionCandidates();
     terrainMeshFileRoundTripsTinData();
     terrainMeshFileRejectsInvalidFiles();
     stationFormatterFormatsEngineeringStations();

@@ -26,7 +26,11 @@ public static class RoadModelDialogFile
             RoadCenterlineHandle = Get(values, "roadCenterlineHandle"),
             ProfileVerticalCurveHandle = Get(values, "profileVerticalCurveHandle"),
             SampleInterval = GetDouble(values, "sampleInterval", 10.0),
+            LeftSlopeSearchWidth = GetDouble(values, "leftSlopeSearchWidth", 50.0),
+            RightSlopeSearchWidth = GetDouble(values, "rightSlopeSearchWidth", 50.0),
             SelectedAssignmentIndex = GetInt(values, "selectedAssignmentIndex", -1),
+            SelectedLeftSlopeGroupIndex = GetInt(values, "selectedLeftSlopeGroupIndex", -1),
+            SelectedRightSlopeGroupIndex = GetInt(values, "selectedRightSlopeGroupIndex", -1),
         };
 
         var assignmentCount = Math.Max(0, GetInt(values, "assignmentCount"));
@@ -34,6 +38,8 @@ public static class RoadModelDialogFile
         {
             request.Assignments.Add(ReadAssignment(values, $"assignment.{i}"));
         }
+        ReadSlopeGroups(values, "leftSlopeGroup", request.LeftSlopeGroups);
+        ReadSlopeGroups(values, "rightSlopeGroup", request.RightSlopeGroups);
 
         return request;
     }
@@ -45,10 +51,13 @@ public static class RoadModelDialogFile
             Write("action", ActionText(response.Action)),
             Write("accepted", response.Accepted),
             Write("pickAssignmentIndex", response.PickAssignmentIndex),
+            Write("pickSlopeGroupIndex", response.PickSlopeGroupIndex),
             Write("handle", response.Handle),
             Write("roadCenterlineHandle", response.RoadCenterlineHandle),
             Write("profileVerticalCurveHandle", response.ProfileVerticalCurveHandle),
             Write("sampleInterval", response.SampleInterval),
+            Write("leftSlopeSearchWidth", response.LeftSlopeSearchWidth),
+            Write("rightSlopeSearchWidth", response.RightSlopeSearchWidth),
             Write("assignmentCount", response.Assignments.Count),
         };
 
@@ -56,6 +65,8 @@ public static class RoadModelDialogFile
         {
             WriteAssignment(lines, $"assignment.{i}", response.Assignments[i]);
         }
+        WriteSlopeGroups(lines, "leftSlopeGroup", response.LeftSlopeGroups);
+        WriteSlopeGroups(lines, "rightSlopeGroup", response.RightSlopeGroups);
 
         File.WriteAllLines(path, lines, new UTF8Encoding(false));
     }
@@ -75,6 +86,55 @@ public static class RoadModelDialogFile
         lines.Add(Write($"{prefix}.endStation", assignment.EndStation));
         lines.Add(Write($"{prefix}.templateHandle", assignment.TemplateHandle));
         lines.Add(Write($"{prefix}.templateName", assignment.TemplateName));
+    }
+
+    private static void ReadSlopeGroups(
+        Dictionary<string, string> values,
+        string prefix,
+        List<RoadModelSlopeTemplateGroupDto> output)
+    {
+        var groupCount = Math.Max(0, GetInt(values, $"{prefix}Count"));
+        for (var i = 0; i < groupCount; i++)
+        {
+            var groupPrefix = $"{prefix}.{i}";
+            var group = new RoadModelSlopeTemplateGroupDto
+            {
+                StartStation = GetDouble(values, $"{groupPrefix}.startStation"),
+                EndStation = GetDouble(values, $"{groupPrefix}.endStation"),
+            };
+            var templateCount = Math.Max(0, GetInt(values, $"{groupPrefix}.templateCount"));
+            for (var j = 0; j < templateCount; j++)
+            {
+                var templatePrefix = $"{groupPrefix}.template.{j}";
+                group.Templates.Add(new RoadModelSlopeTemplateReferenceDto
+                {
+                    TemplateHandle = Get(values, $"{templatePrefix}.templateHandle"),
+                    TemplateName = Get(values, $"{templatePrefix}.templateName"),
+                });
+            }
+            output.Add(group);
+        }
+    }
+
+    private static void WriteSlopeGroups(
+        List<string> lines,
+        string prefix,
+        List<RoadModelSlopeTemplateGroupDto> groups)
+    {
+        lines.Add(Write($"{prefix}Count", groups.Count));
+        for (var i = 0; i < groups.Count; i++)
+        {
+            var groupPrefix = $"{prefix}.{i}";
+            lines.Add(Write($"{groupPrefix}.startStation", groups[i].StartStation));
+            lines.Add(Write($"{groupPrefix}.endStation", groups[i].EndStation));
+            lines.Add(Write($"{groupPrefix}.templateCount", groups[i].Templates.Count));
+            for (var j = 0; j < groups[i].Templates.Count; j++)
+            {
+                var templatePrefix = $"{groupPrefix}.template.{j}";
+                lines.Add(Write($"{templatePrefix}.templateHandle", groups[i].Templates[j].TemplateHandle));
+                lines.Add(Write($"{templatePrefix}.templateName", groups[i].Templates[j].TemplateName));
+            }
+        }
     }
 
     private static Dictionary<string, string> ReadValues(string path)
@@ -126,6 +186,8 @@ public static class RoadModelDialogFile
         => action switch
         {
             RoadModelDialogAction.PickTemplate => "pickTemplate",
+            RoadModelDialogAction.PickLeftSlopeTemplate => "pickLeftSlopeTemplate",
+            RoadModelDialogAction.PickRightSlopeTemplate => "pickRightSlopeTemplate",
             _ => "none",
         };
 

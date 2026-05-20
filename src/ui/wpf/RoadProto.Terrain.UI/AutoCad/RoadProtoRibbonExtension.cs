@@ -17,7 +17,9 @@ using CoreApplication = Autodesk.AutoCAD.ApplicationServices.Core.Application;
 [assembly: ExtensionApplication(typeof(RoadProto.Terrain.UI.AutoCad.RoadProtoRibbonExtension))]
 [assembly: CommandClass(typeof(RoadProto.Terrain.UI.AutoCad.RoadProtoRibbonExtension))]
 [assembly: CommandClass(typeof(RoadProto.Terrain.UI.AutoCad.SubgradeTemplateDialogCommands))]
+[assembly: CommandClass(typeof(RoadProto.Terrain.UI.AutoCad.SlopeTemplateDialogCommands))]
 [assembly: CommandClass(typeof(RoadProto.Terrain.UI.AutoCad.RoadModelDialogCommands))]
+[assembly: CommandClass(typeof(RoadProto.Terrain.UI.AutoCad.RoadModelSectionViewerCommands))]
 
 namespace RoadProto.Terrain.UI.AutoCad;
 
@@ -39,14 +41,17 @@ public sealed class RoadProtoRibbonExtension : IExtensionApplication
     private const string ProfileVerticalCurveButtonId = "ROADPROTO_RD_PROFILE_VERTICAL_CURVE_CREATE";
     private const string CrossSectionPanelId = "ROADPROTO_CROSS_SECTION_PANEL";
     private const string SubgradeTemplateButtonId = "ROADPROTO_RD_SECTION_SUBGRADE_TEMPLATE_CREATE";
+    private const string SlopeTemplateButtonId = "ROADPROTO_RD_SECTION_SLOPE_TEMPLATE_CREATE";
     private const string RoadModelCreateButtonId = "ROADPROTO_RD_SECTION_ROAD_MODEL_CREATE";
     private const string RoadModelEditButtonId = "ROADPROTO_RD_SECTION_ROAD_MODEL_EDIT";
+    private const string RoadModelSectionViewerButtonId = "ROADPROTO_RD_SECTION_ROAD_MODEL_VIEW_SECTION";
     private const string TerrainTinDxfName = "DNTERRAINTINENTITY";
     private const string RoadCenterlineDxfName = "DNROADCENTERLINEENTITY";
     private const string ProfileGradeGraphDxfName = "DNPROFILEGRADEGRAPHENTITY";
     private const string ProfileVerticalCurveDxfName = "DNPROFILEVERTICALCURVEENTITY";
     private const string RoadModelDxfName = "DNROADMODELENTITY";
     private const string SubgradeTemplateDxfName = "DNSUBGRADETEMPLATEENTITY";
+    private const string SlopeTemplateDxfName = "DNSLOPETEMPLATEENTITY";
     private static ObjectId _lastDoubleClickObjectId = ObjectId.Null;
     private static DateTime _lastDoubleClickUtc = DateTime.MinValue;
     private static bool _doubleClickHookAttached;
@@ -268,6 +273,15 @@ public sealed class RoadProtoRibbonExtension : IExtensionApplication
                 "RD_SECTION_SUBGRADE_TEMPLATE_CREATE "));
         }
 
+        if (!crossSectionPanel.Source.Items.OfType<RibbonButton>().Any(item => item.Id == SlopeTemplateButtonId))
+        {
+            crossSectionPanel.Source.Items.Add(CreateCrossSectionCommandButton(
+                SlopeTemplateButtonId,
+                "创建边坡模板",
+                "点取插入点并创建独立边坡模板",
+                "RD_SECTION_SLOPE_TEMPLATE_CREATE "));
+        }
+
         if (!crossSectionPanel.Source.Items.OfType<RibbonButton>().Any(item => item.Id == RoadModelCreateButtonId))
         {
             crossSectionPanel.Source.Items.Add(CreateCrossSectionCommandButton(
@@ -284,6 +298,15 @@ public sealed class RoadProtoRibbonExtension : IExtensionApplication
                 "编辑道路模型",
                 "编辑已有道路模型",
                 "RD_SECTION_ROAD_MODEL_EDIT "));
+        }
+
+        if (!crossSectionPanel.Source.Items.OfType<RibbonButton>().Any(item => item.Id == RoadModelSectionViewerButtonId))
+        {
+            crossSectionPanel.Source.Items.Add(CreateCrossSectionCommandButton(
+                RoadModelSectionViewerButtonId,
+                "查看横断面",
+                "按采样桩号查看道路模型横断面预览",
+                "RD_SECTION_ROAD_MODEL_VIEW_SECTION "));
         }
 
         tab.IsActive = true;
@@ -457,6 +480,15 @@ public sealed class RoadProtoRibbonExtension : IExtensionApplication
                 if (!SuppressDuplicateDoubleClick(subgradeTemplateId))
                 {
                     QueueSubgradeTemplateEditByHandle(document, subgradeTemplateId);
+                }
+                return;
+            }
+
+            if (TryFindEntityByDxfName(document, e.Location, SlopeTemplateDxfName, out var slopeTemplateId))
+            {
+                if (!SuppressDuplicateDoubleClick(slopeTemplateId))
+                {
+                    QueueSlopeTemplateEditByHandle(document, slopeTemplateId);
                 }
             }
         }
@@ -659,6 +691,17 @@ public sealed class RoadProtoRibbonExtension : IExtensionApplication
         }
 
         document.SendStringToExecute($"RD_SECTION_SUBGRADE_TEMPLATE_EDIT_HANDLE {handle}\n", true, false, true);
+    }
+
+    private static void QueueSlopeTemplateEditByHandle(Document document, ObjectId entityId)
+    {
+        var handle = entityId.Handle.ToString();
+        if (string.IsNullOrWhiteSpace(handle))
+        {
+            return;
+        }
+
+        document.SendStringToExecute($"RD_SECTION_SLOPE_TEMPLATE_EDIT_HANDLE {handle}\n", true, false, true);
     }
 
     private static void QueueRoadModelEditByHandle(Document document, ObjectId entityId)

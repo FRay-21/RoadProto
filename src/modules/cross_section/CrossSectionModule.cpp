@@ -1,5 +1,6 @@
 #include "modules/cross_section/CrossSectionModule.h"
 
+#include "cad_adapter/objectarx/cross_section/ObjectArxPavementLayerTemplateCommand.h"
 #include "cad_adapter/objectarx/cross_section/ObjectArxRoadModelCommand.h"
 #include "cad_adapter/objectarx/cross_section/ObjectArxSlopeTemplateCommand.h"
 #include "cad_adapter/objectarx/cross_section/ObjectArxSubgradeTemplateCommand.h"
@@ -74,6 +75,39 @@ void registerCrossSectionCommands(core::CommandRegistry& commandRegistry)
         true,
         false,
         L"docs/business/cross_section/\u8fb9\u5761\u6a21\u677f_WPF\u6865\u63a5\u56de\u5199.md",
+        false});
+
+    commandRegistry.registerCommand(core::CommandDefinition{
+        L"RD_SECTION_PAVEMENT_LAYER_TEMPLATE_CREATE",
+        L"\u521b\u5efa\u8def\u9762\u7ed3\u6784\u5c42\u6a21\u677f",
+        L"CROSS_SECTION",
+        L"Creates an independent pavement layer template cross-section entity.",
+        cad_adapter::objectarx::cross_section::pavementLayerTemplateCreateCommandProcedure(),
+        true,
+        true,
+        L"docs/business/cross_section/\u8def\u9762\u7ed3\u6784\u5c42\u6a21\u677f_\u521b\u5efa.md",
+        true});
+
+    commandRegistry.registerCommand(core::CommandDefinition{
+        L"RD_SECTION_PAVEMENT_LAYER_TEMPLATE_EDIT_HANDLE",
+        L"\u6309 handle \u7f16\u8f91\u8def\u9762\u7ed3\u6784\u5c42\u6a21\u677f",
+        L"CROSS_SECTION",
+        L"Internal bridge command that edits a pavement layer template by handle.",
+        cad_adapter::objectarx::cross_section::pavementLayerTemplateEditHandleCommandProcedure(),
+        true,
+        false,
+        L"docs/business/cross_section/\u8def\u9762\u7ed3\u6784\u5c42\u6a21\u677f_\u7f16\u8f91.md",
+        false});
+
+    commandRegistry.registerCommand(core::CommandDefinition{
+        L"RD_SECTION_PAVEMENT_LAYER_TEMPLATE_APPLY_DIALOG_FILE",
+        L"\u5e94\u7528\u8def\u9762\u7ed3\u6784\u5c42\u6a21\u677f\u5bf9\u8bdd\u6846\u7ed3\u679c",
+        L"CROSS_SECTION",
+        L"Internal WPF bridge command that applies pavement layer template dialog response files.",
+        cad_adapter::objectarx::cross_section::pavementLayerTemplateApplyDialogFileCommandProcedure(),
+        true,
+        false,
+        L"docs/business/cross_section/\u8def\u9762\u7ed3\u6784\u5c42\u6a21\u677f_WPF\u6865\u63a5\u56de\u5199.md",
         false});
 
     commandRegistry.registerCommand(core::CommandDefinition{

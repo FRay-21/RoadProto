@@ -88,6 +88,7 @@
     <ClCompile Include="..\domain\terrain\TerrainTinBuilder.cpp" />
     <ClCompile Include="..\application\alignment\AlignmentCreateService.cpp" />
     <ClCompile Include="..\application\cross_section\RoadModelBuildService.cpp" />
+    <ClCompile Include="..\application\cross_section\PavementLayerTemplateCreateService.cpp" />
     <ClCompile Include="..\application\cross_section\SlopeTemplateCreateService.cpp" />
     <ClCompile Include="..\application\cross_section\SubgradeTemplateCreateService.cpp" />
     <ClCompile Include="..\application\profile\ProfileGradeGraphCreateService.cpp" />
@@ -109,14 +110,17 @@
     <ClCompile Include="..\cad_adapter\objectarx\alignment\AlignmentDialogBridge.cpp" />
     <ClCompile Include="..\cad_adapter\objectarx\alignment\DnRoadCenterlineEntity.cpp" />
     <ClCompile Include="..\cad_adapter\objectarx\alignment\ObjectArxAlignmentCommand.cpp" />
+    <ClCompile Include="..\cad_adapter\objectarx\cross_section\DnPavementLayerTemplateEntity.cpp" />
     <ClCompile Include="..\cad_adapter\objectarx\cross_section\DnRoadModelEntity.cpp" />
     <ClCompile Include="..\cad_adapter\objectarx\cross_section\DnSlopeTemplateEntity.cpp" />
     <ClCompile Include="..\cad_adapter\objectarx\cross_section\DnSubgradeTemplateEntity.cpp" />
     <ClCompile Include="..\cad_adapter\objectarx\cross_section\RoadModelDialogBridge.cpp" />
     <ClCompile Include="..\cad_adapter\objectarx\cross_section\RoadModelSectionViewerBridge.cpp" />
+    <ClCompile Include="..\cad_adapter\objectarx\cross_section\ObjectArxPavementLayerTemplateCommand.cpp" />
     <ClCompile Include="..\cad_adapter\objectarx\cross_section\ObjectArxRoadModelCommand.cpp" />
     <ClCompile Include="..\cad_adapter\objectarx\cross_section\ObjectArxSlopeTemplateCommand.cpp" />
     <ClCompile Include="..\cad_adapter\objectarx\cross_section\ObjectArxSubgradeTemplateCommand.cpp" />
+    <ClCompile Include="..\cad_adapter\objectarx\cross_section\PavementLayerTemplateDialogBridge.cpp" />
     <ClCompile Include="..\cad_adapter\objectarx\cross_section\SlopeTemplateDialogBridge.cpp" />
     <ClCompile Include="..\cad_adapter\objectarx\cross_section\SubgradeTemplateDialogBridge.cpp" />
     <ClCompile Include="..\cad_adapter\objectarx\profile\DnProfileGradeGraphEntity.cpp" />

@@ -5,7 +5,7 @@
 - 模块名称：横断面设计
 - 模块编码：`CROSS_SECTION`
 - 命令前缀：`RD_SECTION_`
-- 当前状态：已实现路基模板独立实体创建、边坡模板独立实体创建、WPF 参数窗口、二维预览、双击编辑入口、桥接回写和插入点夹点移动；已实现横断面戴帽道路模型创建、编辑、WPF 路基模板范围表、左右边坡模板组、模板组管理入口、生成进度反馈、`DnRoadModelEntity` 三维道路模型网格线框实体、断面地面快照、按采样桩号查看横断面预览和 ObjectARX 回写流程。
+- 当前状态：已实现路基模板独立实体创建、边坡模板独立实体创建、路面结构层模板独立实体创建、WPF 参数窗口、二维预览、双击编辑入口、桥接回写和插入点夹点移动；已实现横断面戴帽道路模型创建、编辑、WPF 路基模板范围表、左右边坡模板组、模板组管理入口、生成进度反馈、`DnRoadModelEntity` 三维道路模型网格线框实体、断面地面快照、按采样桩号查看横断面预览和 ObjectARX 回写流程。
 
 ## 命令清单
 
@@ -17,6 +17,9 @@
 | `RD_SECTION_SLOPE_TEMPLATE_CREATE` | 创建边坡模板 | 用户命令 | `docs/business/cross_section/边坡模板_创建.md` |
 | `RD_SECTION_SLOPE_TEMPLATE_EDIT_HANDLE` | 按 handle 编辑边坡模板 | 内部桥接命令 | `docs/business/cross_section/边坡模板_编辑.md` |
 | `RD_SECTION_SLOPE_TEMPLATE_APPLY_DIALOG_FILE` | 应用边坡模板对话框结果 | 内部桥接命令 | `docs/business/cross_section/边坡模板_WPF桥接回写.md` |
+| `RD_SECTION_PAVEMENT_LAYER_TEMPLATE_CREATE` | 创建路面结构层模板 | 用户命令 | `docs/business/cross_section/路面结构层模板_创建.md` |
+| `RD_SECTION_PAVEMENT_LAYER_TEMPLATE_EDIT_HANDLE` | 按 handle 编辑路面结构层模板 | 内部桥接命令 | `docs/business/cross_section/路面结构层模板_编辑.md` |
+| `RD_SECTION_PAVEMENT_LAYER_TEMPLATE_APPLY_DIALOG_FILE` | 应用路面结构层模板对话框结果 | 内部桥接命令 | `docs/business/cross_section/路面结构层模板_WPF桥接回写.md` |
 | `RD_SECTION_ROAD_MODEL_CREATE` | 横断面戴帽 | 用户命令 | `docs/business/cross_section/横断面戴帽_道路模型创建.md` |
 | `RD_SECTION_ROAD_MODEL_EDIT` | 编辑道路模型 | 用户命令 | `docs/business/cross_section/道路模型_编辑.md` |
 | `RD_SECTION_ROAD_MODEL_VIEW_SECTION` | 查看横断面 | 用户命令 | `docs/business/cross_section/查看横断面.md` |
@@ -35,20 +38,25 @@
 | --- | --- | --- |
 | domain | `src/domain/cross_section/SubgradeTemplateModel.*` | 路基模板枚举、数据模型、默认值、颜色、显示比例和基础规则 |
 | domain | `src/domain/cross_section/SlopeTemplateModel.*` | 边坡模板枚举、默认值、坡率/坡高/宽度约束、控制条件和重复最后一组规则 |
+| domain | `src/domain/cross_section/PavementLayerTemplateModel.*` | 路面结构层模板枚举、默认值、厚度/加宽/坡度规则和横断面预览几何构建 |
 | domain | `src/domain/cross_section/RoadModel.*` | 道路模型配置、模板范围、边坡模板组、采样、TIN 地面剖切、断面节点链、三维网格线框和横断面预览领域模型 |
 | application | `src/application/cross_section/SubgradeTemplateCreateService.*` | 创建命令默认模板数据生成 |
 | application | `src/application/cross_section/SlopeTemplateCreateService.*` | 创建命令默认边坡模板数据生成 |
+| application | `src/application/cross_section/PavementLayerTemplateCreateService.*` | 创建命令默认路面结构层模板数据生成 |
 | application | `src/application/cross_section/RoadModelBuildService.*` | 道路模型构建流程服务 |
 | modules | `src/modules/cross_section/CrossSectionModule.*` | 模块、命令和 C++ Ribbon 元数据注册 |
 | startup | `src/app/startup/CrossSectionStartupRegistration.*` | 启动期注册 `CROSS_SECTION` 模块 |
 | cad_adapter | `src/cad_adapter/objectarx/cross_section/DnSubgradeTemplateEntity.*` | 自定义实体显示、DWG 持久化、几何范围和变换 |
 | cad_adapter | `src/cad_adapter/objectarx/cross_section/DnSlopeTemplateEntity.*` | 边坡模板自定义实体线框显示、DWG 持久化、几何范围和变换 |
+| cad_adapter | `src/cad_adapter/objectarx/cross_section/DnPavementLayerTemplateEntity.*` | 路面结构层模板自定义实体预览显示、DWG 持久化、几何范围和变换 |
 | cad_adapter | `src/cad_adapter/objectarx/cross_section/DnRoadModelEntity.*` | 道路模型三维网格线框显示、DWG 持久化、几何范围和变换 |
 | cad_adapter | `src/cad_adapter/objectarx/cross_section/ObjectArxSubgradeTemplateCommand.*` | 插入点点取、弹窗、实体创建和回写命令 |
 | cad_adapter | `src/cad_adapter/objectarx/cross_section/ObjectArxSlopeTemplateCommand.*` | 边坡模板插入点点取、弹窗、实体创建和回写命令 |
+| cad_adapter | `src/cad_adapter/objectarx/cross_section/ObjectArxPavementLayerTemplateCommand.*` | 路面结构层模板插入点点取、弹窗、实体创建和回写命令 |
 | cad_adapter | `src/cad_adapter/objectarx/cross_section/ObjectArxRoadModelCommand.*` | 道路模型创建、编辑、查看横断面和 WPF 回写命令入口 |
 | cad_adapter | `src/cad_adapter/objectarx/cross_section/SubgradeTemplateDialogBridge.*` | WPF 请求/响应文件桥接 |
 | cad_adapter | `src/cad_adapter/objectarx/cross_section/SlopeTemplateDialogBridge.*` | 边坡模板 WPF 请求/响应文件桥接 |
+| cad_adapter | `src/cad_adapter/objectarx/cross_section/PavementLayerTemplateDialogBridge.*` | 路面结构层模板 WPF 请求/响应文件桥接 |
 | cad_adapter | `src/cad_adapter/objectarx/cross_section/RoadModelDialogBridge.*` | 道路模型 WPF 请求/响应文件桥接 |
 | cad_adapter | `src/cad_adapter/objectarx/cross_section/RoadModelSectionViewerBridge.*` | 查看横断面 WPF 请求文件桥接 |
 | WPF | `src/ui/wpf/RoadProto.Terrain.UI/SubgradeTemplateWindow.xaml` | 参数窗口和二维预览 |

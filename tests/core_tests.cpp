@@ -85,7 +85,20 @@ std::string readTextFileForTests(const std::filesystem::path& path)
         return {};
     }
 
-    return std::string(std::istreambuf_iterator<char>(input), std::istreambuf_iterator<char>());
+    auto text = std::string(std::istreambuf_iterator<char>(input), std::istreambuf_iterator<char>());
+    std::string normalized;
+    normalized.reserve(text.size());
+    for (std::size_t i = 0; i < text.size(); ++i) {
+        if (text[i] == '\r') {
+            if (i + 1 < text.size() && text[i + 1] == '\n') {
+                continue;
+            }
+            normalized.push_back('\n');
+            continue;
+        }
+        normalized.push_back(text[i]);
+    }
+    return normalized;
 }
 
 void checkBusinessDocExistsForTests(const std::wstring& businessDocPath)

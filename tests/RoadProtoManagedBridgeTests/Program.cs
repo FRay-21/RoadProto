@@ -647,7 +647,7 @@ static void RoadModelSectionViewerRequestReadsPreviewsUsingInvariantCultureAndEs
             "preview.0.stationLabel=K0+010.5",
             "preview.0.statusMessage=已生成%0A预览",
             "preview.0.hasGroundLine=1",
-            "preview.0.segmentCount=2",
+            "preview.0.segmentCount=3",
             "preview.0.segment.0.kind=Subgrade",
             "preview.0.segment.0.label=路基模板",
             "preview.0.segment.0.colorR=1",
@@ -668,6 +668,16 @@ static void RoadModelSectionViewerRequestReadsPreviewsUsingInvariantCultureAndEs
             "preview.0.segment.1.point.0.elevation=98.5",
             "preview.0.segment.1.point.1.offset=10",
             "preview.0.segment.1.point.1.elevation=103.75",
+            "preview.0.segment.2.kind=PavementLayer",
+            "preview.0.segment.2.label=结构层",
+            "preview.0.segment.2.colorR=196",
+            "preview.0.segment.2.colorG=86",
+            "preview.0.segment.2.colorB=28",
+            "preview.0.segment.2.pointCount=2",
+            "preview.0.segment.2.point.0.offset=-3.5",
+            "preview.0.segment.2.point.0.elevation=101.12",
+            "preview.0.segment.2.point.1.offset=3.5",
+            "preview.0.segment.2.point.1.elevation=101.12",
         }, Encoding.UTF8);
 
         WithCulture("fr-FR", () =>
@@ -679,8 +689,11 @@ static void RoadModelSectionViewerRequestReadsPreviewsUsingInvariantCultureAndEs
             Check(Math.Abs(request.Previews[0].Station - 10.5) < 1.0e-9, "section viewer station should parse invariant decimal");
             Check(request.Previews[0].StatusMessage == "已生成\n预览", "section viewer status should unescape newline");
             Check(request.Previews[0].HasGroundLine, "section viewer should keep ground line flag");
-            Check(request.Previews[0].Segments.Count == 2, "section viewer should read segments");
+            Check(request.Previews[0].Segments.Count == 3, "section viewer should read segments");
             Check(request.Previews[0].Segments[0].Kind == RoadModelSectionViewerSegmentKind.Subgrade, "section viewer should parse segment kind");
+            var pavementLayerKind = RequiredEnumValue("RoadProto.Terrain.UI.Bridge.RoadModelSectionViewerSegmentKind", "PavementLayer");
+            Check(request.Previews[0].Segments[2].Kind.Equals(pavementLayerKind), "section viewer should parse pavement layer segment kind");
+            Check(request.Previews[0].Segments[2].Label == "结构层", "section viewer should read pavement layer label");
             Check(request.Previews[0].Segments[0].Points.Count == 2, "section viewer should read segment points");
             Check(Math.Abs(request.Previews[0].Segments[0].Points[1].Offset + 3.5) < 1.0e-9, "section viewer point offset should parse invariant decimal");
         });
@@ -707,7 +720,17 @@ static void RoadModelSectionViewerWindowContainsStationListPreviewAndLegend()
     Check(xaml.Contains("Title=\"查看横断面\""), "section viewer window title should be 查看横断面");
     Check(xaml.Contains("x:Name=\"StationListBox\""), "section viewer should include station selector");
     Check(xaml.Contains("x:Name=\"PreviewCanvas\""), "section viewer should include preview canvas");
-    Check(xaml.Contains("路基模板") && xaml.Contains("边坡模板") && xaml.Contains("地面线"), "section viewer should show layer legend");
+    Check(xaml.Contains("路基模板") && xaml.Contains("边坡模板") && xaml.Contains("地面线") && xaml.Contains("结构层"), "section viewer should show layer legend");
+
+    var sourcePath = Path.Combine(
+        FindRepoRoot(),
+        "src",
+        "ui",
+        "wpf",
+        "RoadProto.Terrain.UI",
+        "RoadModelSectionViewerWindow.xaml.cs");
+    var source = File.ReadAllText(sourcePath, Encoding.UTF8);
+    Check(source.Contains("RoadModelSectionViewerSegmentKind.PavementLayer"), "section viewer draw path should handle pavement layer segments");
 }
 
 static void RoadModelWindowReadOnlyHandleBindingIsOneWay()

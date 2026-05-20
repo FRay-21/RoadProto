@@ -110,6 +110,7 @@ public static class RoadModelSectionViewerFile
         {
             "Slope" => RoadModelSectionViewerSegmentKind.Slope,
             "Ground" => RoadModelSectionViewerSegmentKind.Ground,
+            "PavementLayer" => RoadModelSectionViewerSegmentKind.PavementLayer,
             _ => RoadModelSectionViewerSegmentKind.Subgrade,
         };
 

@@ -14,6 +14,8 @@ using roadproto::domain::cross_section::RoadModelComponentLine;
 using roadproto::domain::cross_section::RoadModelData;
 using roadproto::domain::cross_section::RoadModelGroundProfilePoint;
 using roadproto::domain::cross_section::RoadModelLineKey;
+using roadproto::domain::cross_section::RoadModelPavementLayerLine;
+using roadproto::domain::cross_section::RoadModelPavementLayerLineKey;
 using roadproto::domain::cross_section::RoadModelPoint3d;
 using roadproto::domain::cross_section::RoadModelSection;
 using roadproto::domain::cross_section::RoadModelSectionNode;
@@ -43,7 +45,7 @@ ACRX_DXF_DEFINE_MEMBERS(
 
 namespace {
 
-constexpr Adesk::Int16 kEntityVersion = 5;
+constexpr Adesk::Int16 kEntityVersion = 6;
 constexpr Adesk::Int32 kMaxAssignments = 10000;
 constexpr Adesk::Int32 kMaxSlopeTemplateGroups = 10000;
 constexpr Adesk::Int32 kMaxSlopeTemplateReferences = 10000;
@@ -108,6 +110,13 @@ bool validateAllRoadModelPointsFinite(const RoadModelData& data)
             }
         }
     }
+    for (const auto& line : data.pavementLayerLines) {
+        for (const auto& point : line.points) {
+            if (!isFiniteRoadModelPoint(point)) {
+                return false;
+            }
+        }
+    }
     for (const auto& section : data.sections) {
         for (const auto& node : section.leftNodes) {
             if (!isFiniteRoadModelPoint(node.point)) {
@@ -115,6 +124,16 @@ bool validateAllRoadModelPointsFinite(const RoadModelData& data)
             }
         }
         for (const auto& node : section.rightNodes) {
+            if (!isFiniteRoadModelPoint(node.point)) {
+                return false;
+            }
+        }
+        for (const auto& node : section.leftPavementLayerNodes) {
+            if (!isFiniteRoadModelPoint(node.point)) {
+                return false;
+            }
+        }
+        for (const auto& node : section.rightPavementLayerNodes) {
             if (!isFiniteRoadModelPoint(node.point)) {
                 return false;
             }
@@ -260,6 +279,16 @@ bool isValidSlopeLineKey(const RoadModelSlopeLineKey& key)
         && isValidSlopeComponentTypeValue(static_cast<Adesk::Int32>(key.componentType));
 }
 
+bool isValidPavementLayerLineKey(const RoadModelPavementLayerLineKey& key)
+{
+    return !key.subgradeTemplateHandle.empty()
+        && !key.pavementLayerTemplateHandle.empty()
+        && canWriteInt32(key.componentIndex)
+        && canWriteInt32(key.layerIndex)
+        && canWriteInt32(key.boundaryIndex)
+        && isValidSubgradeSideValue(static_cast<Adesk::Int32>(key.side));
+}
+
 bool isValidSlopeTemplateGroup(const RoadModelSlopeTemplateGroup& group)
 {
     if (!std::isfinite(group.startStation) || !std::isfinite(group.endStation) ||
@@ -302,6 +331,8 @@ bool isValidRoadModelSection(const RoadModelSection& section)
     if (!std::isfinite(section.station)
         || section.leftNodes.size() > static_cast<std::size_t>(kMaxRoadModelSectionNodes)
         || section.rightNodes.size() > static_cast<std::size_t>(kMaxRoadModelSectionNodes)
+        || section.leftPavementLayerNodes.size() > static_cast<std::size_t>(kMaxRoadModelSectionNodes)
+        || section.rightPavementLayerNodes.size() > static_cast<std::size_t>(kMaxRoadModelSectionNodes)
         || !isValidRoadModelGroundProfile(section.leftGroundProfile)
         || !isValidRoadModelGroundProfile(section.rightGroundProfile)) {
         return false;
@@ -313,6 +344,30 @@ bool isValidRoadModelSection(const RoadModelSection& section)
     }
     for (const auto& node : section.rightNodes) {
         if (!isValidRoadModelSectionNode(node, SubgradeSide::Right)) {
+            return false;
+        }
+    }
+    for (const auto& node : section.leftPavementLayerNodes) {
+        if (!isValidRoadModelSectionNode(node, SubgradeSide::Left)) {
+            return false;
+        }
+    }
+    for (const auto& node : section.rightPavementLayerNodes) {
+        if (!isValidRoadModelSectionNode(node, SubgradeSide::Right)) {
+            return false;
+        }
+    }
+    return true;
+}
+
+bool isValidPavementLayerLine(const RoadModelPavementLayerLine& line)
+{
+    if (!isValidPavementLayerLineKey(line.key)
+        || line.points.size() > static_cast<std::size_t>(kMaxLinePoints)) {
+        return false;
+    }
+    for (const auto& point : line.points) {
+        if (!isFiniteRoadModelPoint(point)) {
             return false;
         }
     }
@@ -340,6 +395,7 @@ bool validateRoadModelDataForPersistence(const RoadModelData& data)
         || data.sampledStations.size() > static_cast<std::size_t>(kMaxSampledStations)
         || data.componentLines.size() > static_cast<std::size_t>(kMaxComponentLines)
         || data.slopeLines.size() > static_cast<std::size_t>(kMaxComponentLines)
+        || data.pavementLayerLines.size() > static_cast<std::size_t>(kMaxComponentLines)
         || data.sections.size() > static_cast<std::size_t>(kMaxRoadModelSections)
         || data.wireLines.size() > static_cast<std::size_t>(kMaxRoadModelWireLines)
         || !std::isfinite(data.config.sampleInterval)
@@ -392,12 +448,23 @@ bool validateRoadModelDataForPersistence(const RoadModelData& data)
             return false;
         }
     }
+    for (const auto& line : data.pavementLayerLines) {
+        if (!isValidPavementLayerLine(line)) {
+            return false;
+        }
+        totalPoints += line.points.size();
+        if (totalPoints > static_cast<std::size_t>(kMaxTotalPoints)) {
+            return false;
+        }
+    }
     for (const auto& section : data.sections) {
         if (!isValidRoadModelSection(section)) {
             return false;
         }
         totalPoints += section.leftNodes.size()
             + section.rightNodes.size()
+            + section.leftPavementLayerNodes.size()
+            + section.rightPavementLayerNodes.size()
             + section.leftGroundProfile.size()
             + section.rightGroundProfile.size();
         if (totalPoints > static_cast<std::size_t>(kMaxTotalPoints)) {
@@ -598,6 +665,57 @@ Acad::ErrorStatus readSlopeComponentLine(
     return Acad::eOk;
 }
 
+Acad::ErrorStatus readPavementLayerLine(
+    AcDbDwgFiler* filer,
+    RoadModelPavementLayerLine& line,
+    Adesk::Int32& totalPointCount)
+{
+    line.key.subgradeTemplateHandle = readWideString(filer);
+    line.key.pavementLayerTemplateHandle = readWideString(filer);
+
+    Adesk::Int32 side = 0;
+    Adesk::Int32 componentIndex = 0;
+    Adesk::Int32 layerIndex = 0;
+    Adesk::Int32 boundaryIndex = 0;
+    filer->readInt32(&side);
+    filer->readInt32(&componentIndex);
+    filer->readInt32(&layerIndex);
+    filer->readInt32(&boundaryIndex);
+    if (componentIndex < 0 || layerIndex < 0 || boundaryIndex < 0
+        || !isValidSubgradeSideValue(side)) {
+        return Acad::eInvalidInput;
+    }
+
+    line.key.side = side == static_cast<Adesk::Int32>(SubgradeSide::Left)
+        ? SubgradeSide::Left
+        : SubgradeSide::Right;
+    line.key.componentIndex = static_cast<std::size_t>(componentIndex);
+    line.key.layerIndex = static_cast<std::size_t>(layerIndex);
+    line.key.boundaryIndex = static_cast<std::size_t>(boundaryIndex);
+
+    readRoadModelWireColor(filer, line.color);
+
+    Adesk::Int32 pointCount = 0;
+    if (!readCount(filer, kMaxLinePoints, pointCount)
+        || !addToTotalPointCount(totalPointCount, pointCount)
+        || !isValidPavementLayerLineKey(line.key)) {
+        return Acad::eInvalidInput;
+    }
+
+    line.points.clear();
+    line.points.reserve(static_cast<std::size_t>(pointCount));
+    for (Adesk::Int32 i = 0; i < pointCount; ++i) {
+        RoadModelPoint3d point;
+        readPoint(filer, point);
+        if (!isFiniteRoadModelPoint(point)) {
+            return Acad::eInvalidInput;
+        }
+        line.points.push_back(point);
+    }
+
+    return Acad::eOk;
+}
+
 void writeLineKey(AcDbDwgFiler* filer, const RoadModelLineKey& key)
 {
     writeWideString(filer, key.templateHandle);
@@ -615,6 +733,16 @@ void writeSlopeLineKey(AcDbDwgFiler* filer, const RoadModelSlopeLineKey& key)
     filer->writeInt32(static_cast<Adesk::Int32>(key.groupIndex));
     filer->writeInt32(static_cast<Adesk::Int32>(key.templateOrder));
     filer->writeInt32(static_cast<Adesk::Int32>(key.componentIndex));
+    filer->writeInt32(static_cast<Adesk::Int32>(key.boundaryIndex));
+}
+
+void writePavementLayerLineKey(AcDbDwgFiler* filer, const RoadModelPavementLayerLineKey& key)
+{
+    writeWideString(filer, key.subgradeTemplateHandle);
+    writeWideString(filer, key.pavementLayerTemplateHandle);
+    filer->writeInt32(static_cast<Adesk::Int32>(key.side));
+    filer->writeInt32(static_cast<Adesk::Int32>(key.componentIndex));
+    filer->writeInt32(static_cast<Adesk::Int32>(key.layerIndex));
     filer->writeInt32(static_cast<Adesk::Int32>(key.boundaryIndex));
 }
 
@@ -636,6 +764,16 @@ void writeSlopeComponentLine(AcDbDwgFiler* filer, const RoadModelSlopeComponentL
     filer->writeInt32(line.color.r);
     filer->writeInt32(line.color.g);
     filer->writeInt32(line.color.b);
+    filer->writeInt32(static_cast<Adesk::Int32>(line.points.size()));
+    for (const auto& point : line.points) {
+        writePoint(filer, point);
+    }
+}
+
+void writePavementLayerLine(AcDbDwgFiler* filer, const RoadModelPavementLayerLine& line)
+{
+    writePavementLayerLineKey(filer, line.key);
+    writeRoadModelWireColor(filer, line.color);
     filer->writeInt32(static_cast<Adesk::Int32>(line.points.size()));
     for (const auto& point : line.points) {
         writePoint(filer, point);
@@ -774,6 +912,46 @@ Acad::ErrorStatus readRoadModelSection(
         section.rightNodes.push_back(std::move(node));
     }
 
+    section.leftPavementLayerNodes.clear();
+    section.rightPavementLayerNodes.clear();
+    if (version >= 6) {
+        Adesk::Int32 leftPavementLayerNodeCount = 0;
+        if (!readCount(filer, kMaxRoadModelSectionNodes, leftPavementLayerNodeCount)) {
+            return Acad::eInvalidInput;
+        }
+        section.leftPavementLayerNodes.reserve(static_cast<std::size_t>(leftPavementLayerNodeCount));
+        for (Adesk::Int32 i = 0; i < leftPavementLayerNodeCount; ++i) {
+            RoadModelSectionNode node;
+            const auto status = readRoadModelSectionNode(
+                filer,
+                SubgradeSide::Left,
+                node,
+                totalPointCount);
+            if (status != Acad::eOk) {
+                return status;
+            }
+            section.leftPavementLayerNodes.push_back(std::move(node));
+        }
+
+        Adesk::Int32 rightPavementLayerNodeCount = 0;
+        if (!readCount(filer, kMaxRoadModelSectionNodes, rightPavementLayerNodeCount)) {
+            return Acad::eInvalidInput;
+        }
+        section.rightPavementLayerNodes.reserve(static_cast<std::size_t>(rightPavementLayerNodeCount));
+        for (Adesk::Int32 i = 0; i < rightPavementLayerNodeCount; ++i) {
+            RoadModelSectionNode node;
+            const auto status = readRoadModelSectionNode(
+                filer,
+                SubgradeSide::Right,
+                node,
+                totalPointCount);
+            if (status != Acad::eOk) {
+                return status;
+            }
+            section.rightPavementLayerNodes.push_back(std::move(node));
+        }
+    }
+
     section.leftGroundProfile.clear();
     section.rightGroundProfile.clear();
     if (version >= 5) {
@@ -809,6 +987,16 @@ void writeRoadModelSection(AcDbDwgFiler* filer, const RoadModelSection& section)
 
     filer->writeInt32(static_cast<Adesk::Int32>(section.rightNodes.size()));
     for (const auto& node : section.rightNodes) {
+        writeRoadModelSectionNode(filer, node);
+    }
+
+    filer->writeInt32(static_cast<Adesk::Int32>(section.leftPavementLayerNodes.size()));
+    for (const auto& node : section.leftPavementLayerNodes) {
+        writeRoadModelSectionNode(filer, node);
+    }
+
+    filer->writeInt32(static_cast<Adesk::Int32>(section.rightPavementLayerNodes.size()));
+    for (const auto& node : section.rightPavementLayerNodes) {
         writeRoadModelSectionNode(filer, node);
     }
 
@@ -888,6 +1076,19 @@ void drawRoadModelWireLines(
     const std::vector<RoadModelWireLine>& wireLines)
 {
     for (const auto& line : wireLines) {
+        if (line.points.size() < 2) {
+            continue;
+        }
+        worldDraw->subEntityTraits().setTrueColor(roadModelLineColor(line.color));
+        drawRoadModelPolyline(worldDraw, line.points);
+    }
+}
+
+void drawPavementLayerLines(
+    AcGiWorldDraw* worldDraw,
+    const std::vector<RoadModelPavementLayerLine>& pavementLayerLines)
+{
+    for (const auto& line : pavementLayerLines) {
         if (line.points.size() < 2) {
             continue;
         }
@@ -1058,6 +1259,22 @@ Acad::ErrorStatus DnRoadModelEntity::dwgInFields(AcDbDwgFiler* filer)
         }
     }
 
+    if (version >= 6) {
+        Adesk::Int32 pavementLayerLineCount = 0;
+        if (!readCount(filer, kMaxComponentLines, pavementLayerLineCount)) {
+            return Acad::eInvalidInput;
+        }
+        readData.pavementLayerLines.reserve(static_cast<std::size_t>(pavementLayerLineCount));
+        for (Adesk::Int32 i = 0; i < pavementLayerLineCount; ++i) {
+            RoadModelPavementLayerLine line;
+            status = readPavementLayerLine(filer, line, totalPointCount);
+            if (status != Acad::eOk) {
+                return status;
+            }
+            readData.pavementLayerLines.push_back(std::move(line));
+        }
+    }
+
     if (version >= 4) {
         Adesk::Int32 sectionCount = 0;
         if (!readCount(filer, kMaxRoadModelSections, sectionCount)) {
@@ -1148,6 +1365,11 @@ Acad::ErrorStatus DnRoadModelEntity::dwgOutFields(AcDbDwgFiler* filer) const
         writeSlopeComponentLine(filer, line);
     }
 
+    filer->writeInt32(static_cast<Adesk::Int32>(data_.pavementLayerLines.size()));
+    for (const auto& line : data_.pavementLayerLines) {
+        writePavementLayerLine(filer, line);
+    }
+
     filer->writeInt32(static_cast<Adesk::Int32>(data_.sections.size()));
     for (const auto& section : data_.sections) {
         writeRoadModelSection(filer, section);
@@ -1190,6 +1412,7 @@ Adesk::Boolean DnRoadModelEntity::subWorldDraw(AcGiWorldDraw* worldDraw)
         worldDraw->subEntityTraits().setTrueColor(roadModelLineColor(line.color));
         drawRoadModelPolyline(worldDraw, line.points);
     }
+    drawPavementLayerLines(worldDraw, data_.pavementLayerLines);
 
     return Adesk::kTrue;
 }
@@ -1209,11 +1432,22 @@ Acad::ErrorStatus DnRoadModelEntity::subGetGeomExtents(AcDbExtents& extents) con
             addPointToRoadModelExtents(extents, point, hasPoint);
         }
     }
+    for (const auto& line : data_.pavementLayerLines) {
+        for (const auto& point : line.points) {
+            addPointToRoadModelExtents(extents, point, hasPoint);
+        }
+    }
     for (const auto& section : data_.sections) {
         for (const auto& node : section.leftNodes) {
             addPointToRoadModelExtents(extents, node.point, hasPoint);
         }
         for (const auto& node : section.rightNodes) {
+            addPointToRoadModelExtents(extents, node.point, hasPoint);
+        }
+        for (const auto& node : section.leftPavementLayerNodes) {
+            addPointToRoadModelExtents(extents, node.point, hasPoint);
+        }
+        for (const auto& node : section.rightPavementLayerNodes) {
             addPointToRoadModelExtents(extents, node.point, hasPoint);
         }
     }
@@ -1251,6 +1485,14 @@ Acad::ErrorStatus DnRoadModelEntity::subTransformBy(const AcGeMatrix3d& transfor
             }
         }
     }
+    for (auto& line : transformedData.pavementLayerLines) {
+        for (auto& point : line.points) {
+            const auto status = transformRoadModelPoint(point, transform);
+            if (status != Acad::eOk) {
+                return status;
+            }
+        }
+    }
     for (auto& section : transformedData.sections) {
         for (auto& node : section.leftNodes) {
             const auto status = transformRoadModelPoint(node.point, transform);
@@ -1259,6 +1501,18 @@ Acad::ErrorStatus DnRoadModelEntity::subTransformBy(const AcGeMatrix3d& transfor
             }
         }
         for (auto& node : section.rightNodes) {
+            const auto status = transformRoadModelPoint(node.point, transform);
+            if (status != Acad::eOk) {
+                return status;
+            }
+        }
+        for (auto& node : section.leftPavementLayerNodes) {
+            const auto status = transformRoadModelPoint(node.point, transform);
+            if (status != Acad::eOk) {
+                return status;
+            }
+        }
+        for (auto& node : section.rightPavementLayerNodes) {
             const auto status = transformRoadModelPoint(node.point, transform);
             if (status != Acad::eOk) {
                 return status;

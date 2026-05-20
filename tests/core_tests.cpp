@@ -2749,6 +2749,8 @@ void roadModelSectionViewerNativeBridgeSourceContainsRequiredFields()
     CHECK(bridge.find("segmentCount") != std::string::npos);
     CHECK(bridge.find("pointCount") != std::string::npos);
     CHECK(bridge.find("stationLabel") != std::string::npos);
+    CHECK(bridge.find("RoadModelSectionPreviewSegmentKind::PavementLayer") != std::string::npos);
+    CHECK(bridge.find("return L\"PavementLayer\"") != std::string::npos);
     CHECK(commandHeader.find("roadModelViewSectionCommandProcedure") != std::string::npos);
     CHECK(command.find("RoadModelSectionViewerBridge.h") != std::string::npos);
     CHECK(command.find("runRoadModelViewSectionCommand") != std::string::npos);
@@ -2943,6 +2945,7 @@ void roadModelCommandSourceContainsCompleteObjectArxFlow()
     CHECK(source.find("DnProfileVerticalCurveEntity") != std::string::npos);
     CHECK(source.find("DnSubgradeTemplateEntity") != std::string::npos);
     CHECK(source.find("DnSlopeTemplateEntity") != std::string::npos);
+    CHECK(source.find("DnPavementLayerTemplateEntity") != std::string::npos);
     CHECK(source.find("DnTerrainTinEntity") != std::string::npos);
     CHECK(source.find("DnRoadModelEntity") != std::string::npos);
     CHECK(source.find("selectTypedEntity") != std::string::npos);
@@ -2955,6 +2958,7 @@ void roadModelCommandSourceContainsCompleteObjectArxFlow()
     CHECK(source.find("progressCallback") != std::string::npos);
     CHECK(source.find("readSubgradeTemplate") != std::string::npos);
     CHECK(source.find("readSlopeTemplate") != std::string::npos);
+    CHECK(source.find("readPavementLayerTemplate") != std::string::npos);
     CHECK(source.find("readTerrainSurface") != std::string::npos);
     CHECK(source.find("appendEntityToModelSpace") != std::string::npos);
     CHECK(source.find("setRoadModelData") != std::string::npos);
@@ -3003,14 +3007,49 @@ void roadModelCommandSourceContainsCompleteObjectArxFlow()
     CHECK(source.find("return;", applyRelationValidation) < applyBuild);
     CHECK(source.find("readSubgradeTemplate", applyCommand) != std::string::npos);
     CHECK(source.find("readSlopeTemplate", applyCommand) != std::string::npos);
+    CHECK(source.find("collectPavementLayerTemplates", applyCommand) != std::string::npos);
     CHECK(source.find("terrainSurface", applyCommand) != std::string::npos);
     CHECK(source.find("RoadModelBuildInput input", applyCommand) != std::string::npos);
+    CHECK(source.find("input.pavementLayerTemplates", applyCommand) != std::string::npos);
     CHECK(source.find("service.build(input)", applyCommand) != std::string::npos);
     CHECK(source.find("new DnRoadModelEntity", applyCommand) != std::string::npos);
     CHECK(source.find("appendEntityToModelSpace", applyCommand) != std::string::npos);
     CHECK(source.find("AcDb::kForWrite", applyCommand) != std::string::npos);
     CHECK(source.find("recordGraphicsModified(true)", applyCommand) != std::string::npos);
     CHECK(source.find("acedUpdateDisplay()", applyCommand) != std::string::npos);
+}
+
+void roadModelCommandSourceCollectsPavementTemplateSources()
+{
+    const auto sourcePath = findRepositoryRootForTests()
+        / "src"
+        / "cad_adapter"
+        / "objectarx"
+        / "cross_section"
+        / "ObjectArxRoadModelCommand.cpp";
+    CHECK(std::filesystem::exists(sourcePath));
+
+    const auto source = readTextFileForTests(sourcePath);
+    CHECK(!source.empty());
+
+    CHECK(source.find("#include \"cad_adapter/objectarx/cross_section/DnPavementLayerTemplateEntity.h\"") != std::string::npos);
+    CHECK(source.find("using roadproto::domain::cross_section::RoadModelPavementLayerTemplateSource;") != std::string::npos);
+    CHECK(source.find("bool readPavementLayerTemplate") != std::string::npos);
+    CHECK(source.find("DnPavementLayerTemplateEntity::desc()") != std::string::npos);
+    CHECK(source.find("source.data = entity->templateData();") != std::string::npos);
+
+    const auto collect = source.find("collectPavementLayerTemplates");
+    CHECK(collect != std::string::npos);
+    if (collect != std::string::npos) {
+        CHECK(source.find("source.data.components", collect) != std::string::npos);
+        CHECK(source.find("component.pavementLayerLinked", collect) != std::string::npos);
+        CHECK(source.find("component.pavementLayerHandle", collect) != std::string::npos);
+        CHECK(source.find("alreadyAdded", collect) != std::string::npos);
+        CHECK(source.find("readPavementLayerTemplate(component.pavementLayerHandle", collect) != std::string::npos);
+        CHECK(source.find("Cannot read pavement layer template entity", collect) != std::string::npos);
+        CHECK(source.find("component", collect) != std::string::npos);
+        CHECK(source.find("pavementLayerTemplates.push_back", collect) != std::string::npos);
+    }
 }
 
 void pavementLayerTemplateNativeSourcesContainRequiredContracts()
@@ -3396,7 +3435,11 @@ void roadModelEntitySourceContainsRequiredObjectArxContracts()
     CHECK(source.find("componentLines") != std::string::npos);
     CHECK(source.find("sections") != std::string::npos);
     CHECK(source.find("wireLines") != std::string::npos);
+    CHECK(source.find("pavementLayerLines") != std::string::npos);
+    CHECK(source.find("leftPavementLayerNodes") != std::string::npos);
+    CHECK(source.find("rightPavementLayerNodes") != std::string::npos);
     CHECK(source.find("RoadModelGroundProfilePoint") != std::string::npos);
+    CHECK(source.find("RoadModelPavementLayerLine") != std::string::npos);
     CHECK(source.find("RoadModelWireLineKind") != std::string::npos);
     const auto nodeKindValidation = source.find("bool isValidRoadModelSectionNodeKindValue");
     CHECK(nodeKindValidation != std::string::npos);
@@ -3420,9 +3463,11 @@ void roadModelEntitySourceContainsRequiredObjectArxContracts()
                 : wireKindValidationEnd - wireKindValidation);
         CHECK(wireKindValidationSource.find("RoadModelWireLineKind::PavementLayer") != std::string::npos);
     }
-    CHECK(source.find("constexpr Adesk::Int16 kEntityVersion = 5") != std::string::npos);
+    CHECK(source.find("constexpr Adesk::Int16 kEntityVersion = 6") != std::string::npos);
     CHECK(source.find("readRoadModelSection") != std::string::npos);
     CHECK(source.find("writeRoadModelSection") != std::string::npos);
+    CHECK(source.find("readPavementLayerLine") != std::string::npos);
+    CHECK(source.find("writePavementLayerLine") != std::string::npos);
     CHECK(source.find("readRoadModelGroundProfile") != std::string::npos);
     CHECK(source.find("writeRoadModelGroundProfile") != std::string::npos);
     CHECK(source.find("readRoadModelWireLine") != std::string::npos);
@@ -3456,6 +3501,75 @@ void roadModelEntitySourceContainsRequiredObjectArxContracts()
     CHECK(source.find("transformedPointIsFinite") != std::string::npos);
     CHECK(source.find("validateAllRoadModelPointsFinite") != std::string::npos);
 
+    const auto sectionReader = source.find("Acad::ErrorStatus readRoadModelSection");
+    CHECK(sectionReader != std::string::npos);
+    if (sectionReader != std::string::npos) {
+        const auto sectionWriter = source.find("\nvoid writeRoadModelSection(", sectionReader);
+        const auto sectionReadSource = source.substr(
+            sectionReader,
+            sectionWriter == std::string::npos ? std::string::npos : sectionWriter - sectionReader);
+        CHECK(sectionReadSource.find("if (version >= 6)") != std::string::npos);
+        CHECK(sectionReadSource.find("section.leftPavementLayerNodes") != std::string::npos);
+        CHECK(sectionReadSource.find("section.rightPavementLayerNodes") != std::string::npos);
+    }
+
+    const auto sectionWriter = source.find("\nvoid writeRoadModelSection(");
+    CHECK(sectionWriter != std::string::npos);
+    if (sectionWriter != std::string::npos) {
+        const auto wireReader = source.find("Acad::ErrorStatus readRoadModelWireLine", sectionWriter);
+        const auto sectionWriteSource = source.substr(
+            sectionWriter,
+            wireReader == std::string::npos ? std::string::npos : wireReader - sectionWriter);
+        CHECK(sectionWriteSource.find("section.leftPavementLayerNodes") != std::string::npos);
+        CHECK(sectionWriteSource.find("section.rightPavementLayerNodes") != std::string::npos);
+    }
+
+    const auto dwgIn = source.find("Acad::ErrorStatus DnRoadModelEntity::dwgInFields");
+    const auto dwgOut = source.find("Acad::ErrorStatus DnRoadModelEntity::dwgOutFields");
+    CHECK(dwgIn != std::string::npos);
+    CHECK(dwgOut != std::string::npos);
+    if (dwgIn != std::string::npos && dwgOut != std::string::npos) {
+        const auto dwgInSource = source.substr(dwgIn, dwgOut - dwgIn);
+        CHECK(dwgInSource.find("if (version >= 6)") != std::string::npos);
+        CHECK(dwgInSource.find("readPavementLayerLine") != std::string::npos);
+        CHECK(dwgInSource.find("readData.pavementLayerLines") != std::string::npos);
+    }
+    if (dwgOut != std::string::npos) {
+        const auto worldDraw = source.find("Adesk::Boolean DnRoadModelEntity::subWorldDraw", dwgOut);
+        const auto dwgOutSource = source.substr(
+            dwgOut,
+            worldDraw == std::string::npos ? std::string::npos : worldDraw - dwgOut);
+        CHECK(dwgOutSource.find("data_.pavementLayerLines") != std::string::npos);
+        CHECK(dwgOutSource.find("writePavementLayerLine") != std::string::npos);
+    }
+
+    const auto validationFunction = source.find("bool validateRoadModelDataForPersistence");
+    CHECK(validationFunction != std::string::npos);
+    if (validationFunction != std::string::npos) {
+        const auto readerStart = source.find("void readAssignment", validationFunction);
+        const auto validationSource = source.substr(
+            validationFunction,
+            readerStart == std::string::npos ? std::string::npos : readerStart - validationFunction);
+        CHECK(validationSource.find("data.pavementLayerLines.size()") != std::string::npos);
+        CHECK(validationSource.find("isValidPavementLayerLine") != std::string::npos);
+        CHECK(validationSource.find("section.leftPavementLayerNodes.size()") != std::string::npos);
+        CHECK(validationSource.find("section.rightPavementLayerNodes.size()") != std::string::npos);
+    }
+
+    const auto worldDraw = source.find("Adesk::Boolean DnRoadModelEntity::subWorldDraw");
+    CHECK(worldDraw != std::string::npos);
+    if (worldDraw != std::string::npos) {
+        CHECK(source.find("drawPavementLayerLines", worldDraw) != std::string::npos);
+    }
+
+    const auto extentsFunction = source.find("Acad::ErrorStatus DnRoadModelEntity::subGetGeomExtents");
+    CHECK(extentsFunction != std::string::npos);
+    if (extentsFunction != std::string::npos) {
+        CHECK(source.find("data_.pavementLayerLines", extentsFunction) != std::string::npos);
+        CHECK(source.find("section.leftPavementLayerNodes", extentsFunction) != std::string::npos);
+        CHECK(source.find("section.rightPavementLayerNodes", extentsFunction) != std::string::npos);
+    }
+
     const auto finalFilerStatus = source.find("const auto finalStatus = filer->filerStatus();");
     const auto roadModelDataAssignment = source.find("data_ = std::move(readData);");
     CHECK(finalFilerStatus != std::string::npos);
@@ -3474,6 +3588,9 @@ void roadModelEntitySourceContainsRequiredObjectArxContracts()
     CHECK(transformCommit != std::string::npos);
     CHECK(transformExistingValidation < transformCopy);
     CHECK(transformCopy < transformCommit);
+    CHECK(source.find("transformedData.pavementLayerLines", transformFunction) != std::string::npos);
+    CHECK(source.find("section.leftPavementLayerNodes", transformFunction) != std::string::npos);
+    CHECK(source.find("section.rightPavementLayerNodes", transformFunction) != std::string::npos);
     CHECK(source.find("continue;", transformFunction) == std::string::npos
         || source.find("continue;", transformFunction) > transformCommit);
 
@@ -5315,6 +5432,7 @@ int main()
     roadModelNativeDialogBridgeSourceContainsRequiredFields();
     roadModelSectionViewerNativeBridgeSourceContainsRequiredFields();
     roadModelCommandSourceContainsCompleteObjectArxFlow();
+    roadModelCommandSourceCollectsPavementTemplateSources();
     pavementLayerTemplateNativeSourcesContainRequiredContracts();
     roadModelEntitySourceContainsRequiredObjectArxContracts();
     subgradeTemplateEntitySourceContainsMoveGrip();

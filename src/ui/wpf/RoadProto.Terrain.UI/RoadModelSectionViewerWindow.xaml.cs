@@ -137,7 +137,7 @@ public partial class RoadModelSectionViewerWindow : Window, INotifyPropertyChang
                     ClampColor(segment.ColorR),
                     ClampColor(segment.ColorG),
                     ClampColor(segment.ColorB))),
-                StrokeThickness = segment.Kind == RoadModelSectionViewerSegmentKind.Ground ? 2.2 : 2.0,
+                StrokeThickness = StrokeThicknessFor(segment.Kind),
             };
             foreach (var point in segment.Points)
             {
@@ -150,6 +150,14 @@ public partial class RoadModelSectionViewerWindow : Window, INotifyPropertyChang
 
     private static byte ClampColor(int value)
         => (byte)System.Math.Max(0, System.Math.Min(255, value));
+
+    private static double StrokeThicknessFor(RoadModelSectionViewerSegmentKind kind)
+        => kind switch
+        {
+            RoadModelSectionViewerSegmentKind.Ground => 2.2,
+            RoadModelSectionViewerSegmentKind.PavementLayer => 2.1,
+            _ => 2.0,
+        };
 
     private void OnClose(object sender, RoutedEventArgs e)
         => Close();

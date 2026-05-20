@@ -257,6 +257,9 @@ bool SubgradeTemplateRules::normalize(SubgradeTemplateData& data, std::wstring& 
         if (component.slopeMode == SubgradeSlopeMode::VariableByStation) {
             component.fixedSlope = 0.0;
         }
+        if (component.pavementLayerHandle.empty()) {
+            component.pavementLayerLinked = false;
+        }
         if (!component.pavementLayerLinked) {
             component.pavementLayerThickness = 0.0;
             component.pavementLayerHandle.clear();

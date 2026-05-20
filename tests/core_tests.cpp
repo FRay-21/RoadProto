@@ -519,6 +519,26 @@ void subgradeTemplateNormalizePreservesLinkedPavementTemplateReference()
     CHECK(std::fabs(data.components[0].pavementLayerThickness - 0.28) < 1.0e-9);
 }
 
+void subgradeTemplateNormalizeUnlinksEmptyPavementTemplateHandle()
+{
+    using namespace roadproto::domain::cross_section;
+
+    SubgradeTemplateData data;
+    data.components.push_back(SubgradeTemplateComponent{});
+    data.components[0].width = 3.75;
+    data.components[0].pavementLayerLinked = true;
+    data.components[0].pavementLayerHandle.clear();
+    data.components[0].pavementLayerName = L"孤立结构层名称";
+    data.components[0].pavementLayerThickness = 0.28;
+
+    std::wstring errorMessage;
+    CHECK(SubgradeTemplateRules::normalize(data, errorMessage));
+    CHECK(!data.components[0].pavementLayerLinked);
+    CHECK(data.components[0].pavementLayerHandle.empty());
+    CHECK(data.components[0].pavementLayerName.empty());
+    CHECK(std::fabs(data.components[0].pavementLayerThickness) < 1.0e-9);
+}
+
 void subgradeTemplateVariableSlopeUsesOnlySlopeTable()
 {
     using namespace roadproto::domain::cross_section;
@@ -1146,7 +1166,7 @@ void roadModelBuilderKeepsPavementLayerInnerOuterSemanticOnLeftSide()
     }
 }
 
-void roadModelBuilderRejectsLinkedPavementLayerWithoutTemplateHandle()
+void roadModelBuilderTreatsEmptyPavementLayerHandleAsUnlinked()
 {
     using namespace roadproto::domain::alignment;
     using namespace roadproto::domain::cross_section;
@@ -1177,11 +1197,16 @@ void roadModelBuilderRejectsLinkedPavementLayerWithoutTemplateHandle()
     input.templates = {RoadModelTemplateSource{L"SG-EMPTY-PV", subgrade}};
 
     const auto result = RoadModelBuilder::build(input);
-    CHECK(!result.succeeded);
-    CHECK(!result.errorMessage.empty());
-    CHECK(result.errorMessage.find(L"pavement") != std::wstring::npos);
-    CHECK(result.errorMessage.find(L"template") != std::wstring::npos);
-    CHECK(result.errorMessage.find(L"handle") != std::wstring::npos);
+    CHECK(result.succeeded);
+    CHECK(result.errorMessage.empty());
+    CHECK(result.data.pavementLayerLines.empty());
+    CHECK(std::all_of(
+        result.data.sections.begin(),
+        result.data.sections.end(),
+        [](const auto& section) {
+            return section.leftPavementLayerNodes.empty()
+                && section.rightPavementLayerNodes.empty();
+        }));
 }
 
 void roadModelBuilderRejectsMissingPavementLayerTemplateSource()
@@ -5240,6 +5265,7 @@ int main()
     subgradeTemplateComponentDisplayNamesAreChinese();
     subgradeTemplateRulesUseWideningTableAndPavementThicknessGate();
     subgradeTemplateNormalizePreservesLinkedPavementTemplateReference();
+    subgradeTemplateNormalizeUnlinksEmptyPavementTemplateHandle();
     subgradeTemplateVariableSlopeUsesOnlySlopeTable();
     subgradeTemplateCreateServiceBuildsDefaultTemplate();
     pavementLayerTemplateCreateServiceBuildsDefaultTemplate();
@@ -5258,7 +5284,7 @@ int main()
     roadModelBuilderCreatesThreeDimensionalComponentLines();
     roadModelBuilderCreatesPavementLayerWireLinesForBoundSubgradeComponent();
     roadModelBuilderKeepsPavementLayerInnerOuterSemanticOnLeftSide();
-    roadModelBuilderRejectsLinkedPavementLayerWithoutTemplateHandle();
+    roadModelBuilderTreatsEmptyPavementLayerHandleAsUnlinked();
     roadModelBuilderRejectsMissingPavementLayerTemplateSource();
     roadModelBuilderRejectsInvalidPavementLayerTemplateSource();
     roadModelSectionPreviewBuilderDrawsPavementLayerRectangleAtSampledStation();

@@ -134,6 +134,8 @@
                               Grid.ColumnSpan="2"
                               Content="启用路面结构层模板"
                               VerticalAlignment="Center"
+                              Focusable="False"
+                              IsHitTestVisible="False"
                               Checked="PavementLayerCheckBox_Changed"
                               Unchecked="PavementLayerCheckBox_Changed" />
 

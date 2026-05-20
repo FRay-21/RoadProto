@@ -417,7 +417,7 @@ public partial class SubgradeTemplateWindow : Window
         ColorRBox.Text = component.ColorR.ToString(CultureInfo.InvariantCulture);
         ColorGBox.Text = component.ColorG.ToString(CultureInfo.InvariantCulture);
         ColorBBox.Text = component.ColorB.ToString(CultureInfo.InvariantCulture);
-        PavementLayerCheckBox.IsChecked = component.PavementLayerLinked;
+        PavementLayerCheckBox.IsChecked = !string.IsNullOrWhiteSpace(component.PavementLayerHandle);
         PavementLayerNameBox.Text = component.PavementLayerName;
         PavementLayerHandleBox.Text = component.PavementLayerHandle;
         ColorPreviewBorder.Background = BrushFor(component);
@@ -444,8 +444,8 @@ public partial class SubgradeTemplateWindow : Window
         component.ColorR = ClampColor(ReadInt(ColorRBox.Text, component.ColorR));
         component.ColorG = ClampColor(ReadInt(ColorGBox.Text, component.ColorG));
         component.ColorB = ClampColor(ReadInt(ColorBBox.Text, component.ColorB));
-        component.PavementLayerLinked = PavementLayerCheckBox.IsChecked == true;
-        component.PavementLayerHandle = component.PavementLayerLinked ? PavementLayerHandleBox.Text.Trim() : string.Empty;
+        component.PavementLayerHandle = PavementLayerHandleBox.Text.Trim();
+        component.PavementLayerLinked = !string.IsNullOrWhiteSpace(component.PavementLayerHandle);
         component.PavementLayerName = component.PavementLayerLinked ? PavementLayerNameBox.Text.Trim() : string.Empty;
         ColorPreviewBorder.Background = BrushFor(component);
     }

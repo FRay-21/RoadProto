@@ -1059,6 +1059,9 @@ static void SubgradeTemplateWindowContainsPavementTemplateBindingControls()
     Check(combined.Contains("PavementLayerHandle"), "subgrade window should display pavement template handle");
     Check(!xaml.Contains("结构层厚度"), "subgrade window should not expose legacy pavement thickness label");
     Check(!xaml.Contains("PavementLayerThicknessBox"), "subgrade window should not expose legacy pavement thickness input");
+    Check(xaml.Contains("IsHitTestVisible=\"False\""), "subgrade pavement template checkbox should be status-only, not a user toggle");
+    Check(!source.Contains("component.PavementLayerLinked = PavementLayerCheckBox.IsChecked == true"), "subgrade window should not derive linked state directly from the checkbox");
+    Check(source.Contains("!string.IsNullOrWhiteSpace(component.PavementLayerHandle)"), "subgrade window should derive linked state from a non-empty pavement template handle");
     Check(source.Contains("PickPavementLayerTemplate"), "subgrade window should request native pavement template picking");
     Check(source.Contains("PickComponentIndex"), "subgrade window should preserve selected component index for picking");
 }

@@ -156,7 +156,11 @@ void runPavementLayerTemplateCreateCommand()
     }
 
     auto* entity = new DnPavementLayerTemplateEntity();
-    entity->setTemplateData(result.templateData);
+    if (entity->setTemplateData(result.templateData) != Acad::eOk) {
+        delete entity;
+        editor.writeError(L"路面结构层模板默认数据无效。");
+        return;
+    }
     entity->setInsertionPoint(insertionPoint);
 
     AcDbObjectId entityId;
@@ -232,7 +236,11 @@ void runPavementLayerTemplateApplyDialogFileCommand()
 
     if (response.handle.empty()) {
         auto* entity = new DnPavementLayerTemplateEntity();
-        entity->setTemplateData(response.data);
+        if (entity->setTemplateData(response.data) != Acad::eOk) {
+            delete entity;
+            editor.writeError(L"路面结构层模板对话框结果无效。");
+            return;
+        }
         entity->setInsertionPoint(response.insertionPoint);
 
         AcDbObjectId entityId;
@@ -266,7 +274,11 @@ void runPavementLayerTemplateApplyDialogFileCommand()
         return;
     }
 
-    entity->setTemplateData(response.data);
+    if (entity->setTemplateData(response.data) != Acad::eOk) {
+        entity->close();
+        editor.writeError(L"路面结构层模板对话框结果无效。");
+        return;
+    }
     entity->setInsertionPoint(response.insertionPoint);
     entity->close();
     acedUpdateDisplay();

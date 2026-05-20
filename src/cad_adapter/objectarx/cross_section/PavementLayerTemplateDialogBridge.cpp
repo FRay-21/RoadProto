@@ -11,6 +11,7 @@
 #include <filesystem>
 #include <fstream>
 #include <iomanip>
+#include <locale>
 #include <sstream>
 #include <unordered_map>
 #include <utility>
@@ -128,7 +129,10 @@ void writeKeyValue(std::ostream& stream, const std::wstring& key, bool value)
 
 void writeKeyValue(std::ostream& stream, const std::wstring& key, double value)
 {
+    const auto previousLocale = stream.getloc();
+    stream.imbue(std::locale::classic());
     stream << wideToUtf8(key) << '=' << std::setprecision(17) << value << '\n';
+    stream.imbue(previousLocale);
 }
 
 void writeKeyValue(std::ostream& stream, const std::wstring& key, std::size_t value)
@@ -254,6 +258,111 @@ double doubleValue(
     }
 }
 
+bool parseIntStrict(const std::wstring& value, int& result)
+{
+    std::wistringstream parsed(value);
+    parsed.imbue(std::locale::classic());
+    parsed >> result;
+    return parsed && parsed.eof();
+}
+
+bool parseDoubleStrict(const std::wstring& value, double& result)
+{
+    std::wistringstream parsed(value);
+    parsed.imbue(std::locale::classic());
+    parsed >> result;
+    return parsed && parsed.eof() && std::isfinite(result);
+}
+
+bool requiredValue(
+    const std::unordered_map<std::wstring, std::wstring>& values,
+    const std::wstring& key,
+    std::wstring& result,
+    std::wstring& errorMessage)
+{
+    const auto found = values.find(key);
+    if (found == values.end()) {
+        errorMessage = L"Missing pavement layer template dialog field: " + key;
+        return false;
+    }
+    result = found->second;
+    return true;
+}
+
+bool requiredIntValue(
+    const std::unordered_map<std::wstring, std::wstring>& values,
+    const std::wstring& key,
+    int& result,
+    std::wstring& errorMessage)
+{
+    std::wstring value;
+    if (!requiredValue(values, key, value, errorMessage)) {
+        return false;
+    }
+    if (!parseIntStrict(value, result)) {
+        errorMessage = L"Invalid pavement layer template numeric field: " + key;
+        return false;
+    }
+    return true;
+}
+
+bool requiredDoubleValue(
+    const std::unordered_map<std::wstring, std::wstring>& values,
+    const std::wstring& key,
+    double& result,
+    std::wstring& errorMessage)
+{
+    std::wstring value;
+    if (!requiredValue(values, key, value, errorMessage)) {
+        return false;
+    }
+    if (!parseDoubleStrict(value, result)) {
+        errorMessage = L"Invalid pavement layer template numeric field: " + key;
+        return false;
+    }
+    return true;
+}
+
+bool requiredBoolValue(
+    const std::unordered_map<std::wstring, std::wstring>& values,
+    const std::wstring& key,
+    bool& result,
+    std::wstring& errorMessage)
+{
+    std::wstring value;
+    if (!requiredValue(values, key, value, errorMessage)) {
+        return false;
+    }
+    if (value == L"1" || value == L"true" || value == L"True") {
+        result = true;
+        return true;
+    }
+    if (value == L"0" || value == L"false" || value == L"False") {
+        result = false;
+        return true;
+    }
+    errorMessage = L"Invalid pavement layer template boolean field: " + key;
+    return false;
+}
+
+bool requiredPavementLayerType(
+    const std::unordered_map<std::wstring, std::wstring>& values,
+    const std::wstring& key,
+    roadproto::domain::cross_section::PavementLayerType& result,
+    std::wstring& errorMessage)
+{
+    std::wstring value;
+    if (!requiredValue(values, key, value, errorMessage)) {
+        return false;
+    }
+    result = roadproto::domain::cross_section::pavementLayerTypeFromCode(value);
+    if (value != roadproto::domain::cross_section::pavementLayerTypeCode(result)) {
+        errorMessage = L"Unknown pavement layer type code: " + value;
+        return false;
+    }
+    return true;
+}
+
 void removeFileIfExists(const std::wstring& path)
 {
     if (path.empty()) {
@@ -307,21 +416,28 @@ bool readPavementLayerTemplateDialogResponse(
 
     const auto values = readKeyValueFile(responsePath);
     response.accepted = boolValue(values, L"accepted", false);
-    response.handle = valueOrDefault(values, L"handle");
     response.insertionPoint = AcGePoint3d(
         doubleValue(values, L"insertionX", 0.0),
         doubleValue(values, L"insertionY", 0.0),
         doubleValue(values, L"insertionZ", 0.0));
-    response.data.properties.name = valueOrDefault(values, L"templateName", L"\u8def\u9762\u7ed3\u6784\u5c42\u6a21\u677f");
-    response.data.properties.displayScale = doubleValue(values, L"displayScale", 10.0);
-    response.data.properties.previewWidth = doubleValue(values, L"previewWidth", 3.75);
 
     if (!response.accepted) {
+        response.handle = valueOrDefault(values, L"handle");
         removeFileIfExists(responsePath);
         return true;
     }
 
-    const auto layerCount = intValue(values, L"layerCount", 0);
+    if (!requiredValue(values, L"handle", response.handle, errorMessage)
+        || !requiredValue(values, L"templateName", response.data.properties.name, errorMessage)
+        || !requiredDoubleValue(values, L"displayScale", response.data.properties.displayScale, errorMessage)
+        || !requiredDoubleValue(values, L"previewWidth", response.data.properties.previewWidth, errorMessage)) {
+        return false;
+    }
+
+    int layerCount = 0;
+    if (!requiredIntValue(values, L"layerCount", layerCount, errorMessage)) {
+        return false;
+    }
     if (layerCount < 0 || layerCount > kMaxDialogLayers) {
         errorMessage = L"Pavement layer template dialog response has invalid layer count.";
         return false;
@@ -332,17 +448,18 @@ bool readPavementLayerTemplateDialogResponse(
     for (int i = 0; i < layerCount; ++i) {
         const auto prefix = L"layer." + std::to_wstring(i);
         roadproto::domain::cross_section::PavementLayerTemplateLayer layer;
-        layer.type = roadproto::domain::cross_section::pavementLayerTypeFromCode(
-            valueOrDefault(values, prefix + L".type", L"UpperSurface"));
-        layer.name = valueOrDefault(values, prefix + L".name");
-        layer.uniformThickness = boolValue(values, prefix + L".uniformThickness", true);
-        layer.thickness = doubleValue(values, prefix + L".thickness", 0.04);
-        layer.innerThickness = doubleValue(values, prefix + L".innerThickness", layer.thickness);
-        layer.outerThickness = doubleValue(values, prefix + L".outerThickness", layer.thickness);
-        layer.innerWidening = doubleValue(values, prefix + L".innerWidening", 0.0);
-        layer.outerWidening = doubleValue(values, prefix + L".outerWidening", 0.0);
-        layer.innerSlope = doubleValue(values, prefix + L".innerSlope", 0.0);
-        layer.outerSlope = doubleValue(values, prefix + L".outerSlope", 0.0);
+        if (!requiredPavementLayerType(values, prefix + L".type", layer.type, errorMessage)
+            || !requiredValue(values, prefix + L".name", layer.name, errorMessage)
+            || !requiredBoolValue(values, prefix + L".uniformThickness", layer.uniformThickness, errorMessage)
+            || !requiredDoubleValue(values, prefix + L".thickness", layer.thickness, errorMessage)
+            || !requiredDoubleValue(values, prefix + L".innerThickness", layer.innerThickness, errorMessage)
+            || !requiredDoubleValue(values, prefix + L".outerThickness", layer.outerThickness, errorMessage)
+            || !requiredDoubleValue(values, prefix + L".innerWidening", layer.innerWidening, errorMessage)
+            || !requiredDoubleValue(values, prefix + L".outerWidening", layer.outerWidening, errorMessage)
+            || !requiredDoubleValue(values, prefix + L".innerSlope", layer.innerSlope, errorMessage)
+            || !requiredDoubleValue(values, prefix + L".outerSlope", layer.outerSlope, errorMessage)) {
+            return false;
+        }
         response.data.layers.push_back(std::move(layer));
     }
 

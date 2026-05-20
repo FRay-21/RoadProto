@@ -3034,7 +3034,7 @@ void pavementLayerTemplateNativeSourcesContainRequiredContracts()
     CHECK(entityHeader.find("class DnPavementLayerTemplateEntity : public AcDbEntity") != std::string::npos);
     CHECK(entityHeader.find("ACRX_DECLARE_MEMBERS(DnPavementLayerTemplateEntity)") != std::string::npos);
     CHECK(entityHeader.find("PavementLayerTemplateData templateData_") != std::string::npos);
-    CHECK(entityHeader.find("setTemplateData") != std::string::npos);
+    CHECK(entityHeader.find("Acad::ErrorStatus setTemplateData") != std::string::npos);
     CHECK(entityHeader.find("templateData") != std::string::npos);
     CHECK(entityHeader.find("setInsertionPoint") != std::string::npos);
     CHECK(entityHeader.find("insertionPoint") != std::string::npos);
@@ -3068,6 +3068,43 @@ void pavementLayerTemplateNativeSourcesContainRequiredContracts()
     CHECK(entitySource.find("SubgradeSide::Right") != std::string::npos);
     CHECK(entitySource.find("gripPoints.append(insertionPoint_)") != std::string::npos);
     CHECK(entitySource.find("insertionPoint_ += offset") != std::string::npos);
+    const auto setTemplateDataFunction = entitySource.find("Acad::ErrorStatus DnPavementLayerTemplateEntity::setTemplateData");
+    CHECK(setTemplateDataFunction != std::string::npos);
+    if (setTemplateDataFunction != std::string::npos) {
+        const auto setTemplateDataEnd = entitySource.find(
+            "const PavementLayerTemplateData& DnPavementLayerTemplateEntity::templateData() const",
+            setTemplateDataFunction);
+        const auto setTemplateDataSource = entitySource.substr(
+            setTemplateDataFunction,
+            setTemplateDataEnd == std::string::npos
+                ? std::string::npos
+                : setTemplateDataEnd - setTemplateDataFunction);
+        const auto localCopy = setTemplateDataSource.find("auto normalized = data");
+        const auto normalizeCall = setTemplateDataSource.find("PavementLayerTemplateRules::normalize(normalized, errorMessage)");
+        const auto invalidReturn = setTemplateDataSource.find("return Acad::eInvalidInput");
+        const auto assignment = setTemplateDataSource.find("templateData_ = std::move(normalized)");
+        const auto markGraphics = setTemplateDataSource.find("markGraphicsModifiedIfResident");
+        CHECK(localCopy != std::string::npos);
+        CHECK(normalizeCall != std::string::npos);
+        CHECK(invalidReturn != std::string::npos);
+        CHECK(assignment != std::string::npos);
+        CHECK(markGraphics != std::string::npos);
+        CHECK(setTemplateDataSource.find("templateData_ = data") == std::string::npos);
+        CHECK(localCopy < normalizeCall);
+        CHECK(normalizeCall < assignment);
+        CHECK(invalidReturn < assignment);
+        CHECK(assignment < markGraphics);
+    }
+    CHECK(entitySource.find("if (version != kEntityVersion)") != std::string::npos);
+    CHECK(entitySource.find("version == 0") == std::string::npos);
+    CHECK(entitySource.find("Acad::ErrorStatus checkFilerStatus") != std::string::npos);
+    CHECK(entitySource.find("return checkFilerStatus(filer);") != std::string::npos);
+    CHECK(entitySource.find("const auto finalStatus = checkFilerStatus(filer);") != std::string::npos);
+    const auto finalFilerStatus = entitySource.find("const auto finalStatus = checkFilerStatus(filer);");
+    const auto pavementDataAssignment = entitySource.find("templateData_ = std::move(data);");
+    CHECK(finalFilerStatus != std::string::npos);
+    CHECK(pavementDataAssignment != std::string::npos);
+    CHECK(finalFilerStatus < pavementDataAssignment);
 
     CHECK(bridgeHeader.find("PavementLayerTemplateDialogRequest") != std::string::npos);
     CHECK(bridgeHeader.find("PavementLayerTemplateDialogResponse") != std::string::npos);
@@ -3088,6 +3125,18 @@ void pavementLayerTemplateNativeSourcesContainRequiredContracts()
     CHECK(bridgeSource.find(".outerWidening") != std::string::npos);
     CHECK(bridgeSource.find(".innerSlope") != std::string::npos);
     CHECK(bridgeSource.find(".outerSlope") != std::string::npos);
+    CHECK(bridgeSource.find("stream.imbue(std::locale::classic())") != std::string::npos);
+    CHECK(bridgeSource.find("parsed.imbue(std::locale::classic())") != std::string::npos);
+    CHECK(bridgeSource.find("requiredValue") != std::string::npos);
+    CHECK(bridgeSource.find("requiredDoubleValue") != std::string::npos);
+    CHECK(bridgeSource.find("requiredBoolValue") != std::string::npos);
+    CHECK(bridgeSource.find("requiredIntValue") != std::string::npos);
+    CHECK(bridgeSource.find("requiredPavementLayerType") != std::string::npos);
+    CHECK(bridgeSource.find("Missing pavement layer template dialog field:") != std::string::npos);
+    CHECK(bridgeSource.find("Invalid pavement layer template numeric field:") != std::string::npos);
+    CHECK(bridgeSource.find("Unknown pavement layer type code:") != std::string::npos);
+    CHECK(bridgeSource.find("valueOrDefault(values, prefix + L\".type\", L\"UpperSurface\")") == std::string::npos);
+    CHECK(bridgeSource.find("doubleValue(values, prefix + L\".thickness\", 0.04)") == std::string::npos);
 
     CHECK(commandHeader.find("pavementLayerTemplateCreateCommandProcedure") != std::string::npos);
     CHECK(commandHeader.find("pavementLayerTemplateEditHandleCommandProcedure") != std::string::npos);
@@ -3102,6 +3151,8 @@ void pavementLayerTemplateNativeSourcesContainRequiredContracts()
     CHECK(commandSource.find("AcDb::kForWrite") != std::string::npos);
     CHECK(commandSource.find("appendEntityToModelSpace") != std::string::npos);
     CHECK(commandSource.find("acedUpdateDisplay") != std::string::npos);
+    CHECK(commandSource.find("if (entity->setTemplateData(result.templateData) != Acad::eOk)") != std::string::npos);
+    CHECK(commandSource.find("if (entity->setTemplateData(response.data) != Acad::eOk)") != std::string::npos);
 
     const auto createCommand = commandSource.find("void runPavementLayerTemplateCreateCommand()");
     CHECK(createCommand != std::string::npos);

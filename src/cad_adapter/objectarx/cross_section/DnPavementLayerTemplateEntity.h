@@ -11,7 +11,7 @@ public:
 
     DnPavementLayerTemplateEntity();
 
-    void setTemplateData(const roadproto::domain::cross_section::PavementLayerTemplateData& data);
+    Acad::ErrorStatus setTemplateData(const roadproto::domain::cross_section::PavementLayerTemplateData& data);
     const roadproto::domain::cross_section::PavementLayerTemplateData& templateData() const;
     void setInsertionPoint(const AcGePoint3d& point);
     AcGePoint3d insertionPoint() const;

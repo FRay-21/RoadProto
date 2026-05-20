@@ -105,6 +105,15 @@ bool isValidPavementLayerTypeValue(Adesk::Int32 value)
         || value == static_cast<Adesk::Int32>(PavementLayerType::Cushion);
 }
 
+Acad::ErrorStatus checkFilerStatus(AcDbDwgFiler* filer)
+{
+    const auto status = filer == nullptr ? Acad::eInvalidInput : filer->filerStatus();
+    if (status != Acad::eOk) {
+        return status;
+    }
+    return Acad::eOk;
+}
+
 double drawingScale(const PavementLayerTemplateData& data)
 {
     return PavementLayerTemplateRules::isSupportedDisplayScale(data.properties.displayScale)
@@ -227,13 +236,17 @@ DnPavementLayerTemplateEntity::DnPavementLayerTemplateEntity()
 {
 }
 
-void DnPavementLayerTemplateEntity::setTemplateData(const PavementLayerTemplateData& data)
+Acad::ErrorStatus DnPavementLayerTemplateEntity::setTemplateData(const PavementLayerTemplateData& data)
 {
     assertWriteEnabled();
-    templateData_ = data;
+    auto normalized = data;
     std::wstring errorMessage;
-    PavementLayerTemplateRules::normalize(templateData_, errorMessage);
+    if (!PavementLayerTemplateRules::normalize(normalized, errorMessage)) {
+        return Acad::eInvalidInput;
+    }
+    templateData_ = std::move(normalized);
     markGraphicsModifiedIfResident(*this);
+    return Acad::eOk;
 }
 
 const PavementLayerTemplateData& DnPavementLayerTemplateEntity::templateData() const
@@ -264,11 +277,12 @@ Acad::ErrorStatus DnPavementLayerTemplateEntity::dwgInFields(AcDbDwgFiler* filer
 
     Adesk::Int16 version = 0;
     filer->readInt16(&version);
-    if (version < 0) {
-        return Acad::eInvalidInput;
+    status = checkFilerStatus(filer);
+    if (status != Acad::eOk) {
+        return checkFilerStatus(filer);
     }
-    if (version > kEntityVersion) {
-        return Acad::eMakeMeProxy;
+    if (version != kEntityVersion) {
+        return version > kEntityVersion ? Acad::eMakeMeProxy : Acad::eInvalidInput;
     }
 
     PavementLayerTemplateData data;
@@ -278,6 +292,10 @@ Acad::ErrorStatus DnPavementLayerTemplateEntity::dwgInFields(AcDbDwgFiler* filer
 
     Adesk::Int32 layerCount = 0;
     filer->readInt32(&layerCount);
+    status = checkFilerStatus(filer);
+    if (status != Acad::eOk) {
+        return checkFilerStatus(filer);
+    }
     if (layerCount < 0 || layerCount > kMaxLayers) {
         return Acad::eInvalidInput;
     }
@@ -287,6 +305,10 @@ Acad::ErrorStatus DnPavementLayerTemplateEntity::dwgInFields(AcDbDwgFiler* filer
         PavementLayerTemplateLayer layer;
         Adesk::Int32 type = 0;
         filer->readInt32(&type);
+        status = checkFilerStatus(filer);
+        if (status != Acad::eOk) {
+            return checkFilerStatus(filer);
+        }
         if (!isValidPavementLayerTypeValue(type)) {
             return Acad::eInvalidInput;
         }
@@ -300,12 +322,20 @@ Acad::ErrorStatus DnPavementLayerTemplateEntity::dwgInFields(AcDbDwgFiler* filer
         filer->readDouble(&layer.outerWidening);
         filer->readDouble(&layer.innerSlope);
         filer->readDouble(&layer.outerSlope);
+        status = checkFilerStatus(filer);
+        if (status != Acad::eOk) {
+            return checkFilerStatus(filer);
+        }
         data.layers.push_back(std::move(layer));
     }
 
     filer->readPoint3d(&insertionPoint_);
     filer->readVector3d(&xAxis_);
     filer->readVector3d(&yAxis_);
+    status = checkFilerStatus(filer);
+    if (status != Acad::eOk) {
+        return checkFilerStatus(filer);
+    }
     if (!isFinitePoint(insertionPoint_)) {
         return Acad::eInvalidInput;
     }
@@ -318,8 +348,12 @@ Acad::ErrorStatus DnPavementLayerTemplateEntity::dwgInFields(AcDbDwgFiler* filer
         return Acad::eInvalidInput;
     }
 
+    const auto finalStatus = checkFilerStatus(filer);
+    if (finalStatus != Acad::eOk) {
+        return finalStatus;
+    }
     templateData_ = std::move(data);
-    return filer->filerStatus();
+    return finalStatus;
 }
 
 Acad::ErrorStatus DnPavementLayerTemplateEntity::dwgOutFields(AcDbDwgFiler* filer) const

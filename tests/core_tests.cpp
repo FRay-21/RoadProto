@@ -597,16 +597,26 @@ void pavementLayerTemplateGeometryUsesInnerOuterWithoutSlopeWidening()
     layer.innerSlope = 1.0;
     layer.outerSlope = 1.0;
     data.layers.push_back(layer);
+    PavementLayerTemplateLayer secondLayer = layer;
+    secondLayer.type = PavementLayerType::Subbase;
+    secondLayer.name = L"底基层";
+    secondLayer.innerThickness = 0.05;
+    secondLayer.outerThickness = 0.06;
+    secondLayer.innerWidening = 0.05;
+    secondLayer.outerWidening = 0.10;
+    data.layers.push_back(secondLayer);
 
     const auto section = PavementLayerTemplateRules::buildSection(data, 3.75, SubgradeSide::Right, 100.0, 99.925);
     CHECK(section.succeeded);
-    CHECK(section.layers.size() == 1);
+    CHECK(section.layers.size() == 2);
     CHECK(std::fabs(section.layers[0].topInner.offset - 0.0) < 1.0e-9);
     CHECK(std::fabs(section.layers[0].topOuter.offset - 3.75) < 1.0e-9);
-    CHECK(std::fabs(section.layers[0].bottomInner.offset - 0.10) < 1.0e-9);
+    CHECK(std::fabs(section.layers[0].bottomInner.offset - -0.10) < 1.0e-9);
     CHECK(std::fabs(section.layers[0].bottomOuter.offset - 4.05) < 1.0e-9);
     CHECK(std::fabs(section.layers[0].bottomInner.elevation - 99.82) < 1.0e-9);
     CHECK(std::fabs(section.layers[0].bottomOuter.elevation - 99.725) < 1.0e-9);
+    CHECK(std::fabs(section.layers[1].topInner.offset - -0.10) < 1.0e-9);
+    CHECK(std::fabs(section.layers[1].bottomInner.offset - -0.15) < 1.0e-9);
 }
 
 void pavementLayerTemplateRulesAcceptPositiveFiniteDisplayScale()

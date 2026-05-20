@@ -143,7 +143,7 @@ PavementLayerTemplateSection PavementLayerTemplateRules::buildSection(
         sectionLayer.name = layer.name;
         sectionLayer.topInner = {topInnerOffset, currentTopInnerElevation};
         sectionLayer.topOuter = {topOuterOffset, currentTopOuterElevation};
-        sectionLayer.bottomInner = {topInnerOffset + layer.innerWidening, currentTopInnerElevation - layer.innerThickness};
+        sectionLayer.bottomInner = {topInnerOffset - layer.innerWidening, currentTopInnerElevation - layer.innerThickness};
         sectionLayer.bottomOuter = {topOuterOffset + layer.outerWidening, currentTopOuterElevation - layer.outerThickness};
         sectionLayer.innerSlope = layer.innerSlope;
         sectionLayer.outerSlope = layer.outerSlope;

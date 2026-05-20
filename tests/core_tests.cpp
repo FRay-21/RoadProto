@@ -609,6 +609,20 @@ void pavementLayerTemplateGeometryUsesInnerOuterWithoutSlopeWidening()
     CHECK(std::fabs(section.layers[0].bottomOuter.elevation - 99.725) < 1.0e-9);
 }
 
+void pavementLayerTemplateRulesAcceptPositiveFiniteDisplayScale()
+{
+    using namespace roadproto::domain::cross_section;
+
+    auto data = PavementLayerTemplateDefaults::create();
+    data.properties.displayScale = 2.0;
+
+    std::wstring errorMessage;
+    CHECK(PavementLayerTemplateRules::normalize(data, errorMessage));
+    CHECK(PavementLayerTemplateRules::isSupportedDisplayScale(25.0));
+    CHECK(!PavementLayerTemplateRules::isSupportedDisplayScale(0.0));
+    CHECK(!PavementLayerTemplateRules::isSupportedDisplayScale(std::numeric_limits<double>::quiet_NaN()));
+}
+
 void slopeTemplateDefaultsBuildFillAndCutProfiles()
 {
     using namespace roadproto::domain::cross_section;
@@ -4488,6 +4502,7 @@ int main()
     subgradeTemplateCreateServiceBuildsDefaultTemplate();
     pavementLayerTemplateRulesNormalizeThicknessAndCodes();
     pavementLayerTemplateGeometryUsesInnerOuterWithoutSlopeWidening();
+    pavementLayerTemplateRulesAcceptPositiveFiniteDisplayScale();
     slopeTemplateDefaultsBuildFillAndCutProfiles();
     slopeTemplateRulesResolveThreeGeometryModes();
     slopeTemplateRulesValidateRepeatLastGroup();

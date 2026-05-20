@@ -5,8 +5,6 @@
 namespace roadproto::domain::cross_section {
 namespace {
 
-constexpr double kTolerance = 1.0e-9;
-
 bool isFinite(double value)
 {
     return std::isfinite(value);
@@ -61,12 +59,7 @@ PavementLayerTemplateData PavementLayerTemplateDefaults::create()
 
 bool PavementLayerTemplateRules::isSupportedDisplayScale(double displayScale)
 {
-    return std::isfinite(displayScale)
-        && (std::fabs(displayScale - 1.0) < kTolerance
-            || std::fabs(displayScale - 10.0) < kTolerance
-            || std::fabs(displayScale - 20.0) < kTolerance
-            || std::fabs(displayScale - 50.0) < kTolerance
-            || std::fabs(displayScale - 100.0) < kTolerance);
+    return isPositiveFinite(displayScale);
 }
 
 bool PavementLayerTemplateRules::isSupportedPreviewWidth(double previewWidth)
@@ -81,7 +74,7 @@ bool PavementLayerTemplateRules::normalize(PavementLayerTemplateData& data, std:
         data.properties.name = L"\u8def\u9762\u7ed3\u6784\u5c42\u6a21\u677f";
     }
     if (!isSupportedDisplayScale(data.properties.displayScale)) {
-        errorMessage = L"Pavement layer template display scale must be 1, 10, 20, 50, or 100.";
+        errorMessage = L"Pavement layer template display scale must be positive and finite.";
         return false;
     }
     if (!isSupportedPreviewWidth(data.properties.previewWidth)) {

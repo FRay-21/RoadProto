@@ -61,6 +61,7 @@ struct SubgradeTemplateComponent {
     std::vector<SubgradeStationValue> variableSlopeTable;
     bool pavementLayerLinked = false;
     std::wstring pavementLayerHandle;
+    std::wstring pavementLayerName;
     double pavementLayerThickness = 0.0;
 };
 

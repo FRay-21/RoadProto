@@ -1004,6 +1004,127 @@ void roadModelBuilderCreatesThreeDimensionalComponentLines()
     }
 }
 
+void roadModelBuilderCreatesPavementLayerWireLinesForBoundSubgradeComponent()
+{
+    using namespace roadproto::domain::alignment;
+    using namespace roadproto::domain::cross_section;
+    using namespace roadproto::domain::profile;
+
+    SubgradeTemplateComponent lane;
+    lane.side = SubgradeSide::Right;
+    lane.type = SubgradeComponentType::TravelLane;
+    lane.width = 3.75;
+    lane.fixedSlope = -0.02;
+    lane.pavementLayerLinked = true;
+    lane.pavementLayerHandle = L"PV-1";
+    lane.pavementLayerName = L"行车道路面结构层";
+
+    SubgradeTemplateData subgrade;
+    subgrade.components.push_back(lane);
+
+    PavementLayerTemplateData pavement;
+    pavement.properties.name = L"行车道路面结构层";
+    PavementLayerTemplateLayer upper;
+    upper.type = PavementLayerType::UpperSurface;
+    upper.name = L"上面层";
+    upper.uniformThickness = true;
+    upper.thickness = 0.04;
+    pavement.layers.push_back(upper);
+
+    RoadModelBuildInput input;
+    input.config.sampleInterval = 10.0;
+    input.config.assignments = {RoadModelTemplateAssignment{0.0, 20.0, L"SG-1", L"路基模板"}};
+    input.verticalCurve.controlPoints = {
+        {VerticalCurvePointRole::Start, 0.0, 100.0},
+        {VerticalCurvePointRole::End, 20.0, 100.0},
+    };
+    input.alignmentSamples = {
+        {{0.0, 0.0}, 0.0},
+        {{20.0, 0.0}, 20.0},
+    };
+    input.templates = {RoadModelTemplateSource{L"SG-1", subgrade}};
+    input.pavementLayerTemplates = {RoadModelPavementLayerTemplateSource{L"PV-1", pavement}};
+
+    const auto result = RoadModelBuilder::build(input);
+    CHECK(result.succeeded);
+    CHECK(!result.data.pavementLayerLines.empty());
+    CHECK(std::any_of(result.data.wireLines.begin(), result.data.wireLines.end(), [](const auto& line) {
+        return line.kind == RoadModelWireLineKind::PavementLayer;
+    }));
+    CHECK(std::any_of(result.data.sections.begin(), result.data.sections.end(), [](const auto& section) {
+        return !section.rightPavementLayerNodes.empty();
+    }));
+}
+
+void roadModelBuilderKeepsPavementLayerInnerOuterSemanticOnLeftSide()
+{
+    using namespace roadproto::domain::alignment;
+    using namespace roadproto::domain::cross_section;
+    using namespace roadproto::domain::profile;
+
+    SubgradeTemplateComponent lane;
+    lane.side = SubgradeSide::Left;
+    lane.type = SubgradeComponentType::TravelLane;
+    lane.width = 3.75;
+    lane.fixedSlope = -0.02;
+    lane.pavementLayerLinked = true;
+    lane.pavementLayerHandle = L"PV-LEFT";
+    lane.pavementLayerName = L"左侧行车道路面结构层";
+
+    SubgradeTemplateData subgrade;
+    subgrade.components.push_back(lane);
+
+    PavementLayerTemplateData pavement;
+    pavement.properties.name = L"左侧行车道路面结构层";
+    PavementLayerTemplateLayer layer;
+    layer.type = PavementLayerType::Base;
+    layer.name = L"基层";
+    layer.uniformThickness = true;
+    layer.thickness = 0.18;
+    layer.innerWidening = 0.10;
+    layer.outerWidening = 0.30;
+    pavement.layers.push_back(layer);
+
+    RoadModelBuildInput input;
+    input.config.sampleInterval = 20.0;
+    input.config.assignments = {RoadModelTemplateAssignment{0.0, 20.0, L"SG-LEFT", L"左侧路基模板"}};
+    input.verticalCurve.controlPoints = {
+        {VerticalCurvePointRole::Start, 0.0, 100.0},
+        {VerticalCurvePointRole::End, 20.0, 100.0},
+    };
+    input.alignmentSamples = {
+        {{0.0, 0.0}, 0.0},
+        {{20.0, 0.0}, 20.0},
+    };
+    input.templates = {RoadModelTemplateSource{L"SG-LEFT", subgrade}};
+    input.pavementLayerTemplates = {RoadModelPavementLayerTemplateSource{L"PV-LEFT", pavement}};
+
+    const auto result = RoadModelBuilder::build(input);
+    CHECK(result.succeeded);
+    CHECK(!result.data.sections.empty());
+
+    const auto section = std::find_if(
+        result.data.sections.begin(),
+        result.data.sections.end(),
+        [](const auto& candidate) {
+            return !candidate.leftPavementLayerNodes.empty();
+        });
+    CHECK(section != result.data.sections.end());
+    if (section != result.data.sections.end()) {
+        const auto& nodes = section->leftPavementLayerNodes;
+        CHECK(nodes.size() >= 4);
+        if (nodes.size() >= 4) {
+            const double innerTop = nodes[0].offset;
+            const double outerTop = nodes[1].offset;
+            const double innerBottom = nodes[2].offset;
+            const double outerBottom = nodes[3].offset;
+            CHECK(innerBottom <= innerTop + 1.0e-9);
+            CHECK(std::fabs(innerBottom) <= std::fabs(outerBottom) + 1.0e-9);
+            CHECK(outerBottom > outerTop);
+        }
+    }
+}
+
 void roadModelSectionPreviewBuilderCreatesSubgradePreviewAtStation()
 {
     using namespace roadproto::domain::alignment;
@@ -4523,6 +4644,8 @@ int main()
     roadModelStationSamplerOnlyKeepsTemplateCoveredStations();
     roadModelStationSamplerSnapsTemplateBoundaryTolerance();
     roadModelBuilderCreatesThreeDimensionalComponentLines();
+    roadModelBuilderCreatesPavementLayerWireLinesForBoundSubgradeComponent();
+    roadModelBuilderKeepsPavementLayerInnerOuterSemanticOnLeftSide();
     roadModelSectionPreviewBuilderCreatesSubgradePreviewAtStation();
     roadModelSectionPreviewBuilderAddsGroundLineFromTin();
     roadModelBuilderStoresGroundProfileSnapshotsForSections();

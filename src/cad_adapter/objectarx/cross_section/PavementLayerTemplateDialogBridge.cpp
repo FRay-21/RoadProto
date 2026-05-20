@@ -415,17 +415,25 @@ bool readPavementLayerTemplateDialogResponse(
     test.close();
 
     const auto values = readKeyValueFile(responsePath);
-    response.accepted = boolValue(values, L"accepted", false);
-    response.insertionPoint = AcGePoint3d(
-        doubleValue(values, L"insertionX", 0.0),
-        doubleValue(values, L"insertionY", 0.0),
-        doubleValue(values, L"insertionZ", 0.0));
+    if (!requiredBoolValue(values, L"accepted", response.accepted, errorMessage)) {
+        return false;
+    }
 
     if (!response.accepted) {
         response.handle = valueOrDefault(values, L"handle");
         removeFileIfExists(responsePath);
         return true;
     }
+
+    double insertionX = 0.0;
+    double insertionY = 0.0;
+    double insertionZ = 0.0;
+    if (!requiredDoubleValue(values, L"insertionX", insertionX, errorMessage)
+        || !requiredDoubleValue(values, L"insertionY", insertionY, errorMessage)
+        || !requiredDoubleValue(values, L"insertionZ", insertionZ, errorMessage)) {
+        return false;
+    }
+    response.insertionPoint = AcGePoint3d(insertionX, insertionY, insertionZ);
 
     if (!requiredValue(values, L"handle", response.handle, errorMessage)
         || !requiredValue(values, L"templateName", response.data.properties.name, errorMessage)

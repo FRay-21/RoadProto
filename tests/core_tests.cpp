@@ -3135,6 +3135,14 @@ void pavementLayerTemplateNativeSourcesContainRequiredContracts()
     CHECK(bridgeSource.find("Missing pavement layer template dialog field:") != std::string::npos);
     CHECK(bridgeSource.find("Invalid pavement layer template numeric field:") != std::string::npos);
     CHECK(bridgeSource.find("Unknown pavement layer type code:") != std::string::npos);
+    CHECK(bridgeSource.find("requiredBoolValue(values, L\"accepted\", response.accepted, errorMessage)") != std::string::npos);
+    CHECK(bridgeSource.find("requiredDoubleValue(values, L\"insertionX\", insertionX, errorMessage)") != std::string::npos);
+    CHECK(bridgeSource.find("requiredDoubleValue(values, L\"insertionY\", insertionY, errorMessage)") != std::string::npos);
+    CHECK(bridgeSource.find("requiredDoubleValue(values, L\"insertionZ\", insertionZ, errorMessage)") != std::string::npos);
+    CHECK(bridgeSource.find("response.accepted = boolValue(values, L\"accepted\"") == std::string::npos);
+    CHECK(bridgeSource.find("doubleValue(values, L\"insertionX\"") == std::string::npos);
+    CHECK(bridgeSource.find("doubleValue(values, L\"insertionY\"") == std::string::npos);
+    CHECK(bridgeSource.find("doubleValue(values, L\"insertionZ\"") == std::string::npos);
     CHECK(bridgeSource.find("valueOrDefault(values, prefix + L\".type\", L\"UpperSurface\")") == std::string::npos);
     CHECK(bridgeSource.find("doubleValue(values, prefix + L\".thickness\", 0.04)") == std::string::npos);
 

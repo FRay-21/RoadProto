@@ -108,6 +108,30 @@ void checkBusinessDocExistsForTests(const std::wstring& businessDocPath)
     CHECK(std::filesystem::exists(findRepositoryRootForTests() / std::filesystem::path(businessDocPath)));
 }
 
+void pavementLayerTemplateDocumentationAndVersionContracts()
+{
+    const auto root = findRepositoryRootForTests();
+
+    const auto buildProps = readTextFileForTests(root / "build" / "RoadProto.Build.props");
+    CHECK(buildProps.find("<RoadProtoVersion>v0.1.19</RoadProtoVersion>") != std::string::npos);
+    CHECK(buildProps.find("<RoadProtoBuildDate>20260520</RoadProtoBuildDate>") != std::string::npos);
+    CHECK(buildProps.find("<RoadProtoStage>PavementLayerTemplate</RoadProtoStage>") != std::string::npos);
+
+    CHECK(std::filesystem::exists(root / "docs" / "reuse" / "pavement_layer_template.md"));
+    const auto reuseDoc = readTextFileForTests(root / "docs" / "reuse" / "pavement_layer_template.md");
+    CHECK(reuseDoc.find("PavementLayerTemplateModel") != std::string::npos);
+    CHECK(reuseDoc.find(".rpavement.xml") != std::string::npos);
+    CHECK(reuseDoc.find("内侧 = closer to road centerline") != std::string::npos);
+
+    const auto versionLog = readTextFileForTests(root / "docs" / "dev" / "version_log.md");
+    CHECK(versionLog.find("v0.1.19_20260520_PavementLayerTemplate") != std::string::npos);
+    CHECK(versionLog.find("RoadProto_v0.1.19_20260520_PavementLayerTemplate.arx") != std::string::npos);
+
+    const auto readme = readTextFileForTests(root / "README.md");
+    CHECK(readme.find("RoadProto_v0.1.19_20260520_PavementLayerTemplate.arx") != std::string::npos);
+    CHECK(readme.find("RD_SECTION_PAVEMENT_LAYER_TEMPLATE_CREATE") != std::string::npos);
+}
+
 roadproto::core::CommandDefinition makeCommand(const std::wstring& name)
 {
     return roadproto::core::CommandDefinition{
@@ -5425,6 +5449,7 @@ int main()
     roadModelBuilderRejectsInvalidTemplateSource();
     roadModelBuildServiceRejectsMissingHandlesAndDelegatesBuild();
     crossSectionModuleRegistersSubgradeTemplateCommandsAndRibbonPanel();
+    pavementLayerTemplateDocumentationAndVersionContracts();
     startupRegistrationIncludesCrossSectionModule();
     managedRibbonExtensionRegistersSubgradeTemplateEntryPoints();
     managedRibbonExtensionRegistersRoadModelEntryPoints();

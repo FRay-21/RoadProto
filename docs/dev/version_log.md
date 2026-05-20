@@ -828,3 +828,39 @@
 - 地面剖面快照表达的是道路模型生成时的 TIN 状态；TIN、中线、竖曲线或模板变化后，需要重新生成道路模型以刷新快照。
 - TIN 网格索引是生成过程内的临时索引，不写入 DWG，也不作为长期内存缓存；查看横断面主要依赖实体内快照提速。
 - 当前优化仅在 AutoCAD 命令行输出 TIN 索引和候选数量诊断，未加入正式耗时统计 UI；大图纸下如需进一步定位，可后续记录 TIN 索引构建、剖切求交和 WPF 请求文件大小。
+
+## v0.1.19 - 2026-05-20
+
+- 版本标识：`v0.1.19_20260520_PavementLayerTemplate`。
+- ARX 文件：`RoadProto_v0.1.19_20260520_PavementLayerTemplate.arx`。
+- 阶段：完整路面结构层模板工作流。
+- 是否可作为稳定测试版本：是。核心测试和文档/版本 source-contract 需要通过；完整 AutoCAD 图形界面仍建议人工点验结构层模板创建、XML 导入导出、路基模板绑定、道路模型生成和查看横断面。
+
+### 新增内容
+
+- 新增完整路面结构层模板文档闭环：创建、编辑、WPF 桥接回写三份独立业务文档。
+- 新增复用说明 `docs/reuse/pavement_layer_template.md`，沉淀结构层类型、等厚/非等厚、内外侧语义、`.rpavement.xml` 和道路模型结构层线框复用边界。
+- 路基模板文档更新为“部件绑定独立路面结构层模板实体”，所有部件类型均允许点选 `DnPavementLayerTemplateEntity`。
+- 横断面道路模型文档更新为读取绑定的路面结构层模板，并生成结构层三维线框。
+- 查看横断面文档更新为显示 `结构层`，与路基模板线、边坡模板线和地面线同屏预览。
+
+### 修改内容
+
+- 更新 `README.md` 当前版本、ARX 加载路径、横断面入口、命令清单、路面结构层模板 `.rpavement.xml` 后缀和测试覆盖说明。
+- 更新 `docs/modules/cross_section.md`，补充路面结构层模板 Ribbon 入口、代码落点、WPF 窗口、绑定关系和 V0.1.19 更新记录。
+- 更新 `docs/reuse/road_model.md` 和 `docs/reuse/capability_catalog.md`，补充道路模型读取结构层模板、生成 `PavementLayer` 线框和查看横断面结构层预览。
+- 更新 `tests/README.md`，补充路面结构层模板核心测试、托管 bridge 测试和 AutoCAD 手工验证范围。
+- 更新构建版本信息为 `v0.1.19_20260520_PavementLayerTemplate`。
+- 更新 `tests/core_tests.cpp` 文档/版本 source-contract，检查新版本元数据、复用文档、README 和版本记录。
+
+### 构建验证
+
+- 核心测试：`RoadProtoCoreTests.vcxproj` Debug 构建通过，`RoadProtoCoreTests.exe` 需要输出 `All RoadProto core tests passed.`。
+- 文档/版本契约：核心测试检查 `RoadProto.Build.props` 中 `RoadProtoVersion=v0.1.19`、`RoadProtoBuildDate=20260520`、`RoadProtoStage=PavementLayerTemplate`，并检查 `docs/reuse/pavement_layer_template.md`、README 和版本记录包含路面结构层模板发布信息。
+- 托管 bridge 期望：`tests/RoadProtoManagedBridgeTests` 覆盖 `.rpavement.xml` 往返、非法 XML 拒绝、WPF `SaveXml` / `ImportXml` 和托管命令注册；本次 Task 7 以文档/版本收尾为主，若修改 WPF 源码需重新执行托管 bridge 测试。
+
+### 已知问题
+
+- 路面结构层模板修改后，当前不会自动标记已引用它的路基模板或道路模型需要重建，需要用户重新生成道路模型。
+- 当前道路模型仍生成结构层三维线框，不生成结构层实体面、体积、材料统计或算量。
+- `.rpavement.xml` 当前是 WPF 模板参数流转格式，不包含正式材料库和规范参数。

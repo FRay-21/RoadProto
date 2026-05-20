@@ -24,7 +24,9 @@ artifacts\x64\Debug\RoadProtoCoreTests.exe
 - 纵断面拉坡图领域规则：DMX 文件读取、断链桩号兼容、重复桩号保留、布局范围、纵向比例校验和创建服务默认属性。
 - 纵断面竖曲线领域规则：默认设计线创建、PVI 对称二次抛物线、BVC/EVC、高低点、任意桩号高程和坡度、PVI 增删、半径更新和命令元数据。
 - 横断面边坡模板领域规则：填方/挖方默认预设、坡率/坡高/宽度三选二约束、重复最后一组识别、编码转换和模板组优先级解析。
-- 横断面道路模型边坡和线框规则：从路基模板最外侧生成边坡线、TIN 地面剖切交地、断面地面快照、边坡模板戴帽结果、生成进度回调、采样桩号保存、断面节点链、三维网格线框和查看横断面预览。
+- 横断面路面结构层模板规则：上面层/中面层/下面层/基层/底基层/垫层编码、等厚/内外侧非等厚、内外侧加宽、`.rpavement.xml` 流转、路基部件点选绑定和模板实体源码契约。
+- 横断面道路模型边坡和线框规则：从路基模板最外侧生成边坡线、读取部件绑定的路面结构层模板并生成结构层线框、TIN 地面剖切交地、断面地面快照、边坡模板戴帽结果、生成进度回调、采样桩号保存、断面节点链、三维网格线框和查看横断面预览。
+- 文档和版本 source-contract：检查 `build/RoadProto.Build.props`、README、版本记录和 `docs/reuse/pavement_layer_template.md` 的 v0.1.19 路面结构层模板发布信息。
 
 V0.1.6 继续保留 `TerrainMeshFile` 领域层测试，用于保证 `DN_TERRAIN_TIN_EXPORT` / `DN_TERRAIN_TIN_IMPORT` 依赖的跨 DWG 数模文件数据不会在读写中丢失。
 
@@ -92,7 +94,7 @@ AutoCAD 图形界面需要手工验证 `RD_PROFILE_VERTICAL_CURVE_CREATE`、`RD_
 
 ## V0.1.10 路基模板验证范围
 
-核心测试覆盖 `SubgradeTemplateDefaults` 的高速公路、城市快速路以及二级、三级、四级道路默认部件、颜色约定、显示比例、变宽表宽度计算、坡度变化表取值、路面结构层厚度启用规则和 `SubgradeTemplateCreateService` 默认创建结果。
+核心测试覆盖 `SubgradeTemplateDefaults` 的高速公路、城市快速路以及二级、三级、四级道路默认部件、颜色约定、显示比例、变宽表宽度计算、坡度变化表取值、路面结构层模板引用归一化和 `SubgradeTemplateCreateService` 默认创建结果。
 
 核心测试覆盖 `CROSS_SECTION` 模块中 `RD_SECTION_SUBGRADE_TEMPLATE_CREATE`、`RD_SECTION_SUBGRADE_TEMPLATE_EDIT_HANDLE` 和 `RD_SECTION_SUBGRADE_TEMPLATE_APPLY_DIALOG_FILE` 的命令元数据、模块启动注册和托管 Ribbon 源码中的 `DNSUBGRADETEMPLATEENTITY` 双击编辑入口。
 
@@ -102,7 +104,7 @@ AutoCAD 图形界面需要手工验证 `RD_SECTION_SUBGRADE_TEMPLATE_CREATE`、`
 - 参数窗口可修改模板名称、显示比例、道路等级和左右侧部件参数。
 - 预览图中线清晰可见，部件宽度和坡度文字不遮挡右侧 UI，点选部件、左右按钮、新增和删除部件可正常工作。
 - 变宽表和坡度变化数据表二级窗口可新增、删除和保存桩号数据；坡度选择变化值时固定坡度输入置灰。
-- 勾选路面结构层关联后才启用厚度输入。
+- 任意部件类型均可勾选启用路面结构层模板，并通过“选择结构层模板”点选 DWG 中的 `DnPavementLayerTemplateEntity` 回填模板 handle 和名称；“清除结构层模板”会清空当前部件绑定。
 - 确认后图中生成 `DnSubgradeTemplateEntity`，显示中线和左右侧路基部件，部件标注使用中文。
 - 双击实体可重新打开同一参数窗口，并显示上次保存的配置；修改后实体刷新。
 - 保存 DWG 后重开并 `REGEN`，路基模板实体和参数保持正常。
@@ -134,6 +136,26 @@ AutoCAD 图形界面需要手工验证 `RD_SECTION_ROAD_MODEL_CREATE`、`RD_SECT
 - 运行 `RD_SECTION_ROAD_MODEL_VIEW_SECTION` 并选择道路模型后，应打开 `查看横断面` 窗口；切换桩号时，预览图显示当前桩号的路基模板线、边坡模板线和生成时地面线快照。
 - 保存 DWG 后重开并 `REGEN`，道路模型实体和三维网格线框保持正常。
 - 选择路基模板实体时应出现插入点夹点，拖动后模板整体位置随夹点移动。
+
+## V0.1.19 路面结构层模板验证范围
+
+核心测试覆盖 `PavementLayerTemplateDefaults`、`PavementLayerTemplateRules` 和 `PavementLayerTemplateCreateService`，包括结构层类型编码、中文显示名、等厚/非等厚厚度归一化、内外侧加宽、显示比例校验和横断面预览几何。
+
+核心测试覆盖 `RoadModelBuilder` 读取路基模板部件绑定的路面结构层模板并生成 `RoadModelWireLineKind::PavementLayer`，并验证左侧部件仍保持“内侧靠近道路中线、外侧远离道路中线”的语义。
+
+核心测试覆盖 `CROSS_SECTION` 模块中 `RD_SECTION_PAVEMENT_LAYER_TEMPLATE_CREATE`、`RD_SECTION_PAVEMENT_LAYER_TEMPLATE_EDIT_HANDLE` 和 `RD_SECTION_PAVEMENT_LAYER_TEMPLATE_APPLY_DIALOG_FILE` 的命令元数据和业务文档路径，并通过源码契约检查 `DnPavementLayerTemplateEntity`、`PavementLayerTemplateDialogBridge` 和 `ObjectArxPavementLayerTemplateCommand`。
+
+托管 bridge 测试覆盖路面结构层模板 WPF 请求/响应文件、`.rpavement.xml` 导入导出、非法 XML 拒绝、窗口 `SaveXml` / `ImportXml` 动作和 AutoCAD Ribbon/命令注册源码契约。
+
+AutoCAD 图形界面需要手工验证 `RD_SECTION_PAVEMENT_LAYER_TEMPLATE_CREATE`、`RD_SECTION_PAVEMENT_LAYER_TEMPLATE_EDIT_HANDLE`、`RD_SECTION_PAVEMENT_LAYER_TEMPLATE_APPLY_DIALOG_FILE`、`RD_SECTION_SUBGRADE_TEMPLATE_CREATE`、`RD_SECTION_ROAD_MODEL_CREATE`、`RD_SECTION_ROAD_MODEL_VIEW_SECTION` 和相关实体：
+
+- 点击 `RoadProto / 横断面设计 / 创建路面结构层模板` 后，命令要求点取插入点并打开 WPF 路面结构层模板窗口。
+- WPF 窗口可选择上面层、中面层、下面层、基层、底基层、垫层，并可切换“内外厚度是否一致”。
+- 导出 `.rpavement.xml` 后再次导入，模板名称、显示比例、预览宽度、层类型、等厚/非等厚厚度、内外侧加宽和坡度保持一致。
+- 双击 `DnPavementLayerTemplateEntity` 可重新打开同一窗口编辑并回写原实体。
+- 在路基模板窗口中，任意部件类型均可点选该路面结构层模板实体并保存 handle 与名称。
+- 横断面戴帽生成道路模型后，`DnRoadModelEntity` 中应显示结构层三维线框。
+- 运行 `查看横断面` 后，预览图应显示路基模板线、结构层、边坡模板线和生成时地面线快照。
 
 ## V0.1.15 边坡模板与道路模型边坡验证范围
 

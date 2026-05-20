@@ -13,6 +13,7 @@
 #include "domain/alignment/HorizontalAlignmentBuilder.h"
 #include "domain/alignment/IcdAlignmentFile.h"
 #include "domain/alignment/StationFormatter.h"
+#include "domain/cross_section/PavementLayerTemplateModel.h"
 #include "domain/cross_section/RoadModel.h"
 #include "domain/cross_section/SlopeTemplateModel.h"
 #include "domain/cross_section/SubgradeTemplateModel.h"
@@ -528,6 +529,84 @@ void subgradeTemplateCreateServiceBuildsDefaultTemplate()
     CHECK(std::fabs(result.templateData.properties.displayScale - 50.0) < 1.0e-9);
     CHECK(result.templateData.properties.roadGrade == RoadGrade::UrbanExpressway);
     CHECK(result.templateData.components.size() == 10);
+}
+
+void pavementLayerTemplateRulesNormalizeThicknessAndCodes()
+{
+    using namespace roadproto::domain::cross_section;
+
+    PavementLayerTemplateData data;
+    data.properties.name = L"主线行车道路面结构层";
+    data.properties.displayScale = 100.0;
+    data.properties.previewWidth = 3.75;
+    data.layers = {
+        PavementLayerTemplateLayer{
+            PavementLayerType::UpperSurface,
+            L"4cm 改性沥青混凝土",
+            true,
+            0.04,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            1.0,
+            1.0},
+        PavementLayerTemplateLayer{
+            PavementLayerType::Base,
+            L"水泥稳定碎石",
+            false,
+            0.0,
+            0.18,
+            0.20,
+            0.15,
+            0.25,
+            0.0,
+            0.0},
+    };
+
+    std::wstring errorMessage;
+    CHECK(PavementLayerTemplateRules::normalize(data, errorMessage));
+    CHECK(std::wstring(pavementLayerTypeCode(PavementLayerType::UpperSurface)) == L"UpperSurface");
+    CHECK(std::wstring(pavementLayerTypeDisplayName(PavementLayerType::UpperSurface)) == L"上面层");
+    CHECK(std::wstring(pavementLayerTypeDisplayName(PavementLayerType::MiddleSurface)) == L"中面层");
+    CHECK(std::wstring(pavementLayerTypeDisplayName(PavementLayerType::LowerSurface)) == L"下面层");
+    CHECK(std::wstring(pavementLayerTypeDisplayName(PavementLayerType::Base)) == L"基层");
+    CHECK(std::wstring(pavementLayerTypeDisplayName(PavementLayerType::Subbase)) == L"底基层");
+    CHECK(std::wstring(pavementLayerTypeDisplayName(PavementLayerType::Cushion)) == L"垫层");
+    CHECK(pavementLayerTypeFromCode(L"Base") == PavementLayerType::Base);
+    CHECK(std::fabs(data.layers[0].innerThickness - 0.04) < 1.0e-9);
+    CHECK(std::fabs(data.layers[0].outerThickness - 0.04) < 1.0e-9);
+    CHECK(!data.layers[1].uniformThickness);
+    CHECK(std::fabs(data.layers[1].innerWidening - 0.15) < 1.0e-9);
+}
+
+void pavementLayerTemplateGeometryUsesInnerOuterWithoutSlopeWidening()
+{
+    using namespace roadproto::domain::cross_section;
+
+    PavementLayerTemplateData data;
+    data.properties.previewWidth = 3.75;
+    PavementLayerTemplateLayer layer;
+    layer.type = PavementLayerType::Base;
+    layer.name = L"基层";
+    layer.uniformThickness = false;
+    layer.innerThickness = 0.18;
+    layer.outerThickness = 0.20;
+    layer.innerWidening = 0.10;
+    layer.outerWidening = 0.30;
+    layer.innerSlope = 1.0;
+    layer.outerSlope = 1.0;
+    data.layers.push_back(layer);
+
+    const auto section = PavementLayerTemplateRules::buildSection(data, 3.75, SubgradeSide::Right, 100.0, 99.925);
+    CHECK(section.succeeded);
+    CHECK(section.layers.size() == 1);
+    CHECK(std::fabs(section.layers[0].topInner.offset - 0.0) < 1.0e-9);
+    CHECK(std::fabs(section.layers[0].topOuter.offset - 3.75) < 1.0e-9);
+    CHECK(std::fabs(section.layers[0].bottomInner.offset - 0.10) < 1.0e-9);
+    CHECK(std::fabs(section.layers[0].bottomOuter.offset - 4.05) < 1.0e-9);
+    CHECK(std::fabs(section.layers[0].bottomInner.elevation - 99.82) < 1.0e-9);
+    CHECK(std::fabs(section.layers[0].bottomOuter.elevation - 99.725) < 1.0e-9);
 }
 
 void slopeTemplateDefaultsBuildFillAndCutProfiles()
@@ -4407,6 +4486,8 @@ int main()
     subgradeTemplateRulesUseWideningTableAndPavementThicknessGate();
     subgradeTemplateVariableSlopeUsesOnlySlopeTable();
     subgradeTemplateCreateServiceBuildsDefaultTemplate();
+    pavementLayerTemplateRulesNormalizeThicknessAndCodes();
+    pavementLayerTemplateGeometryUsesInnerOuterWithoutSlopeWidening();
     slopeTemplateDefaultsBuildFillAndCutProfiles();
     slopeTemplateRulesResolveThreeGeometryModes();
     slopeTemplateRulesValidateRepeatLastGroup();

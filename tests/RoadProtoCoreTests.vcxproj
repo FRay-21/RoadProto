@@ -62,6 +62,7 @@
     <ClCompile Include="..\src\domain\alignment\HorizontalAlignmentBuilder.cpp" />
     <ClCompile Include="..\src\domain\alignment\IcdAlignmentFile.cpp" />
     <ClCompile Include="..\src\domain\alignment\StationFormatter.cpp" />
+    <ClCompile Include="..\src\domain\cross_section\PavementLayerTemplateModel.cpp" />
     <ClCompile Include="..\src\domain\cross_section\RoadModel.cpp" />
     <ClCompile Include="..\src\domain\cross_section\SlopeTemplateModel.cpp" />
     <ClCompile Include="..\src\domain\cross_section\SubgradeTemplateModel.cpp" />

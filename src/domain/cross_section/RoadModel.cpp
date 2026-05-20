@@ -1225,7 +1225,12 @@ bool appendPavementLayerBoundaryPoints(
             const double outerElevationOffset =
                 elevationOffset + component.height + std::fabs(width) * slope;
 
-            if (component.pavementLayerLinked && !component.pavementLayerHandle.empty()) {
+            if (component.pavementLayerLinked) {
+                if (component.pavementLayerHandle.empty()) {
+                    errorMessage = L"Road model pavement layer template handle must not be empty.";
+                    return false;
+                }
+
                 const auto* pavementSource = findOrNormalizePavementLayerTemplate(
                     pavementLayerTemplates,
                     normalizedPavementLayerTemplates,

@@ -1125,6 +1125,44 @@ void roadModelBuilderKeepsPavementLayerInnerOuterSemanticOnLeftSide()
     }
 }
 
+void roadModelBuilderRejectsLinkedPavementLayerWithoutTemplateHandle()
+{
+    using namespace roadproto::domain::alignment;
+    using namespace roadproto::domain::cross_section;
+    using namespace roadproto::domain::profile;
+
+    SubgradeTemplateComponent lane;
+    lane.side = SubgradeSide::Right;
+    lane.type = SubgradeComponentType::TravelLane;
+    lane.width = 3.75;
+    lane.fixedSlope = -0.02;
+    lane.pavementLayerLinked = true;
+    lane.pavementLayerHandle.clear();
+
+    SubgradeTemplateData subgrade;
+    subgrade.components.push_back(lane);
+
+    RoadModelBuildInput input;
+    input.config.sampleInterval = 10.0;
+    input.config.assignments = {RoadModelTemplateAssignment{0.0, 20.0, L"SG-EMPTY-PV", L"路基模板"}};
+    input.verticalCurve.controlPoints = {
+        {VerticalCurvePointRole::Start, 0.0, 100.0},
+        {VerticalCurvePointRole::End, 20.0, 100.0},
+    };
+    input.alignmentSamples = {
+        {{0.0, 0.0}, 0.0},
+        {{20.0, 0.0}, 20.0},
+    };
+    input.templates = {RoadModelTemplateSource{L"SG-EMPTY-PV", subgrade}};
+
+    const auto result = RoadModelBuilder::build(input);
+    CHECK(!result.succeeded);
+    CHECK(!result.errorMessage.empty());
+    CHECK(result.errorMessage.find(L"pavement") != std::wstring::npos);
+    CHECK(result.errorMessage.find(L"template") != std::wstring::npos);
+    CHECK(result.errorMessage.find(L"handle") != std::wstring::npos);
+}
+
 void roadModelSectionPreviewBuilderCreatesSubgradePreviewAtStation()
 {
     using namespace roadproto::domain::alignment;
@@ -4646,6 +4684,7 @@ int main()
     roadModelBuilderCreatesThreeDimensionalComponentLines();
     roadModelBuilderCreatesPavementLayerWireLinesForBoundSubgradeComponent();
     roadModelBuilderKeepsPavementLayerInnerOuterSemanticOnLeftSide();
+    roadModelBuilderRejectsLinkedPavementLayerWithoutTemplateHandle();
     roadModelSectionPreviewBuilderCreatesSubgradePreviewAtStation();
     roadModelSectionPreviewBuilderAddsGroundLineFromTin();
     roadModelBuilderStoresGroundProfileSnapshotsForSections();

@@ -155,11 +155,27 @@ void runPavementLayerTemplateCreateCommand()
         return;
     }
 
-    PavementLayerTemplateDialogRequest request;
-    request.insertionPoint = insertionPoint;
-    request.data = result.templateData;
+    auto* entity = new DnPavementLayerTemplateEntity();
+    entity->setTemplateData(result.templateData);
+    entity->setInsertionPoint(insertionPoint);
+
+    AcDbObjectId entityId;
+    if (!appendEntityToModelSpace(entity, entityId)) {
+        delete entity;
+        editor.writeError(L"插入 DnPavementLayerTemplateEntity 失败。");
+        return;
+    }
+
+    const auto handle = entityHandleText(entity);
+    entity->close();
+    acedUpdateDisplay();
+    writeCreatedMessage(editor, handle, result.templateData);
 
     std::wstring errorMessage;
+    PavementLayerTemplateDialogRequest request;
+    request.handle = handle;
+    request.insertionPoint = insertionPoint;
+    request.data = result.templateData;
     if (!queuePavementLayerTemplateWpfDialog(request, errorMessage)) {
         editor.writeError(L"打开路面结构层模板 WPF 参数窗口失败: " + errorMessage);
     }

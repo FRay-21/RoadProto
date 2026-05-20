@@ -3103,6 +3103,41 @@ void pavementLayerTemplateNativeSourcesContainRequiredContracts()
     CHECK(commandSource.find("appendEntityToModelSpace") != std::string::npos);
     CHECK(commandSource.find("acedUpdateDisplay") != std::string::npos);
 
+    const auto createCommand = commandSource.find("void runPavementLayerTemplateCreateCommand()");
+    CHECK(createCommand != std::string::npos);
+    if (createCommand != std::string::npos) {
+        const auto createCommandEnd = commandSource.find(
+            "void runPavementLayerTemplateEditHandleCommand()",
+            createCommand);
+        const auto createCommandSource = commandSource.substr(
+            createCommand,
+            createCommandEnd == std::string::npos
+                ? std::string::npos
+                : createCommandEnd - createCommand);
+        const auto createEntity = createCommandSource.find("new DnPavementLayerTemplateEntity");
+        const auto setTemplateData = createCommandSource.find("setTemplateData(result.templateData)");
+        const auto setInsertionPoint = createCommandSource.find("setInsertionPoint(insertionPoint)");
+        const auto appendEntity = createCommandSource.find("appendEntityToModelSpace");
+        const auto readHandle = createCommandSource.find("entityHandleText(entity)");
+        const auto requestHandle = createCommandSource.find("request.handle = handle");
+        const auto queueDialog = createCommandSource.find("queuePavementLayerTemplateWpfDialog");
+
+        CHECK(createEntity != std::string::npos);
+        CHECK(setTemplateData != std::string::npos);
+        CHECK(setInsertionPoint != std::string::npos);
+        CHECK(appendEntity != std::string::npos);
+        CHECK(readHandle != std::string::npos);
+        CHECK(requestHandle != std::string::npos);
+        CHECK(queueDialog != std::string::npos);
+        CHECK(createEntity < setTemplateData);
+        CHECK(createEntity < setInsertionPoint);
+        CHECK(setTemplateData < appendEntity);
+        CHECK(setInsertionPoint < appendEntity);
+        CHECK(appendEntity < readHandle);
+        CHECK(readHandle < requestHandle);
+        CHECK(requestHandle < queueDialog);
+    }
+
     CHECK(entry.find("initializePavementLayerTemplateEntityClass()") != std::string::npos);
     CHECK(entry.find("uninitializePavementLayerTemplateEntityClass()") != std::string::npos);
     CHECK(arxProject.find("PavementLayerTemplateCreateService.cpp") != std::string::npos);

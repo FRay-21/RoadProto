@@ -499,6 +499,26 @@ void subgradeTemplateRulesUseWideningTableAndPavementThicknessGate()
     CHECK(std::fabs(SubgradeTemplateRules::effectivePavementThickness(component) - 0.28) < 1.0e-9);
 }
 
+void subgradeTemplateNormalizePreservesLinkedPavementTemplateReference()
+{
+    using namespace roadproto::domain::cross_section;
+
+    SubgradeTemplateData data;
+    data.components.push_back(SubgradeTemplateComponent{});
+    data.components[0].width = 3.75;
+    data.components[0].pavementLayerLinked = true;
+    data.components[0].pavementLayerHandle = L"PV-44";
+    data.components[0].pavementLayerName = L"主线路面结构层";
+    data.components[0].pavementLayerThickness = 0.28;
+
+    std::wstring errorMessage;
+    CHECK(SubgradeTemplateRules::normalize(data, errorMessage));
+    CHECK(data.components[0].pavementLayerLinked);
+    CHECK(data.components[0].pavementLayerHandle == L"PV-44");
+    CHECK(data.components[0].pavementLayerName == L"主线路面结构层");
+    CHECK(std::fabs(data.components[0].pavementLayerThickness - 0.28) < 1.0e-9);
+}
+
 void subgradeTemplateVariableSlopeUsesOnlySlopeTable()
 {
     using namespace roadproto::domain::cross_section;
@@ -3234,6 +3254,72 @@ void subgradeTemplateEntitySourceContainsMoveGrip()
     CHECK(source.find("recordGraphicsModified(true)") != std::string::npos);
 }
 
+void subgradeTemplateDialogBridgeSourceContainsPavementTemplatePickContracts()
+{
+    const auto sourcePath = findRepositoryRootForTests()
+        / "src"
+        / "cad_adapter"
+        / "objectarx"
+        / "cross_section"
+        / "SubgradeTemplateDialogBridge.cpp";
+    const auto headerPath = findRepositoryRootForTests()
+        / "src"
+        / "cad_adapter"
+        / "objectarx"
+        / "cross_section"
+        / "SubgradeTemplateDialogBridge.h";
+    CHECK(std::filesystem::exists(sourcePath));
+    CHECK(std::filesystem::exists(headerPath));
+
+    const auto source = readTextFileForTests(sourcePath);
+    const auto header = readTextFileForTests(headerPath);
+    CHECK(header.find("enum class SubgradeTemplateDialogAction") != std::string::npos);
+    CHECK(header.find("PickPavementLayerTemplate") != std::string::npos);
+    CHECK(header.find("pickComponentIndex") != std::string::npos);
+    CHECK(source.find("action") != std::string::npos);
+    CHECK(source.find("pickPavementLayerTemplate") != std::string::npos);
+    CHECK(source.find("pickComponentIndex") != std::string::npos);
+    CHECK(source.find("prefix + L\".pavementLayerName\"") != std::string::npos);
+    CHECK(source.find("component.pavementLayerName") != std::string::npos);
+}
+
+void subgradeTemplateCommandSourceContainsPavementTemplatePickFlow()
+{
+    const auto sourcePath = findRepositoryRootForTests()
+        / "src"
+        / "cad_adapter"
+        / "objectarx"
+        / "cross_section"
+        / "ObjectArxSubgradeTemplateCommand.cpp";
+    CHECK(std::filesystem::exists(sourcePath));
+
+    const auto source = readTextFileForTests(sourcePath);
+    CHECK(source.find("DnPavementLayerTemplateEntity") != std::string::npos);
+    CHECK(source.find("PickPavementLayerTemplate") != std::string::npos);
+    CHECK(source.find("pickComponentIndex") != std::string::npos);
+    CHECK(source.find("templateData().properties.name") != std::string::npos);
+    CHECK(source.find("pavementLayerName") != std::string::npos);
+    CHECK(
+        source.find("DNPAVEMENTLAYERTEMPLATEENTITY") != std::string::npos
+        || source.find("DnPavementLayerTemplateEntity::desc()") != std::string::npos);
+}
+
+void subgradeTemplateEntityPersistenceSourceContainsPavementTemplateName()
+{
+    const auto sourcePath = findRepositoryRootForTests()
+        / "src"
+        / "cad_adapter"
+        / "objectarx"
+        / "cross_section"
+        / "DnSubgradeTemplateEntity.cpp";
+    CHECK(std::filesystem::exists(sourcePath));
+
+    const auto source = readTextFileForTests(sourcePath);
+    CHECK(source.find("constexpr Adesk::Int16 kEntityVersion = 2") != std::string::npos);
+    CHECK(source.find("component.pavementLayerName = version >= 2") != std::string::npos);
+    CHECK(source.find("writeWideString(filer, component.pavementLayerName)") != std::string::npos);
+}
+
 void roadModelEntitySourceContainsRequiredObjectArxContracts()
 {
     const auto root = findRepositoryRootForTests();
@@ -5153,6 +5239,7 @@ int main()
     subgradeTemplateDefaultsBuildUrbanRoadClassProfiles();
     subgradeTemplateComponentDisplayNamesAreChinese();
     subgradeTemplateRulesUseWideningTableAndPavementThicknessGate();
+    subgradeTemplateNormalizePreservesLinkedPavementTemplateReference();
     subgradeTemplateVariableSlopeUsesOnlySlopeTable();
     subgradeTemplateCreateServiceBuildsDefaultTemplate();
     pavementLayerTemplateCreateServiceBuildsDefaultTemplate();
@@ -5205,6 +5292,9 @@ int main()
     pavementLayerTemplateNativeSourcesContainRequiredContracts();
     roadModelEntitySourceContainsRequiredObjectArxContracts();
     subgradeTemplateEntitySourceContainsMoveGrip();
+    subgradeTemplateDialogBridgeSourceContainsPavementTemplatePickContracts();
+    subgradeTemplateCommandSourceContainsPavementTemplatePickFlow();
+    subgradeTemplateEntityPersistenceSourceContainsPavementTemplateName();
     subgradeTemplateWindowSourceKeepsControlsReadable();
     subgradeTemplateBridgeWritesEnumCodesAsText();
     managedRibbonExtensionRegistersVerticalCurveContextMenu();

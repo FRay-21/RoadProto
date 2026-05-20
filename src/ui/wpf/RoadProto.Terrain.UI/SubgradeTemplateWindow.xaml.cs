@@ -102,7 +102,9 @@ public partial class SubgradeTemplateWindow : Window
 
         if (_components.Count > 0)
         {
-            ComponentListBox.SelectedIndex = 0;
+            ComponentListBox.SelectedIndex = _request.PickComponentIndex >= 0 && _request.PickComponentIndex < _components.Count
+                ? _request.PickComponentIndex
+                : 0;
         }
         RefreshSelectedComponentInputs();
         _loading = false;
@@ -314,12 +316,51 @@ public partial class SubgradeTemplateWindow : Window
         }
     }
 
+    private void PickPavementLayerTemplate_Click(object sender, RoutedEventArgs e)
+    {
+        var index = ComponentListBox.SelectedIndex;
+        if (index < 0 || index >= _components.Count)
+        {
+            return;
+        }
+
+        ApplyInputsToSelectedComponent();
+        Response = BuildResponse(false, SubgradeTemplateDialogAction.PickPavementLayerTemplate, index);
+        DialogResult = false;
+    }
+
+    private void ClearPavementLayerTemplate_Click(object sender, RoutedEventArgs e)
+    {
+        var component = SelectedComponent;
+        if (component == null)
+        {
+            return;
+        }
+
+        component.PavementLayerLinked = false;
+        component.PavementLayerHandle = string.Empty;
+        component.PavementLayerName = string.Empty;
+        component.PavementLayerThickness = 0.0;
+        RefreshSelectedComponentInputs();
+        DrawPreview();
+    }
+
     private void Ok_Click(object sender, RoutedEventArgs e)
     {
         ApplyInputsToSelectedComponent();
-        Response = new SubgradeTemplateDialogResponse
+        Response = BuildResponse(true, SubgradeTemplateDialogAction.None, -1);
+        DialogResult = true;
+    }
+
+    private SubgradeTemplateDialogResponse BuildResponse(
+        bool accepted,
+        SubgradeTemplateDialogAction action,
+        int pickComponentIndex)
+        => new()
         {
-            Accepted = true,
+            Action = action,
+            PickComponentIndex = pickComponentIndex,
+            Accepted = accepted,
             Handle = _request.Handle,
             InsertionX = _request.InsertionX,
             InsertionY = _request.InsertionY,
@@ -330,8 +371,6 @@ public partial class SubgradeTemplateWindow : Window
             RoadCenterlineHandle = _request.RoadCenterlineHandle,
             Components = _components.Select(component => component.Clone()).ToList(),
         };
-        DialogResult = true;
-    }
 
     private void RefreshSelectedComponentInputs()
     {
@@ -347,6 +386,7 @@ public partial class SubgradeTemplateWindow : Window
         ColorGBox.IsEnabled = hasComponent;
         ColorBBox.IsEnabled = hasComponent;
         PavementLayerCheckBox.IsEnabled = hasComponent;
+        PickPavementLayerTemplateButtonState(hasComponent);
 
         if (component == null)
         {
@@ -359,8 +399,8 @@ public partial class SubgradeTemplateWindow : Window
             ColorGBox.Text = "";
             ColorBBox.Text = "";
             PavementLayerCheckBox.IsChecked = false;
+            PavementLayerNameBox.Text = "";
             PavementLayerHandleBox.Text = "";
-            PavementLayerThicknessBox.Text = "";
             ColorPreviewBorder.Background = Brushes.Transparent;
             _loading = false;
             UpdateSlopeModeInputState();
@@ -378,8 +418,8 @@ public partial class SubgradeTemplateWindow : Window
         ColorGBox.Text = component.ColorG.ToString(CultureInfo.InvariantCulture);
         ColorBBox.Text = component.ColorB.ToString(CultureInfo.InvariantCulture);
         PavementLayerCheckBox.IsChecked = component.PavementLayerLinked;
+        PavementLayerNameBox.Text = component.PavementLayerName;
         PavementLayerHandleBox.Text = component.PavementLayerHandle;
-        PavementLayerThicknessBox.Text = Format(component.PavementLayerThickness);
         ColorPreviewBorder.Background = BrushFor(component);
         _loading = false;
         UpdateSlopeModeInputState();
@@ -406,9 +446,7 @@ public partial class SubgradeTemplateWindow : Window
         component.ColorB = ClampColor(ReadInt(ColorBBox.Text, component.ColorB));
         component.PavementLayerLinked = PavementLayerCheckBox.IsChecked == true;
         component.PavementLayerHandle = component.PavementLayerLinked ? PavementLayerHandleBox.Text.Trim() : string.Empty;
-        component.PavementLayerThickness = component.PavementLayerLinked
-            ? Math.Max(0.0, ReadDouble(PavementLayerThicknessBox.Text, component.PavementLayerThickness))
-            : 0.0;
+        component.PavementLayerName = component.PavementLayerLinked ? PavementLayerNameBox.Text.Trim() : string.Empty;
         ColorPreviewBorder.Background = BrushFor(component);
     }
 
@@ -423,9 +461,24 @@ public partial class SubgradeTemplateWindow : Window
 
     private void UpdatePavementLayerInputState()
     {
-        var enabled = SelectedComponent != null && PavementLayerCheckBox.IsChecked == true;
-        PavementLayerHandleBox.IsEnabled = enabled;
-        PavementLayerThicknessBox.IsEnabled = enabled;
+        var hasComponent = SelectedComponent != null;
+        PavementLayerNameBox.IsEnabled = hasComponent;
+        PavementLayerHandleBox.IsEnabled = hasComponent;
+        PickPavementLayerTemplateButtonState(hasComponent);
+    }
+
+    private void PickPavementLayerTemplateButtonState(bool enabled)
+    {
+        var pickButton = FindName("PickPavementLayerTemplateButton") as Button;
+        var clearButton = FindName("ClearPavementLayerTemplateButton") as Button;
+        if (pickButton != null)
+        {
+            pickButton.IsEnabled = enabled;
+        }
+        if (clearButton != null)
+        {
+            clearButton.IsEnabled = enabled;
+        }
     }
 
     private void DrawPreview()

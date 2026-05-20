@@ -50,6 +50,20 @@ static void ExpectThrows<TException>(Action action, string message)
     throw new InvalidOperationException(message);
 }
 
+static System.Reflection.PropertyInfo RequiredProperty(Type type, string propertyName)
+{
+    var property = type.GetProperty(propertyName);
+    Check(property != null, $"{type.Name} should expose {propertyName}");
+    return property!;
+}
+
+static object RequiredEnumValue(string enumTypeName, string valueName)
+{
+    var enumType = typeof(SubgradeTemplateDialogResponse).Assembly.GetType(enumTypeName);
+    Check(enumType != null, $"{enumTypeName} should exist");
+    return Enum.Parse(enumType!, valueName);
+}
+
 static void WithCulture(string cultureName, Action action)
 {
     var originalCulture = Thread.CurrentThread.CurrentCulture;
@@ -136,6 +150,7 @@ static void SubgradeRequestReadsPersistedEntityComponents()
             "component.0.slopeTable.0.value=-0.025",
             "component.0.pavementLayerLinked=1",
             "component.0.pavementLayerHandle=44",
+            "component.0.pavementLayerName=主线%25%0A结构层",
             "component.0.pavementLayerThickness=0.28",
             "component.1.side=Right",
             "component.1.type=HardShoulder",
@@ -150,6 +165,7 @@ static void SubgradeRequestReadsPersistedEntityComponents()
             "component.1.slopeTableCount=0",
             "component.1.pavementLayerLinked=0",
             "component.1.pavementLayerHandle=",
+            "component.1.pavementLayerName=",
             "component.1.pavementLayerThickness=0",
         }, Encoding.UTF8);
 
@@ -164,9 +180,68 @@ static void SubgradeRequestReadsPersistedEntityComponents()
         Check(request.Components[0].VariableSlopeTable.Count == 1, "variable slope table should round-trip");
         Check(Math.Abs(request.Components[0].VariableSlopeTable[0].Value + 0.025) < 1.0e-9, "slope value should round-trip");
         Check(request.Components[0].PavementLayerLinked, "pavement link should round-trip");
+        Check((string)RequiredProperty(typeof(SubgradeComponentDto), "PavementLayerName").GetValue(request.Components[0])! == "主线%\n结构层", "pavement layer name should round-trip");
         Check(request.Components[1].Side == SubgradeSide.Right, "second component side should round-trip");
         Check(request.Components[1].Type == SubgradeComponentType.HardShoulder, "second component type should round-trip");
         Check(Math.Abs(request.Components[1].Width - 2.5) < 1.0e-9, "second component width should round-trip");
+    }
+    finally
+    {
+        if (File.Exists(path))
+        {
+            File.Delete(path);
+        }
+    }
+}
+
+static void SubgradeResponseWritesPavementTemplatePickActionAndPreservesRows()
+{
+    var path = NewTempFile();
+    try
+    {
+        var response = new SubgradeTemplateDialogResponse
+        {
+            Accepted = false,
+            Handle = "SG-1",
+            InsertionX = 1.5,
+            InsertionY = 2.5,
+            InsertionZ = 0,
+            TemplateName = "路基模板",
+            DisplayScale = 10,
+            RoadGrade = SubgradeRoadGrade.SecondClass,
+            RoadCenterlineHandle = "CL-1",
+        };
+        RequiredProperty(typeof(SubgradeTemplateDialogResponse), "Action").SetValue(
+            response,
+            RequiredEnumValue("RoadProto.Terrain.UI.Bridge.SubgradeTemplateDialogAction", "PickPavementLayerTemplate"));
+        RequiredProperty(typeof(SubgradeTemplateDialogResponse), "PickComponentIndex").SetValue(response, 1);
+
+        var first = new SubgradeComponentDto
+        {
+            Side = SubgradeSide.Left,
+            Type = SubgradeComponentType.TravelLane,
+            Width = 3.75,
+            PavementLayerLinked = true,
+            PavementLayerHandle = "PV%1",
+            PavementLayerThickness = 0.28,
+        };
+        RequiredProperty(typeof(SubgradeComponentDto), "PavementLayerName").SetValue(first, "主线\n结构层");
+        response.Components.Add(first);
+        response.Components.Add(new SubgradeComponentDto
+        {
+            Side = SubgradeSide.Right,
+            Type = SubgradeComponentType.HardShoulder,
+            Width = 2.5,
+        });
+
+        SubgradeTemplateDialogFile.WriteResponse(path, response);
+        var content = File.ReadAllText(path, Encoding.UTF8);
+        Check(content.Contains("action=pickPavementLayerTemplate"), "subgrade response should request pavement template picking");
+        Check(content.Contains("accepted=0"), "picking should close the WPF dialog without accepting final changes");
+        Check(content.Contains("pickComponentIndex=1"), "subgrade response should keep selected component index");
+        Check(content.Contains("componentCount=2"), "subgrade pick response should preserve current component rows");
+        Check(content.Contains("component.0.pavementLayerHandle=PV%251"), "subgrade response should escape pavement template handle");
+        Check(content.Contains("component.0.pavementLayerName=主线%0A结构层"), "subgrade response should write pavement template name");
     }
     finally
     {
@@ -970,6 +1045,35 @@ static void PavementLayerTemplateApplyUsesUniqueResponsePathContract()
     Check(!applyClick.Contains("Response ="), "pavement Apply button should not overwrite the final dialog response");
 }
 
+static void SubgradeTemplateWindowContainsPavementTemplateBindingControls()
+{
+    var root = FindRepoRoot();
+    var xaml = File.ReadAllText(Path.Combine(root, "src", "ui", "wpf", "RoadProto.Terrain.UI", "SubgradeTemplateWindow.xaml"), Encoding.UTF8);
+    var source = File.ReadAllText(Path.Combine(root, "src", "ui", "wpf", "RoadProto.Terrain.UI", "SubgradeTemplateWindow.xaml.cs"), Encoding.UTF8);
+    var combined = xaml + "\n" + source;
+
+    Check(combined.Contains("启用路面结构层模板") || combined.Contains("启用结构层模板"), "subgrade window should expose pavement template enable status");
+    Check(combined.Contains("选择结构层模板"), "subgrade window should expose pavement template pick button");
+    Check(combined.Contains("清除结构层模板"), "subgrade window should expose pavement template clear button");
+    Check(combined.Contains("PavementLayerName"), "subgrade window should display pavement template name");
+    Check(combined.Contains("PavementLayerHandle"), "subgrade window should display pavement template handle");
+    Check(!xaml.Contains("结构层厚度"), "subgrade window should not expose legacy pavement thickness label");
+    Check(!xaml.Contains("PavementLayerThicknessBox"), "subgrade window should not expose legacy pavement thickness input");
+    Check(source.Contains("PickPavementLayerTemplate"), "subgrade window should request native pavement template picking");
+    Check(source.Contains("PickComponentIndex"), "subgrade window should preserve selected component index for picking");
+}
+
+static void SubgradeTemplateManagedCommandPreservesPickAction()
+{
+    var root = FindRepoRoot();
+    var source = File.ReadAllText(Path.Combine(root, "src", "ui", "wpf", "RoadProto.Terrain.UI", "AutoCad", "SubgradeTemplateDialogCommands.cs"), Encoding.UTF8);
+
+    Check(source.Contains("Action = request.Action"), "subgrade fallback response should preserve request action");
+    Check(source.Contains("PickComponentIndex = request.PickComponentIndex"), "subgrade fallback response should preserve request pick component index");
+    Check(source.Contains("response.Action"), "subgrade command should preserve the window response action");
+    Check(source.Contains("RD_SECTION_SUBGRADE_TEMPLATE_APPLY_DIALOG_FILE"), "subgrade command should send native apply command");
+}
+
 static void PavementLayerTemplateWindowContainsRequiredEditorContracts()
 {
     var root = FindRepoRoot();
@@ -1003,6 +1107,7 @@ static void PavementLayerTemplateRibbonAndCommandSourceContractsExist()
 
 ResponseWritesPickTerrainAction();
 SubgradeRequestReadsPersistedEntityComponents();
+SubgradeResponseWritesPavementTemplatePickActionAndPreservesRows();
 SlopeTemplateDialogFileRoundTripsComponents();
 RoadModelRequestReadsAssignmentsUsingInvariantCultureAndEscaping();
 RoadModelResponseWritesAssignmentsUsingInvariantCultureAndEscaping();
@@ -1018,6 +1123,8 @@ PavementLayerTemplateDialogFileWritesAcceptedResponseUsingInvariantCultureAndEsc
 PavementLayerTemplateXmlFileRoundTripsPavementTemplate();
 PavementLayerTemplateXmlFileRejectsMalformedXml();
 PavementLayerTemplateApplyUsesUniqueResponsePathContract();
+SubgradeTemplateWindowContainsPavementTemplateBindingControls();
+SubgradeTemplateManagedCommandPreservesPickAction();
 PavementLayerTemplateWindowContainsRequiredEditorContracts();
 PavementLayerTemplateRibbonAndCommandSourceContractsExist();
 Console.WriteLine("All RoadProto managed bridge tests passed.");

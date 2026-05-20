@@ -32,7 +32,7 @@ ACRX_DXF_DEFINE_MEMBERS(
 
 namespace {
 
-constexpr Adesk::Int16 kEntityVersion = 1;
+constexpr Adesk::Int16 kEntityVersion = 2;
 constexpr Adesk::Int32 kMaxComponents = 1000;
 constexpr Adesk::Int32 kMaxTableRows = 10000;
 constexpr double kMinAxisLength = 1.0e-9;
@@ -461,6 +461,7 @@ Acad::ErrorStatus DnSubgradeTemplateEntity::dwgInFields(AcDbDwgFiler* filer)
         readStationRows(filer, component.variableSlopeTable);
         component.pavementLayerLinked = readBool(filer);
         component.pavementLayerHandle = readWideString(filer);
+        component.pavementLayerName = version >= 2 ? readWideString(filer) : L"";
         filer->readDouble(&component.pavementLayerThickness);
 
         component.side = side == static_cast<Adesk::Int32>(SubgradeSide::Left)
@@ -524,6 +525,7 @@ Acad::ErrorStatus DnSubgradeTemplateEntity::dwgOutFields(AcDbDwgFiler* filer) co
         writeStationRows(filer, component.variableSlopeTable);
         writeBool(filer, component.pavementLayerLinked);
         writeWideString(filer, component.pavementLayerHandle);
+        writeWideString(filer, component.pavementLayerName);
         filer->writeDouble(component.pavementLayerThickness);
     }
 

@@ -8,7 +8,14 @@
 
 namespace roadproto::cad_adapter::objectarx::cross_section {
 
+enum class SubgradeTemplateDialogAction {
+    None,
+    PickPavementLayerTemplate
+};
+
 struct SubgradeTemplateDialogRequest {
+    SubgradeTemplateDialogAction action = SubgradeTemplateDialogAction::None;
+    int pickComponentIndex = -1;
     std::wstring handle;
     std::wstring responsePath;
     AcGePoint3d insertionPoint;
@@ -16,6 +23,8 @@ struct SubgradeTemplateDialogRequest {
 };
 
 struct SubgradeTemplateDialogResponse {
+    SubgradeTemplateDialogAction action = SubgradeTemplateDialogAction::None;
+    int pickComponentIndex = -1;
     bool accepted = false;
     std::wstring handle;
     AcGePoint3d insertionPoint;

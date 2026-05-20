@@ -49,6 +49,8 @@ public sealed class SubgradeTemplateDialogCommands
             var dialogResult = window.ShowDialog();
             var response = window.Response ?? new SubgradeTemplateDialogResponse
             {
+                Action = request.Action,
+                PickComponentIndex = request.PickComponentIndex,
                 Accepted = dialogResult == true,
                 Handle = request.Handle,
                 InsertionX = request.InsertionX,
@@ -62,6 +64,7 @@ public sealed class SubgradeTemplateDialogCommands
             };
 
             SubgradeTemplateDialogFile.WriteResponse(request.ResponsePath, response);
+            _ = response.Action;
             var responseCommandPath = request.ResponsePath.Replace('\\', '/');
             document.SendStringToExecute($"RD_SECTION_SUBGRADE_TEMPLATE_APPLY_DIALOG_FILE \"{responseCommandPath}\"\n", true, false, true);
         }

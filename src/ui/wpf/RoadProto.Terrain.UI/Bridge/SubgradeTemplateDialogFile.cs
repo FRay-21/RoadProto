@@ -13,6 +13,8 @@ public static class SubgradeTemplateDialogFile
         var values = ReadValues(path);
         var request = new SubgradeTemplateDialogRequest
         {
+            Action = ParseAction(Get(values, "action")),
+            PickComponentIndex = GetInt(values, "pickComponentIndex", -1),
             Handle = Get(values, "handle"),
             ResponsePath = Get(values, "responsePath"),
             InsertionX = GetDouble(values, "insertionX"),
@@ -38,6 +40,8 @@ public static class SubgradeTemplateDialogFile
     {
         var lines = new List<string>
         {
+            Write("action", ActionCode(response.Action)),
+            Write("pickComponentIndex", response.PickComponentIndex),
             Write("accepted", response.Accepted),
             Write("handle", response.Handle),
             Write("insertionX", response.InsertionX),
@@ -74,6 +78,7 @@ public static class SubgradeTemplateDialogFile
             VariableSlopeTable = ReadRows(values, $"{prefix}.slopeTable"),
             PavementLayerLinked = GetBool(values, $"{prefix}.pavementLayerLinked"),
             PavementLayerHandle = Get(values, $"{prefix}.pavementLayerHandle"),
+            PavementLayerName = Get(values, $"{prefix}.pavementLayerName"),
             PavementLayerThickness = GetDouble(values, $"{prefix}.pavementLayerThickness"),
         };
 
@@ -92,6 +97,7 @@ public static class SubgradeTemplateDialogFile
         WriteRows(lines, $"{prefix}.slopeTable", component.VariableSlopeTable);
         lines.Add(Write($"{prefix}.pavementLayerLinked", component.PavementLayerLinked));
         lines.Add(Write($"{prefix}.pavementLayerHandle", component.PavementLayerHandle));
+        lines.Add(Write($"{prefix}.pavementLayerName", component.PavementLayerName));
         lines.Add(Write($"{prefix}.pavementLayerThickness", component.PavementLayerThickness));
     }
 
@@ -164,6 +170,16 @@ public static class SubgradeTemplateDialogFile
     private static T ParseEnum<T>(string value, T fallback)
         where T : struct
         => Enum.TryParse<T>(value, true, out var result) ? result : fallback;
+
+    private static SubgradeTemplateDialogAction ParseAction(string value)
+        => value.Equals("pickPavementLayerTemplate", StringComparison.OrdinalIgnoreCase)
+            ? SubgradeTemplateDialogAction.PickPavementLayerTemplate
+            : SubgradeTemplateDialogAction.None;
+
+    private static string ActionCode(SubgradeTemplateDialogAction action)
+        => action == SubgradeTemplateDialogAction.PickPavementLayerTemplate
+            ? "pickPavementLayerTemplate"
+            : "none";
 
     private static string Write(string key, string value)
         => $"{key}={Escape(value)}";

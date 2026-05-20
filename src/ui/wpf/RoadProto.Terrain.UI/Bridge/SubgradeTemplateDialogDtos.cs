@@ -39,6 +39,12 @@ public enum SubgradeSlopeMode
     VariableByStation,
 }
 
+public enum SubgradeTemplateDialogAction
+{
+    None,
+    PickPavementLayerTemplate,
+}
+
 public sealed class SubgradeStationValueDto
 {
     public double Station { get; set; }
@@ -63,6 +69,7 @@ public sealed class SubgradeComponentDto
     public List<SubgradeStationValueDto> VariableSlopeTable { get; set; } = new();
     public bool PavementLayerLinked { get; set; }
     public string PavementLayerHandle { get; set; } = string.Empty;
+    public string PavementLayerName { get; set; } = string.Empty;
     public double PavementLayerThickness { get; set; }
 
     public string DisplayName => $"{SideLabel} {TypeLabel} {Width:0.##}";
@@ -85,12 +92,15 @@ public sealed class SubgradeComponentDto
             VariableSlopeTable = VariableSlopeTable.ConvertAll(row => row.Clone()),
             PavementLayerLinked = PavementLayerLinked,
             PavementLayerHandle = PavementLayerHandle,
+            PavementLayerName = PavementLayerName,
             PavementLayerThickness = PavementLayerThickness,
         };
 }
 
 public sealed class SubgradeTemplateDialogRequest
 {
+    public SubgradeTemplateDialogAction Action { get; set; } = SubgradeTemplateDialogAction.None;
+    public int PickComponentIndex { get; set; } = -1;
     public string Handle { get; set; } = string.Empty;
     public string ResponsePath { get; set; } = string.Empty;
     public double InsertionX { get; set; }
@@ -105,6 +115,8 @@ public sealed class SubgradeTemplateDialogRequest
 
 public sealed class SubgradeTemplateDialogResponse
 {
+    public SubgradeTemplateDialogAction Action { get; set; } = SubgradeTemplateDialogAction.None;
+    public int PickComponentIndex { get; set; } = -1;
     public bool Accepted { get; set; }
     public string Handle { get; set; } = string.Empty;
     public double InsertionX { get; set; }

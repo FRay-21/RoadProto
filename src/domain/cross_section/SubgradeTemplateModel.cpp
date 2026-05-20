@@ -260,6 +260,7 @@ bool SubgradeTemplateRules::normalize(SubgradeTemplateData& data, std::wstring& 
         if (!component.pavementLayerLinked) {
             component.pavementLayerThickness = 0.0;
             component.pavementLayerHandle.clear();
+            component.pavementLayerName.clear();
         } else if (!isFiniteNonNegative(component.pavementLayerThickness)) {
             errorMessage = L"Subgrade template pavement layer thickness must be finite and non-negative.";
             return false;

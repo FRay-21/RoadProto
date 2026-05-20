@@ -185,6 +185,20 @@ void writeStationRows(
     }
 }
 
+const wchar_t* actionCode(SubgradeTemplateDialogAction action)
+{
+    return action == SubgradeTemplateDialogAction::PickPavementLayerTemplate
+        ? L"pickPavementLayerTemplate"
+        : L"none";
+}
+
+SubgradeTemplateDialogAction actionFromCode(const std::wstring& code)
+{
+    return code == L"pickPavementLayerTemplate"
+        ? SubgradeTemplateDialogAction::PickPavementLayerTemplate
+        : SubgradeTemplateDialogAction::None;
+}
+
 bool writeRequestFile(
     const SubgradeTemplateDialogRequest& request,
     const std::wstring& requestPath,
@@ -197,6 +211,8 @@ bool writeRequestFile(
         return false;
     }
 
+    writeKeyValue(stream, L"action", actionCode(request.action));
+    writeKeyValue(stream, L"pickComponentIndex", request.pickComponentIndex);
     writeKeyValue(stream, L"handle", request.handle);
     writeKeyValue(stream, L"responsePath", responsePath);
     writeKeyValue(stream, L"insertionX", request.insertionPoint.x);
@@ -227,6 +243,7 @@ bool writeRequestFile(
         writeStationRows(stream, prefix + L".slopeTable", component.variableSlopeTable);
         writeKeyValue(stream, prefix + L".pavementLayerLinked", component.pavementLayerLinked);
         writeKeyValue(stream, prefix + L".pavementLayerHandle", component.pavementLayerHandle);
+        writeKeyValue(stream, prefix + L".pavementLayerName", component.pavementLayerName);
         writeKeyValue(stream, prefix + L".pavementLayerThickness", component.pavementLayerThickness);
     }
 
@@ -397,6 +414,8 @@ bool readSubgradeTemplateDialogResponse(
     test.close();
 
     const auto values = readKeyValueFile(responsePath);
+    response.action = actionFromCode(valueOrDefault(values, L"action"));
+    response.pickComponentIndex = intValue(values, L"pickComponentIndex", -1);
     response.accepted = boolValue(values, L"accepted", false);
     response.handle = valueOrDefault(values, L"handle");
     response.insertionPoint = AcGePoint3d(
@@ -409,7 +428,7 @@ bool readSubgradeTemplateDialogResponse(
         valueOrDefault(values, L"roadGrade", L"Expressway"));
     response.data.roadCenterlineHandle = valueOrDefault(values, L"roadCenterlineHandle");
 
-    if (!response.accepted) {
+    if (!response.accepted && response.action == SubgradeTemplateDialogAction::None) {
         removeFileIfExists(responsePath);
         return true;
     }
@@ -441,6 +460,7 @@ bool readSubgradeTemplateDialogResponse(
         component.variableSlopeTable = readStationRows(values, prefix + L".slopeTable");
         component.pavementLayerLinked = boolValue(values, prefix + L".pavementLayerLinked", false);
         component.pavementLayerHandle = valueOrDefault(values, prefix + L".pavementLayerHandle");
+        component.pavementLayerName = valueOrDefault(values, prefix + L".pavementLayerName");
         component.pavementLayerThickness = doubleValue(values, prefix + L".pavementLayerThickness", 0.0);
         response.data.components.push_back(std::move(component));
     }

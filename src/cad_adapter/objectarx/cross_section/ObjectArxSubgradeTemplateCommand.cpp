@@ -4,6 +4,7 @@
 #include "app/startup/ApplicationContext.h"
 #include "application/cross_section/SubgradeTemplateCreateService.h"
 #include "cad_adapter/common/IEditor.h"
+#include "cad_adapter/objectarx/cross_section/DnPavementLayerTemplateEntity.h"
 #include "cad_adapter/objectarx/cross_section/DnSubgradeTemplateEntity.h"
 #include "cad_adapter/objectarx/cross_section/SubgradeTemplateDialogBridge.h"
 
@@ -104,6 +105,44 @@ bool promptInsertionPoint(AcGePoint3d& insertionPoint)
     return true;
 }
 
+bool promptPavementLayerTemplateForSubgrade(std::wstring& pavementLayerHandle, std::wstring& pavementLayerName)
+{
+    auto& editor = app::ApplicationContext::instance().editor();
+    editor.writeMessage(L"请选择路面结构层模板实体。");
+
+    ads_name entityName;
+    ads_point pickedPoint;
+    if (acedEntSel(L"\n请选择路面结构层模板实体: ", entityName, pickedPoint) != RTNORM) {
+        editor.writeWarning(L"未选择路面结构层模板实体。");
+        return false;
+    }
+
+    AcDbObjectId entityId;
+    if (acdbGetObjectId(entityId, entityName) != Acad::eOk || entityId.isNull()) {
+        editor.writeWarning(L"无法识别所选路面结构层模板实体。");
+        return false;
+    }
+
+    AcDbEntity* entity = nullptr;
+    if (acdbOpenObject(entity, entityId, AcDb::kForRead) != Acad::eOk || entity == nullptr) {
+        editor.writeError(L"无法打开路面结构层模板实体。");
+        return false;
+    }
+    if (!entity->isKindOf(DnPavementLayerTemplateEntity::desc())) {
+        entity->close();
+        editor.writeWarning(L"选择对象不是 RoadProto 路面结构层模板实体。");
+        return false;
+    }
+
+    auto* pavementEntity = static_cast<DnPavementLayerTemplateEntity*>(entity);
+    pavementLayerHandle = entityHandleText(pavementEntity);
+    pavementLayerName = pavementEntity->templateData().properties.name.empty()
+        ? pavementLayerHandle
+        : pavementEntity->templateData().properties.name;
+    pavementEntity->close();
+    return !pavementLayerHandle.empty();
+}
+
 bool queueDialogForSubgradeTemplate(AcDbObjectId entityId)
 {
     auto& editor = app::ApplicationContext::instance().editor();
@@ -126,6 +165,38 @@ bool queueDialogForSubgradeTemplate(AcDbObjectId entityId)
         return false;
     }
 
+    return true;
+}
+
+bool handlePickPavementLayerTemplateAction(const SubgradeTemplateDialogResponse& response)
+{
+    auto& editor = app::ApplicationContext::instance().editor();
+
+    SubgradeTemplateDialogRequest request;
+    request.handle = response.handle;
+    request.insertionPoint = response.insertionPoint;
+    request.data = response.data;
+    request.pickComponentIndex = response.pickComponentIndex;
+
+    if (response.pickComponentIndex < 0
+        || response.pickComponentIndex >= static_cast<int>(request.data.components.size())) {
+        editor.writeWarning(L"路面结构层模板点选部件索引无效，已重新打开路基模板窗口。");
+    } else {
+        std::wstring pavementLayerHandle;
+        std::wstring pavementLayerName;
+        if (promptPavementLayerTemplateForSubgrade(pavementLayerHandle, pavementLayerName)) {
+            auto& component = request.data.components[static_cast<std::size_t>(response.pickComponentIndex)];
+            component.pavementLayerLinked = true;
+            component.pavementLayerHandle = pavementLayerHandle;
+            component.pavementLayerName = pavementLayerName;
+        }
+    }
+
+    std::wstring errorMessage;
+    if (!queueSubgradeTemplateWpfDialog(request, errorMessage)) {
+        editor.writeError(L"重新打开路基模板 WPF 参数窗口失败: " + errorMessage);
+        return false;
+    }
     return true;
 }
 
@@ -213,6 +284,11 @@ void runSubgradeTemplateApplyDialogFileCommand()
     const auto responsePath = trimDialogCommandPath(pathBuffer);
     if (!readSubgradeTemplateDialogResponse(responsePath, response, errorMessage)) {
         editor.writeError(L"读取路基模板对话框结果失败: " + errorMessage);
+        return;
+    }
+
+    if (response.action == SubgradeTemplateDialogAction::PickPavementLayerTemplate) {
+        handlePickPavementLayerTemplateAction(response);
         return;
     }
 

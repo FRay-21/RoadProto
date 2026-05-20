@@ -23,33 +23,33 @@ public static class PavementLayerTemplateXmlFile
         var properties = root.Element("Properties") ?? throw new InvalidDataException("Missing pavement layer template properties.");
         var template = new PavementLayerTemplateDto
         {
-            TemplateName = (string?)properties.Attribute("name") ?? "路面结构层模板",
-            DisplayScale = ReadDouble(properties, "displayScale", 10.0),
-            PreviewWidth = ReadDouble(properties, "previewWidth", 3.75),
+            TemplateName = ReadRequiredString(properties, "name"),
+            DisplayScale = ReadRequiredPositiveDouble(properties, "displayScale"),
+            PreviewWidth = ReadRequiredPositiveDouble(properties, "previewWidth"),
         };
 
         foreach (var element in root.Elements("Layer"))
         {
-            var type = ReadEnum((string?)element.Attribute("type"), PavementLayerType.UpperSurface);
-            var thickness = ReadDouble(element, "thickness", 0.04);
+            var type = ReadRequiredEnum<PavementLayerType>(element, "type");
+            var thickness = ReadRequiredPositiveDouble(element, "thickness");
             template.Layers.Add(new PavementLayerTemplateLayerDto
             {
                 Type = type,
-                Name = (string?)element.Attribute("name") ?? PavementLayerTemplateLabels.LayerTypeLabel(type),
-                UniformThickness = ReadBool(element, "uniformThickness", true),
+                Name = ReadRequiredString(element, "name"),
+                UniformThickness = ReadRequiredBool(element, "uniformThickness"),
                 Thickness = thickness,
-                InnerThickness = ReadDouble(element, "innerThickness", thickness),
-                OuterThickness = ReadDouble(element, "outerThickness", thickness),
-                InnerWidening = ReadDouble(element, "innerWidening"),
-                OuterWidening = ReadDouble(element, "outerWidening"),
-                InnerSlope = ReadDouble(element, "innerSlope"),
-                OuterSlope = ReadDouble(element, "outerSlope"),
+                InnerThickness = ReadRequiredPositiveDouble(element, "innerThickness"),
+                OuterThickness = ReadRequiredPositiveDouble(element, "outerThickness"),
+                InnerWidening = ReadRequiredNonNegativeDouble(element, "innerWidening"),
+                OuterWidening = ReadRequiredNonNegativeDouble(element, "outerWidening"),
+                InnerSlope = ReadRequiredDouble(element, "innerSlope"),
+                OuterSlope = ReadRequiredDouble(element, "outerSlope"),
             });
         }
 
         if (template.Layers.Count == 0)
         {
-            template.Layers.AddRange(PavementLayerTemplateLabels.DefaultLayers());
+            throw new InvalidDataException("Pavement layer template XML requires at least one Layer.");
         }
 
         return template;
@@ -91,27 +91,74 @@ public static class PavementLayerTemplateXmlFile
         }
     }
 
-    private static double ReadDouble(XElement element, string name, double fallback = 0.0)
-        => double.TryParse((string?)element.Attribute(name), NumberStyles.Float, CultureInfo.InvariantCulture, out var value)
-            ? value
-            : fallback;
-
-    private static bool ReadBool(XElement element, string name, bool fallback = false)
+    private static string ReadRequiredString(XElement element, string name)
     {
         var value = (string?)element.Attribute(name);
         if (string.IsNullOrWhiteSpace(value))
         {
-            return fallback;
+            throw new InvalidDataException($"Missing pavement layer template XML attribute: {name}.");
         }
-        return value!.Equals("1", StringComparison.OrdinalIgnoreCase)
-            || value.Equals("true", StringComparison.OrdinalIgnoreCase);
+        return value!;
     }
 
-    private static T ReadEnum<T>(string? value, T fallback)
+    private static double ReadRequiredDouble(XElement element, string name)
+    {
+        var raw = ReadRequiredString(element, name);
+        if (!double.TryParse(raw, NumberStyles.Float, CultureInfo.InvariantCulture, out var value)
+            || double.IsNaN(value)
+            || double.IsInfinity(value))
+        {
+            throw new InvalidDataException($"Invalid pavement layer template XML numeric attribute: {name}.");
+        }
+        return value;
+    }
+
+    private static double ReadRequiredPositiveDouble(XElement element, string name)
+    {
+        var value = ReadRequiredDouble(element, name);
+        if (value <= 0.0)
+        {
+            throw new InvalidDataException($"Pavement layer template XML attribute must be positive: {name}.");
+        }
+        return value;
+    }
+
+    private static double ReadRequiredNonNegativeDouble(XElement element, string name)
+    {
+        var value = ReadRequiredDouble(element, name);
+        if (value < 0.0)
+        {
+            throw new InvalidDataException($"Pavement layer template XML attribute must be non-negative: {name}.");
+        }
+        return value;
+    }
+
+    private static bool ReadRequiredBool(XElement element, string name)
+    {
+        var value = ReadRequiredString(element, name);
+        if (value.Equals("1", StringComparison.OrdinalIgnoreCase)
+            || value.Equals("true", StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+        if (value.Equals("0", StringComparison.OrdinalIgnoreCase)
+            || value.Equals("false", StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+        throw new InvalidDataException($"Invalid pavement layer template XML boolean attribute: {name}.");
+    }
+
+    private static T ReadRequiredEnum<T>(XElement element, string name)
         where T : struct
-        => string.IsNullOrWhiteSpace(value)
-            ? fallback
-            : Enum.TryParse<T>(value, true, out var result) ? result : fallback;
+    {
+        var value = ReadRequiredString(element, name);
+        if (!Enum.TryParse<T>(value, false, out var result) || !Enum.IsDefined(typeof(T), result))
+        {
+            throw new InvalidDataException($"Invalid pavement layer template XML enum attribute: {name}.");
+        }
+        return result;
+    }
 
     private static string Format(double value)
         => value.ToString("R", CultureInfo.InvariantCulture);

@@ -870,6 +870,106 @@ static void PavementLayerTemplateXmlFileRoundTripsPavementTemplate()
     }
 }
 
+static void PavementLayerTemplateXmlFileRejectsMalformedXml()
+{
+    var path = Path.Combine(Path.GetTempPath(), $"RoadProtoManagedBridgeTests_{Guid.NewGuid():N}.rpavement.xml");
+    try
+    {
+        void WriteXml(string propertiesAttributes, string layerAttributes)
+        {
+            File.WriteAllText(
+                path,
+                $"""
+                <?xml version="1.0" encoding="utf-8"?>
+                <RoadProtoPavementLayerTemplate version="1">
+                  <Properties {propertiesAttributes} />
+                  <Layer {layerAttributes} />
+                </RoadProtoPavementLayerTemplate>
+                """,
+                Encoding.UTF8);
+        }
+
+        const string validProperties = "name=\"主线路面结构层\" displayScale=\"25\" previewWidth=\"4.25\"";
+        const string validLayer = "type=\"UpperSurface\" name=\"上面层\" uniformThickness=\"true\" thickness=\"0.04\" innerThickness=\"0.04\" outerThickness=\"0.04\" innerWidening=\"0\" outerWidening=\"0\" innerSlope=\"0\" outerSlope=\"0\"";
+
+        WriteXml(validProperties, validLayer.Replace("UpperSurface", "BadType"));
+        ExpectThrows<InvalidDataException>(
+            () => PavementLayerTemplateXmlFile.Read(path),
+            "pavement XML should reject invalid layer type");
+
+        WriteXml(validProperties, validLayer.Replace("uniformThickness=\"true\"", "uniformThickness=\"maybe\""));
+        ExpectThrows<InvalidDataException>(
+            () => PavementLayerTemplateXmlFile.Read(path),
+            "pavement XML should reject invalid bool attributes");
+
+        WriteXml(validProperties.Replace("displayScale=\"25\"", "displayScale=\"abc\""), validLayer);
+        ExpectThrows<InvalidDataException>(
+            () => PavementLayerTemplateXmlFile.Read(path),
+            "pavement XML should reject invalid numeric attributes");
+
+        WriteXml(validProperties, validLayer.Replace(" thickness=\"0.04\"", string.Empty));
+        ExpectThrows<InvalidDataException>(
+            () => PavementLayerTemplateXmlFile.Read(path),
+            "pavement XML should reject missing mandatory layer attributes");
+
+        WriteXml(validProperties, validLayer.Replace("innerWidening=\"0\"", "innerWidening=\"-0.1\""));
+        ExpectThrows<InvalidDataException>(
+            () => PavementLayerTemplateXmlFile.Read(path),
+            "pavement XML should reject negative widening values");
+
+        WriteXml(validProperties.Replace("previewWidth=\"4.25\"", "previewWidth=\"0\""), validLayer);
+        ExpectThrows<InvalidDataException>(
+            () => PavementLayerTemplateXmlFile.Read(path),
+            "pavement XML should reject non-positive preview width");
+    }
+    finally
+    {
+        if (File.Exists(path))
+        {
+            File.Delete(path);
+        }
+    }
+}
+
+static void PavementLayerTemplateApplyUsesUniqueResponsePathContract()
+{
+    var root = FindRepoRoot();
+    var commandPath = Path.Combine(
+        root,
+        "src",
+        "ui",
+        "wpf",
+        "RoadProto.Terrain.UI",
+        "AutoCad",
+        "PavementLayerTemplateDialogCommands.cs");
+    var windowPath = Path.Combine(
+        FindRepoRoot(),
+        "src",
+        "ui",
+        "wpf",
+        "RoadProto.Terrain.UI",
+        "PavementLayerTemplateWindow.xaml.cs");
+    var source = File.ReadAllText(commandPath, Encoding.UTF8);
+    var windowSource = File.ReadAllText(windowPath, Encoding.UTF8);
+    var applyHandlerStart = source.IndexOf("window.ApplyRequested += (_, response) =>", StringComparison.Ordinal);
+    var dialogStart = source.IndexOf("var dialogResult = window.ShowDialog();", StringComparison.Ordinal);
+    Check(applyHandlerStart >= 0 && dialogStart > applyHandlerStart, "pavement command should contain ApplyRequested handler before ShowDialog");
+
+    var applyHandler = source.Substring(applyHandlerStart, dialogStart - applyHandlerStart);
+    Check(applyHandler.Contains("CreateApplyResponsePath("), "pavement Apply should create a unique response path");
+    Check(applyHandler.Contains("PavementLayerTemplateDialogFile.WriteResponse(applyResponsePath, response)"), "pavement Apply should write to the unique response path");
+    Check(applyHandler.Contains("SendApplyCommand(document, applyResponsePath)"), "pavement Apply should queue native apply with the unique response path");
+    Check(!applyHandler.Contains("request.ResponsePath"), "pavement Apply should not write or queue the original request response path");
+    Check(source.Contains("PavementLayerTemplateDialogFile.WriteResponse(request.ResponsePath, response)"), "pavement final OK/Cancel should keep original response path");
+
+    var applyClickStart = windowSource.IndexOf("private void Apply_Click", StringComparison.Ordinal);
+    var okClickStart = windowSource.IndexOf("private void Ok_Click", StringComparison.Ordinal);
+    Check(applyClickStart >= 0 && okClickStart > applyClickStart, "pavement window should contain Apply_Click before Ok_Click");
+    var applyClick = windowSource.Substring(applyClickStart, okClickStart - applyClickStart);
+    Check(applyClick.Contains("ApplyRequested?.Invoke(this, response)"), "pavement Apply button should raise apply event");
+    Check(!applyClick.Contains("Response ="), "pavement Apply button should not overwrite the final dialog response");
+}
+
 static void PavementLayerTemplateWindowContainsRequiredEditorContracts()
 {
     var root = FindRepoRoot();
@@ -916,6 +1016,8 @@ RoadModelWindowReadOnlyHandleBindingIsOneWay();
 PavementLayerTemplateDialogFileReadsRequestUsingInvariantCultureAndEscaping();
 PavementLayerTemplateDialogFileWritesAcceptedResponseUsingInvariantCultureAndEscaping();
 PavementLayerTemplateXmlFileRoundTripsPavementTemplate();
+PavementLayerTemplateXmlFileRejectsMalformedXml();
+PavementLayerTemplateApplyUsesUniqueResponsePathContract();
 PavementLayerTemplateWindowContainsRequiredEditorContracts();
 PavementLayerTemplateRibbonAndCommandSourceContractsExist();
 Console.WriteLine("All RoadProto managed bridge tests passed.");

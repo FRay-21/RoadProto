@@ -50,8 +50,9 @@ public sealed class PavementLayerTemplateDialogCommands
             var window = new PavementLayerTemplateWindow(request);
             window.ApplyRequested += (_, response) =>
             {
-                PavementLayerTemplateDialogFile.WriteResponse(request.ResponsePath, response);
-                SendApplyCommand(document, request.ResponsePath);
+                var applyResponsePath = CreateApplyResponsePath();
+                PavementLayerTemplateDialogFile.WriteResponse(applyResponsePath, response);
+                SendApplyCommand(document, applyResponsePath);
             };
 
             var dialogResult = window.ShowDialog();
@@ -90,4 +91,9 @@ public sealed class PavementLayerTemplateDialogCommands
             false,
             true);
     }
+
+    private static string CreateApplyResponsePath()
+        => Path.Combine(
+            Path.GetTempPath(),
+            $"RoadProtoPavementLayerTemplateApply_{Process.GetCurrentProcess().Id}_{System.Guid.NewGuid():N}.response");
 }

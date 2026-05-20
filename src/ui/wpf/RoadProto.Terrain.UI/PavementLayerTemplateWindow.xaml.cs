@@ -518,7 +518,6 @@ public partial class PavementLayerTemplateWindow : Window
     private void Apply_Click(object sender, RoutedEventArgs e)
     {
         var response = BuildResponse(true);
-        Response = response;
         ApplyRequested?.Invoke(this, response);
     }
 

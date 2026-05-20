@@ -539,24 +539,49 @@ RoadModelSectionPreviewSegmentKind previewKindFromSectionNode(const RoadModelSec
         : RoadModelSectionPreviewSegmentKind::Subgrade;
 }
 
+bool isFinitePreviewPoint(const RoadModelSectionPreviewPoint& point)
+{
+    return isFinite(point.offset) && isFinite(point.elevation);
+}
+
+void appendSectionNodePreviewSegment(
+    RoadModelSectionPreview& preview,
+    const RoadModelSectionNode& start,
+    const RoadModelSectionNode& end)
+{
+    if (!isFinite(start.offset) || !isFinite(start.elevation) ||
+        !isFinite(end.offset) || !isFinite(end.elevation)) {
+        return;
+    }
+
+    RoadModelSectionPreviewSegment segment;
+    segment.kind = previewKindFromSectionNode(end);
+    segment.color = toPreviewColor(end.color);
+    segment.label = previewLabelForKind(segment.kind);
+    segment.points = {
+        RoadModelSectionPreviewPoint{start.offset, start.elevation},
+        RoadModelSectionPreviewPoint{end.offset, end.elevation}};
+    preview.segments.push_back(std::move(segment));
+}
+
 void appendSectionNodePreviewSegments(
     RoadModelSectionPreview& preview,
     const std::vector<RoadModelSectionNode>& nodes)
 {
     for (std::size_t i = 1; i < nodes.size(); ++i) {
-        if (!isFinite(nodes[i - 1].offset) || !isFinite(nodes[i - 1].elevation) ||
-            !isFinite(nodes[i].offset) || !isFinite(nodes[i].elevation)) {
-            continue;
-        }
+        appendSectionNodePreviewSegment(preview, nodes[i - 1], nodes[i]);
+    }
+}
 
-        RoadModelSectionPreviewSegment segment;
-        segment.kind = previewKindFromSectionNode(nodes[i]);
-        segment.color = toPreviewColor(nodes[i].color);
-        segment.label = previewLabelForKind(segment.kind);
-        segment.points = {
-            RoadModelSectionPreviewPoint{nodes[i - 1].offset, nodes[i - 1].elevation},
-            RoadModelSectionPreviewPoint{nodes[i].offset, nodes[i].elevation}};
-        preview.segments.push_back(std::move(segment));
+void appendPavementLayerSectionPreviewSegments(
+    RoadModelSectionPreview& preview,
+    const std::vector<RoadModelSectionNode>& nodes)
+{
+    for (std::size_t i = 0; i + 3 < nodes.size(); i += 4) {
+        appendSectionNodePreviewSegment(preview, nodes[i], nodes[i + 1]);
+        appendSectionNodePreviewSegment(preview, nodes[i + 1], nodes[i + 3]);
+        appendSectionNodePreviewSegment(preview, nodes[i + 3], nodes[i + 2]);
+        appendSectionNodePreviewSegment(preview, nodes[i + 2], nodes[i]);
     }
 }
 
@@ -581,7 +606,8 @@ void appendPreviewSegmentPairs(
     const std::vector<PreviewBoundarySample>& samples)
 {
     for (const auto& inner : samples) {
-        if (inner.boundaryIndex != 0) {
+        if (inner.boundaryIndex != 0 ||
+            inner.kind == RoadModelSectionPreviewSegmentKind::PavementLayer) {
             continue;
         }
 
@@ -601,6 +627,62 @@ void appendPreviewSegmentPairs(
         segment.label = previewLabelForKind(inner.kind);
         segment.points = {inner.point, outer->point};
         preview.segments.push_back(std::move(segment));
+    }
+}
+
+const PreviewBoundarySample* findPreviewBoundarySample(
+    const std::vector<PreviewBoundarySample>& samples,
+    const PreviewBoundarySample& anchor,
+    std::size_t boundaryIndex)
+{
+    const auto found = std::find_if(
+        samples.begin(),
+        samples.end(),
+        [&anchor, boundaryIndex](const auto& candidate) {
+            return candidate.boundaryIndex == boundaryIndex &&
+                samePreviewComponentKey(anchor, candidate);
+        });
+    return found == samples.end() ? nullptr : &*found;
+}
+
+void appendPreviewBoundarySampleSegment(
+    RoadModelSectionPreview& preview,
+    const PreviewBoundarySample& start,
+    const PreviewBoundarySample& end)
+{
+    if (!isFinitePreviewPoint(start.point) || !isFinitePreviewPoint(end.point)) {
+        return;
+    }
+
+    RoadModelSectionPreviewSegment segment;
+    segment.kind = start.kind;
+    segment.color = start.color;
+    segment.label = previewLabelForKind(segment.kind);
+    segment.points = {start.point, end.point};
+    preview.segments.push_back(std::move(segment));
+}
+
+void appendPavementLayerPreviewSampleSegments(
+    RoadModelSectionPreview& preview,
+    const std::vector<PreviewBoundarySample>& samples)
+{
+    for (const auto& topInner : samples) {
+        if (topInner.kind != RoadModelSectionPreviewSegmentKind::PavementLayer ||
+            topInner.boundaryIndex != 0) {
+            continue;
+        }
+
+        const auto* topOuter = findPreviewBoundarySample(samples, topInner, 1);
+        const auto* bottomInner = findPreviewBoundarySample(samples, topInner, 2);
+        const auto* bottomOuter = findPreviewBoundarySample(samples, topInner, 3);
+        if (topOuter == nullptr || bottomInner == nullptr || bottomOuter == nullptr) {
+            continue;
+        }
+
+        appendPreviewBoundarySampleSegment(preview, topInner, *topOuter);
+        appendPreviewBoundarySampleSegment(preview, *topOuter, *bottomOuter);
+        appendPreviewBoundarySampleSegment(preview, *bottomOuter, *bottomInner);
+        appendPreviewBoundarySampleSegment(preview, *bottomInner, topInner);
     }
 }
 
@@ -2346,8 +2428,8 @@ RoadModelSectionPreview RoadModelSectionPreviewBuilder::build(const RoadModelSec
     if (const auto* section = findSectionAtStation(request.data.sections, request.station)) {
         appendSectionNodePreviewSegments(preview, section->leftNodes);
         appendSectionNodePreviewSegments(preview, section->rightNodes);
-        appendSectionNodePreviewSegments(preview, section->leftPavementLayerNodes);
-        appendSectionNodePreviewSegments(preview, section->rightPavementLayerNodes);
+        appendPavementLayerSectionPreviewSegments(preview, section->leftPavementLayerNodes);
+        appendPavementLayerSectionPreviewSegments(preview, section->rightPavementLayerNodes);
         appendGroundPreviewSegment(preview, request, *frame, section);
         preview.succeeded = true;
         if (preview.statusMessage.empty()) {
@@ -2418,6 +2500,7 @@ RoadModelSectionPreview RoadModelSectionPreviewBuilder::build(const RoadModelSec
     }
 
     appendPreviewSegmentPairs(preview, samples);
+    appendPavementLayerPreviewSampleSegments(preview, samples);
     appendGroundPreviewSegment(preview, request, *frame, nullptr);
 
     preview.succeeded = true;

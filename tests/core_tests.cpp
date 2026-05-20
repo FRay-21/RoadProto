@@ -1245,6 +1245,97 @@ void roadModelBuilderRejectsInvalidPavementLayerTemplateSource()
     CHECK(result.errorMessage.find(L"invalid") != std::wstring::npos);
 }
 
+roadproto::domain::cross_section::RoadModelBuildInput makePavementLayerPreviewBuildInput()
+{
+    using namespace roadproto::domain::alignment;
+    using namespace roadproto::domain::cross_section;
+    using namespace roadproto::domain::profile;
+
+    SubgradeTemplateComponent lane;
+    lane.side = SubgradeSide::Right;
+    lane.type = SubgradeComponentType::TravelLane;
+    lane.width = 3.75;
+    lane.fixedSlope = -0.02;
+    lane.pavementLayerLinked = true;
+    lane.pavementLayerHandle = L"PV-PREVIEW";
+    lane.pavementLayerName = L"Preview pavement";
+
+    SubgradeTemplateData subgrade;
+    subgrade.components.push_back(lane);
+
+    PavementLayerTemplateData pavement;
+    pavement.properties.name = L"Preview pavement";
+    PavementLayerTemplateLayer upper;
+    upper.type = PavementLayerType::UpperSurface;
+    upper.name = L"Upper surface";
+    upper.uniformThickness = true;
+    upper.thickness = 0.04;
+    pavement.layers.push_back(upper);
+
+    RoadModelBuildInput input;
+    input.config.sampleInterval = 10.0;
+    input.config.assignments = {RoadModelTemplateAssignment{0.0, 20.0, L"SG-PREVIEW", L"Preview subgrade"}};
+    input.verticalCurve.controlPoints = {
+        {VerticalCurvePointRole::Start, 0.0, 100.0},
+        {VerticalCurvePointRole::End, 20.0, 100.0},
+    };
+    input.alignmentSamples = {
+        {{0.0, 0.0}, 0.0},
+        {{20.0, 0.0}, 20.0},
+    };
+    input.templates = {RoadModelTemplateSource{L"SG-PREVIEW", subgrade}};
+    input.pavementLayerTemplates = {RoadModelPavementLayerTemplateSource{L"PV-PREVIEW", pavement}};
+    return input;
+}
+
+std::size_t countPavementLayerPreviewSegments(const roadproto::domain::cross_section::RoadModelSectionPreview& preview)
+{
+    return static_cast<std::size_t>(std::count_if(
+        preview.segments.begin(),
+        preview.segments.end(),
+        [](const auto& segment) {
+            return segment.kind == roadproto::domain::cross_section::RoadModelSectionPreviewSegmentKind::PavementLayer;
+        }));
+}
+
+void roadModelSectionPreviewBuilderDrawsPavementLayerRectangleAtSampledStation()
+{
+    using namespace roadproto::domain::cross_section;
+
+    const auto input = makePavementLayerPreviewBuildInput();
+    const auto result = RoadModelBuilder::build(input);
+    CHECK(result.succeeded);
+
+    RoadModelSectionPreviewRequest request;
+    request.data = result.data;
+    request.alignmentSamples = input.alignmentSamples;
+    request.station = 10.0;
+
+    const auto preview = RoadModelSectionPreviewBuilder::build(request);
+
+    CHECK(preview.succeeded);
+    CHECK(countPavementLayerPreviewSegments(preview) >= 4);
+}
+
+void roadModelSectionPreviewBuilderInterpolatesPavementLayerRectangleBetweenSamples()
+{
+    using namespace roadproto::domain::cross_section;
+
+    const auto input = makePavementLayerPreviewBuildInput();
+    const auto result = RoadModelBuilder::build(input);
+    CHECK(result.succeeded);
+
+    RoadModelSectionPreviewRequest request;
+    request.data = result.data;
+    request.alignmentSamples = input.alignmentSamples;
+    request.station = 5.0;
+
+    const auto preview = RoadModelSectionPreviewBuilder::build(request);
+
+    CHECK(preview.succeeded);
+    CHECK(countPavementLayerPreviewSegments(preview) >= 4);
+}
+
 void roadModelSectionPreviewBuilderCreatesSubgradePreviewAtStation()
 {
     using namespace roadproto::domain::alignment;
@@ -2905,6 +2996,28 @@ void roadModelEntitySourceContainsRequiredObjectArxContracts()
     CHECK(source.find("wireLines") != std::string::npos);
     CHECK(source.find("RoadModelGroundProfilePoint") != std::string::npos);
     CHECK(source.find("RoadModelWireLineKind") != std::string::npos);
+    const auto nodeKindValidation = source.find("bool isValidRoadModelSectionNodeKindValue");
+    CHECK(nodeKindValidation != std::string::npos);
+    if (nodeKindValidation != std::string::npos) {
+        const auto nodeKindValidationEnd = source.find("bool isValidRoadModelWireLineKindValue", nodeKindValidation);
+        const auto nodeKindValidationSource = source.substr(
+            nodeKindValidation,
+            nodeKindValidationEnd == std::string::npos
+                ? std::string::npos
+                : nodeKindValidationEnd - nodeKindValidation);
+        CHECK(nodeKindValidationSource.find("RoadModelSectionNodeKind::PavementLayer") != std::string::npos);
+    }
+    const auto wireKindValidation = source.find("bool isValidRoadModelWireLineKindValue");
+    CHECK(wireKindValidation != std::string::npos);
+    if (wireKindValidation != std::string::npos) {
+        const auto wireKindValidationEnd = source.find("bool isValidLineKey", wireKindValidation);
+        const auto wireKindValidationSource = source.substr(
+            wireKindValidation,
+            wireKindValidationEnd == std::string::npos
+                ? std::string::npos
+                : wireKindValidationEnd - wireKindValidation);
+        CHECK(wireKindValidationSource.find("RoadModelWireLineKind::PavementLayer") != std::string::npos);
+    }
     CHECK(source.find("constexpr Adesk::Int16 kEntityVersion = 5") != std::string::npos);
     CHECK(source.find("readRoadModelSection") != std::string::npos);
     CHECK(source.find("writeRoadModelSection") != std::string::npos);
@@ -4769,6 +4882,8 @@ int main()
     roadModelBuilderRejectsLinkedPavementLayerWithoutTemplateHandle();
     roadModelBuilderRejectsMissingPavementLayerTemplateSource();
     roadModelBuilderRejectsInvalidPavementLayerTemplateSource();
+    roadModelSectionPreviewBuilderDrawsPavementLayerRectangleAtSampledStation();
+    roadModelSectionPreviewBuilderInterpolatesPavementLayerRectangleBetweenSamples();
     roadModelSectionPreviewBuilderCreatesSubgradePreviewAtStation();
     roadModelSectionPreviewBuilderAddsGroundLineFromTin();
     roadModelBuilderStoresGroundProfileSnapshotsForSections();

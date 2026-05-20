@@ -228,7 +228,8 @@ bool isValidRoadModelSectionNodeKindValue(Adesk::Int32 value)
 {
     return value == static_cast<Adesk::Int32>(RoadModelSectionNodeKind::Subgrade)
         || value == static_cast<Adesk::Int32>(RoadModelSectionNodeKind::Slope)
-        || value == static_cast<Adesk::Int32>(RoadModelSectionNodeKind::Ground);
+        || value == static_cast<Adesk::Int32>(RoadModelSectionNodeKind::Ground)
+        || value == static_cast<Adesk::Int32>(RoadModelSectionNodeKind::PavementLayer);
 }
 
 bool isValidRoadModelWireLineKindValue(Adesk::Int32 value)
@@ -237,7 +238,8 @@ bool isValidRoadModelWireLineKindValue(Adesk::Int32 value)
         || value == static_cast<Adesk::Int32>(RoadModelWireLineKind::Longitudinal)
         || value == static_cast<Adesk::Int32>(RoadModelWireLineKind::OuterBoundary)
         || value == static_cast<Adesk::Int32>(RoadModelWireLineKind::Transition)
-        || value == static_cast<Adesk::Int32>(RoadModelWireLineKind::EndCap);
+        || value == static_cast<Adesk::Int32>(RoadModelWireLineKind::EndCap)
+        || value == static_cast<Adesk::Int32>(RoadModelWireLineKind::PavementLayer);
 }
 
 bool isValidLineKey(const RoadModelLineKey& key)

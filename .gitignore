@@ -48,6 +48,7 @@ project.nuget.cache
 
 # Logs and temporary files
 .worktrees/
+.superpowers/
 *.log
 *.tmp
 *.temp

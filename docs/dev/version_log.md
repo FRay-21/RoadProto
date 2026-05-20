@@ -834,7 +834,7 @@
 - 版本标识：`v0.1.19_20260520_PavementLayerTemplate`。
 - ARX 文件：`RoadProto_v0.1.19_20260520_PavementLayerTemplate.arx`。
 - 阶段：完整路面结构层模板工作流。
-- 是否可作为稳定测试版本：是。核心测试和文档/版本 source-contract 需要通过；完整 AutoCAD 图形界面仍建议人工点验结构层模板创建、XML 导入导出、路基模板绑定、道路模型生成和查看横断面。
+- 是否可作为稳定测试版本：否，等待 Task 8 最终验证。当前条目只记录 Task 7 文档、复用说明和版本元数据收尾，不提前声明完整发布验证通过。
 
 ### 新增内容
 
@@ -853,11 +853,12 @@
 - 更新构建版本信息为 `v0.1.19_20260520_PavementLayerTemplate`。
 - 更新 `tests/core_tests.cpp` 文档/版本 source-contract，检查新版本元数据、复用文档、README 和版本记录。
 
-### 构建验证
+### 验证状态
 
-- 核心测试：`RoadProtoCoreTests.vcxproj` Debug 构建通过，`RoadProtoCoreTests.exe` 需要输出 `All RoadProto core tests passed.`。
+- 核心测试：Task 7 文档契约变更后需要执行 `RoadProtoCoreTests.vcxproj` Debug 构建和 `RoadProtoCoreTests.exe`；最终验证待 Task 8 执行并补充正式通过证据。
 - 文档/版本契约：核心测试检查 `RoadProto.Build.props` 中 `RoadProtoVersion=v0.1.19`、`RoadProtoBuildDate=20260520`、`RoadProtoStage=PavementLayerTemplate`，并检查 `docs/reuse/pavement_layer_template.md`、README 和版本记录包含路面结构层模板发布信息。
 - 托管 bridge 期望：`tests/RoadProtoManagedBridgeTests` 覆盖 `.rpavement.xml` 往返、非法 XML 拒绝、WPF `SaveXml` / `ImportXml` 和托管命令注册；本次 Task 7 以文档/版本收尾为主，若修改 WPF 源码需重新执行托管 bridge 测试。
+- 发布稳定性：Task 8 尚未运行 ARX/WPF 构建、托管 bridge、AutoCAD 图形界面或最终验收流程前，本版本不得标记为稳定测试版本。
 
 ### 已知问题
 

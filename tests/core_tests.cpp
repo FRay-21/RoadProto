@@ -126,10 +126,21 @@ void pavementLayerTemplateDocumentationAndVersionContracts()
     const auto versionLog = readTextFileForTests(root / "docs" / "dev" / "version_log.md");
     CHECK(versionLog.find("v0.1.19_20260520_PavementLayerTemplate") != std::string::npos);
     CHECK(versionLog.find("RoadProto_v0.1.19_20260520_PavementLayerTemplate.arx") != std::string::npos);
+    CHECK(versionLog.find("是否可作为稳定测试版本：否，等待 Task 8 最终验证") != std::string::npos);
+    CHECK(versionLog.find("最终验证待 Task 8 执行") != std::string::npos);
 
     const auto readme = readTextFileForTests(root / "README.md");
     CHECK(readme.find("RoadProto_v0.1.19_20260520_PavementLayerTemplate.arx") != std::string::npos);
     CHECK(readme.find("RD_SECTION_PAVEMENT_LAYER_TEMPLATE_CREATE") != std::string::npos);
+
+    const auto moduleIndex = readTextFileForTests(root / "docs" / "modules" / "module_index.md");
+    CHECK(moduleIndex.find("路面结构层模板") != std::string::npos);
+    CHECK(moduleIndex.find(".rpavement.xml") != std::string::npos);
+    CHECK(moduleIndex.find("结构层三维线框") != std::string::npos);
+
+    const auto testsReadme = readTextFileForTests(root / "tests" / "README.md");
+    CHECK(testsReadme.find("历史 V0.1.6 Core Console 验证记录") != std::string::npos);
+    CHECK(testsReadme.find("当前 v0.1.19 的 AutoCAD 图形界面完整验证待 Task 8 执行") != std::string::npos);
 }
 
 roadproto::core::CommandDefinition makeCommand(const std::wstring& name)

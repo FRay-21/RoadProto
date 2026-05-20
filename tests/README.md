@@ -30,7 +30,9 @@ artifacts\x64\Debug\RoadProtoCoreTests.exe
 
 V0.1.6 继续保留 `TerrainMeshFile` 领域层测试，用于保证 `DN_TERRAIN_TIN_EXPORT` / `DN_TERRAIN_TIN_IMPORT` 依赖的跨 DWG 数模文件数据不会在读写中丢失。
 
-AutoCAD / ObjectARX 命令回归需要在本机 AutoCAD 环境中手动执行。当前 `v0.1.6` 已用 Core Console 验证 `DN_TERRAIN_TIN_CREATE` 的样例对象选择、同图层同类型提取、源对象隐藏、TIN 生成、`DN_TERRAIN_TIN_EDIT` 非 UI 编辑路径、`DN_TERRAIN_TIN_EDIT_HANDLE` 按 handle 编辑路径、`DN_TERRAIN_TIN_IMPORT` 的 `.rmesh` 导入、DWG 保存后重新打开和 `REGEN`；托管 Ribbon 插件已验证 Release 构建。完整 Ribbon 点击、导出文件对话框和真实鼠标双击弹窗需要在 AutoCAD 图形界面中人工确认。
+历史 V0.1.6 Core Console 验证记录：当时已用 Core Console 验证 `DN_TERRAIN_TIN_CREATE` 的样例对象选择、同图层同类型提取、源对象隐藏、TIN 生成、`DN_TERRAIN_TIN_EDIT` 非 UI 编辑路径、`DN_TERRAIN_TIN_EDIT_HANDLE` 按 handle 编辑路径、`DN_TERRAIN_TIN_IMPORT` 的 `.rmesh` 导入、DWG 保存后重新打开和 `REGEN`；托管 Ribbon 插件当时已验证 Release 构建。该段是历史记录，不代表当前 v0.1.19 的完整 AutoCAD 验证。
+
+当前 v0.1.19 的 AutoCAD 图形界面完整验证待 Task 8 执行。完整 Ribbon 点击、`.rpavement.xml` 文件对话框、路面结构层模板双击编辑、路基模板绑定、道路模型结构层三维线框和查看横断面结构层显示均需在最终验证中确认。
 
 ## V0.1.8 平面布线验证范围
 

@@ -46,7 +46,9 @@ bool initialize(cad_adapter::IEditor& editor)
         context.ribbonModel());
 
     const auto version = core::VersionInfo::current();
-    context.logger().info(L"RoadProto " + version.version + L" initialized.");
+    context.logger().info(
+        L"RoadProto " + version.version + L" " + version.buildDate + L" " + version.stage
+        + L" (" + version.arxFileName + L") initialized.");
     return true;
 }
 

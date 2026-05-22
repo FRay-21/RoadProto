@@ -1,4 +1,5 @@
 #include "application/cross_section/RoadModelBuildService.h"
+#include "application/cross_section/PavementLayerTemplateCreateService.h"
 #include "application/cross_section/SubgradeTemplateCreateService.h"
 #include "application/profile/ProfileGradeGraphCreateService.h"
 #include "application/profile/ProfileVerticalCurveCreateService.h"
@@ -13,6 +14,7 @@
 #include "domain/alignment/HorizontalAlignmentBuilder.h"
 #include "domain/alignment/IcdAlignmentFile.h"
 #include "domain/alignment/StationFormatter.h"
+#include "domain/cross_section/PavementLayerTemplateModel.h"
 #include "domain/cross_section/RoadModel.h"
 #include "domain/cross_section/SlopeTemplateModel.h"
 #include "domain/cross_section/SubgradeTemplateModel.h"
@@ -85,12 +87,63 @@ std::string readTextFileForTests(const std::filesystem::path& path)
         return {};
     }
 
-    return std::string(std::istreambuf_iterator<char>(input), std::istreambuf_iterator<char>());
+    auto text = std::string(std::istreambuf_iterator<char>(input), std::istreambuf_iterator<char>());
+    std::string normalized;
+    normalized.reserve(text.size());
+    for (std::size_t i = 0; i < text.size(); ++i) {
+        if (text[i] == '\r') {
+            if (i + 1 < text.size() && text[i + 1] == '\n') {
+                continue;
+            }
+            normalized.push_back('\n');
+            continue;
+        }
+        normalized.push_back(text[i]);
+    }
+    return normalized;
 }
 
 void checkBusinessDocExistsForTests(const std::wstring& businessDocPath)
 {
     CHECK(std::filesystem::exists(findRepositoryRootForTests() / std::filesystem::path(businessDocPath)));
+}
+
+void pavementLayerTemplateDocumentationAndVersionContracts()
+{
+    const auto root = findRepositoryRootForTests();
+
+    const auto buildProps = readTextFileForTests(root / "build" / "RoadProto.Build.props");
+    CHECK(buildProps.find("<RoadProtoVersion>v0.1.20</RoadProtoVersion>") != std::string::npos);
+    CHECK(buildProps.find("<RoadProtoBuildDate>20260522</RoadProtoBuildDate>") != std::string::npos);
+    CHECK(buildProps.find("<RoadProtoStage>PavementLayerTemplateDisplay</RoadProtoStage>") != std::string::npos);
+
+    CHECK(std::filesystem::exists(root / "docs" / "reuse" / "pavement_layer_template.md"));
+    const auto reuseDoc = readTextFileForTests(root / "docs" / "reuse" / "pavement_layer_template.md");
+    CHECK(reuseDoc.find("PavementLayerTemplateModel") != std::string::npos);
+    CHECK(reuseDoc.find(".rpavement.xml") != std::string::npos);
+    CHECK(reuseDoc.find("内侧 = closer to road centerline") != std::string::npos);
+
+    const auto versionLog = readTextFileForTests(root / "docs" / "dev" / "version_log.md");
+    CHECK(versionLog.find("v0.1.20_20260522_PavementLayerTemplateDisplay") != std::string::npos);
+    CHECK(versionLog.find("RoadProto_v0.1.20_20260522_PavementLayerTemplateDisplay.arx") != std::string::npos);
+    CHECK(versionLog.find("是否可作为稳定测试版本：是。核心测试 Debug/Release、托管 bridge 测试、WPF Release 构建和 ARX Release 构建已验证") != std::string::npos);
+    CHECK(versionLog.find("已在 AutoCAD 2021 图形界面加载 Debug ARX") != std::string::npos);
+
+    const auto readme = readTextFileForTests(root / "README.md");
+    CHECK(readme.find("RoadProto_v0.1.20_20260522_PavementLayerTemplateDisplay.arx") != std::string::npos);
+    CHECK(readme.find("RD_SECTION_PAVEMENT_LAYER_TEMPLATE_CREATE") != std::string::npos);
+
+    const auto moduleIndex = readTextFileForTests(root / "docs" / "modules" / "module_index.md");
+    CHECK(moduleIndex.find("路面结构层模板") != std::string::npos);
+    CHECK(moduleIndex.find(".rpavement.xml") != std::string::npos);
+    CHECK(moduleIndex.find("结构层三维边界线和弱化填充面") != std::string::npos);
+
+    const auto testsReadme = readTextFileForTests(root / "tests" / "README.md");
+    CHECK(testsReadme.find("历史 V0.1.6 Core Console 验证记录") != std::string::npos);
+    CHECK(testsReadme.find("当前 v0.1.20 已完成 Task 8 自动化验证") != std::string::npos);
+
+    const auto startupSource = readTextFileForTests(root / "src" / "app" / "startup" / "Startup.cpp");
+    CHECK(startupSource.find("version.arxFileName") != std::string::npos);
 }
 
 roadproto::core::CommandDefinition makeCommand(const std::wstring& name)
@@ -484,6 +537,46 @@ void subgradeTemplateRulesUseWideningTableAndPavementThicknessGate()
     CHECK(std::fabs(SubgradeTemplateRules::effectivePavementThickness(component) - 0.28) < 1.0e-9);
 }
 
+void subgradeTemplateNormalizePreservesLinkedPavementTemplateReference()
+{
+    using namespace roadproto::domain::cross_section;
+
+    SubgradeTemplateData data;
+    data.components.push_back(SubgradeTemplateComponent{});
+    data.components[0].width = 3.75;
+    data.components[0].pavementLayerLinked = true;
+    data.components[0].pavementLayerHandle = L"PV-44";
+    data.components[0].pavementLayerName = L"主线路面结构层";
+    data.components[0].pavementLayerThickness = 0.28;
+
+    std::wstring errorMessage;
+    CHECK(SubgradeTemplateRules::normalize(data, errorMessage));
+    CHECK(data.components[0].pavementLayerLinked);
+    CHECK(data.components[0].pavementLayerHandle == L"PV-44");
+    CHECK(data.components[0].pavementLayerName == L"主线路面结构层");
+    CHECK(std::fabs(data.components[0].pavementLayerThickness - 0.28) < 1.0e-9);
+}
+
+void subgradeTemplateNormalizeUnlinksEmptyPavementTemplateHandle()
+{
+    using namespace roadproto::domain::cross_section;
+
+    SubgradeTemplateData data;
+    data.components.push_back(SubgradeTemplateComponent{});
+    data.components[0].width = 3.75;
+    data.components[0].pavementLayerLinked = true;
+    data.components[0].pavementLayerHandle.clear();
+    data.components[0].pavementLayerName = L"孤立结构层名称";
+    data.components[0].pavementLayerThickness = 0.28;
+
+    std::wstring errorMessage;
+    CHECK(SubgradeTemplateRules::normalize(data, errorMessage));
+    CHECK(!data.components[0].pavementLayerLinked);
+    CHECK(data.components[0].pavementLayerHandle.empty());
+    CHECK(data.components[0].pavementLayerName.empty());
+    CHECK(std::fabs(data.components[0].pavementLayerThickness) < 1.0e-9);
+}
+
 void subgradeTemplateVariableSlopeUsesOnlySlopeTable()
 {
     using namespace roadproto::domain::cross_section;
@@ -515,6 +608,369 @@ void subgradeTemplateCreateServiceBuildsDefaultTemplate()
     CHECK(std::fabs(result.templateData.properties.displayScale - 50.0) < 1.0e-9);
     CHECK(result.templateData.properties.roadGrade == RoadGrade::UrbanExpressway);
     CHECK(result.templateData.components.size() == 10);
+}
+
+void pavementLayerTemplateRulesNormalizeThicknessAndCodes()
+{
+    using namespace roadproto::domain::cross_section;
+
+    PavementLayerTemplateData data;
+    data.properties.name = L"主线行车道路面结构层";
+    data.properties.displayScale = 100.0;
+    data.properties.previewWidth = 3.75;
+    data.layers = {
+        PavementLayerTemplateLayer{
+            PavementLayerType::UpperSurface,
+            L"4cm 改性沥青混凝土",
+            true,
+            0.04,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            1.0,
+            1.0},
+        PavementLayerTemplateLayer{
+            PavementLayerType::Base,
+            L"水泥稳定碎石",
+            false,
+            0.0,
+            0.18,
+            0.20,
+            0.15,
+            0.25,
+            0.0,
+            0.0},
+    };
+
+    std::wstring errorMessage;
+    CHECK(PavementLayerTemplateRules::normalize(data, errorMessage));
+    CHECK(std::wstring(pavementLayerTypeCode(PavementLayerType::UpperSurface)) == L"UpperSurface");
+    CHECK(std::wstring(pavementLayerTypeDisplayName(PavementLayerType::UpperSurface)) == L"上面层");
+    CHECK(std::wstring(pavementLayerTypeDisplayName(PavementLayerType::MiddleSurface)) == L"中面层");
+    CHECK(std::wstring(pavementLayerTypeDisplayName(PavementLayerType::LowerSurface)) == L"下面层");
+    CHECK(std::wstring(pavementLayerTypeDisplayName(PavementLayerType::Base)) == L"基层");
+    CHECK(std::wstring(pavementLayerTypeDisplayName(PavementLayerType::Subbase)) == L"底基层");
+    CHECK(std::wstring(pavementLayerTypeDisplayName(PavementLayerType::Cushion)) == L"垫层");
+    CHECK(pavementLayerTypeFromCode(L"Base") == PavementLayerType::Base);
+    CHECK(std::fabs(data.layers[0].innerThickness - 0.04) < 1.0e-9);
+    CHECK(std::fabs(data.layers[0].outerThickness - 0.04) < 1.0e-9);
+    CHECK(!data.layers[1].uniformThickness);
+    CHECK(std::fabs(data.layers[1].innerWidening - 0.15) < 1.0e-9);
+}
+
+void pavementLayerTemplateDisplayColorsMatchWpfPreviewPalette()
+{
+    using namespace roadproto::domain::cross_section;
+
+    auto defaults = PavementLayerTemplateDefaults::create();
+    std::wstring errorMessage;
+    CHECK(PavementLayerTemplateRules::normalize(defaults, errorMessage));
+
+    const auto first = PavementLayerTemplateRules::displayColorForLayerIndex(0);
+    const auto second = PavementLayerTemplateRules::displayColorForLayerIndex(1);
+    const auto third = PavementLayerTemplateRules::displayColorForLayerIndex(2);
+    const auto fourth = PavementLayerTemplateRules::displayColorForLayerIndex(3);
+    const auto fifth = PavementLayerTemplateRules::displayColorForLayerIndex(4);
+    const auto sixth = PavementLayerTemplateRules::displayColorForLayerIndex(5);
+    const auto wrapped = PavementLayerTemplateRules::displayColorForLayerIndex(6);
+
+    CHECK(first.r == 65 && first.g == 174 && first.b == 221);
+    CHECK(second.r == 79 && second.g == 203 && second.b == 137);
+    CHECK(third.r == 250 && third.g == 197 && third.b == 83);
+    CHECK(fourth.r == 236 && fourth.g == 132 && fourth.b == 80);
+    CHECK(fifth.r == 177 && fifth.g == 138 && fifth.b == 230);
+    CHECK(sixth.r == 142 && sixth.g == 164 && sixth.b == 180);
+    CHECK(wrapped.r == first.r && wrapped.g == first.g && wrapped.b == first.b);
+    CHECK(defaults.layers.size() >= 6);
+    if (defaults.layers.size() >= 6) {
+        CHECK(defaults.layers[0].color.r == first.r && defaults.layers[0].color.g == first.g && defaults.layers[0].color.b == first.b);
+        CHECK(defaults.layers[1].color.r == second.r && defaults.layers[1].color.g == second.g && defaults.layers[1].color.b == second.b);
+        CHECK(defaults.layers[2].color.r == third.r && defaults.layers[2].color.g == third.g && defaults.layers[2].color.b == third.b);
+        CHECK(defaults.layers[3].color.r == fourth.r && defaults.layers[3].color.g == fourth.g && defaults.layers[3].color.b == fourth.b);
+        CHECK(defaults.layers[4].color.r == fifth.r && defaults.layers[4].color.g == fifth.g && defaults.layers[4].color.b == fifth.b);
+        CHECK(defaults.layers[5].color.r == sixth.r && defaults.layers[5].color.g == sixth.g && defaults.layers[5].color.b == sixth.b);
+    }
+}
+
+void pavementLayerTemplateCarriesLayerRgbIntoBuiltSection()
+{
+    using namespace roadproto::domain::cross_section;
+
+    PavementLayerTemplateData data;
+    data.properties.previewWidth = 3.75;
+
+    PavementLayerTemplateLayer layer;
+    layer.type = PavementLayerType::Base;
+    layer.name = L"自定义颜色基层";
+    layer.uniformThickness = true;
+    layer.thickness = 0.20;
+    layer.color = {12, 34, 56};
+    data.layers.push_back(layer);
+
+    const auto section = PavementLayerTemplateRules::buildSection(data, 3.75, SubgradeSide::Right, 100.0, 100.0);
+
+    CHECK(section.succeeded);
+    CHECK(section.layers.size() == 1);
+    if (section.layers.size() == 1) {
+        CHECK(section.layers[0].color.r == 12);
+        CHECK(section.layers[0].color.g == 34);
+        CHECK(section.layers[0].color.b == 56);
+    }
+}
+
+void pavementLayerTemplateGeometryUsesWideningAsWidthDeltaAndAppliesEdgeSlopes()
+{
+    using namespace roadproto::domain::cross_section;
+
+    PavementLayerTemplateData data;
+    data.properties.previewWidth = 3.75;
+    PavementLayerTemplateLayer layer;
+    layer.type = PavementLayerType::Base;
+    layer.name = L"基层";
+    layer.uniformThickness = false;
+    layer.innerThickness = 0.18;
+    layer.outerThickness = 0.20;
+    layer.innerWidening = 0.10;
+    layer.outerWidening = 0.30;
+    layer.innerSlope = 1.0;
+    layer.outerSlope = 2.0;
+    data.layers.push_back(layer);
+    PavementLayerTemplateLayer secondLayer = layer;
+    secondLayer.type = PavementLayerType::Subbase;
+    secondLayer.name = L"底基层";
+    secondLayer.innerThickness = 0.05;
+    secondLayer.outerThickness = 0.06;
+    secondLayer.innerWidening = 0.05;
+    secondLayer.outerWidening = 0.10;
+    secondLayer.innerSlope = 0.0;
+    secondLayer.outerSlope = 0.0;
+    data.layers.push_back(secondLayer);
+
+    const auto section = PavementLayerTemplateRules::buildSection(data, 3.75, SubgradeSide::Right, 100.0, 99.925);
+    CHECK(section.succeeded);
+    CHECK(section.layers.size() == 2);
+    const double firstTopGrade = (99.925 - 100.0) / 3.75;
+    CHECK(std::fabs(section.layers[0].topInner.offset - -0.10) < 1.0e-9);
+    CHECK(std::fabs(section.layers[0].topOuter.offset - 4.05) < 1.0e-9);
+    CHECK(std::fabs(section.layers[0].topInner.elevation - (100.0 - 0.10 * firstTopGrade)) < 1.0e-9);
+    CHECK(std::fabs(section.layers[0].topOuter.elevation - (99.925 + 0.30 * firstTopGrade)) < 1.0e-9);
+    CHECK(std::fabs(section.layers[0].bottomInner.offset - (section.layers[0].topInner.offset - 0.18 * 1.0)) < 1.0e-9);
+    CHECK(std::fabs(section.layers[0].bottomOuter.offset - (section.layers[0].topOuter.offset + 0.20 * 2.0)) < 1.0e-9);
+    CHECK(std::fabs(section.layers[0].bottomInner.elevation - (section.layers[0].topInner.elevation - 0.18)) < 1.0e-9);
+    CHECK(std::fabs(section.layers[0].bottomOuter.elevation - (section.layers[0].topOuter.elevation - 0.20)) < 1.0e-9);
+
+    const double secondTopGrade =
+        (section.layers[0].bottomOuter.elevation - section.layers[0].bottomInner.elevation) /
+        (section.layers[0].bottomOuter.offset - section.layers[0].bottomInner.offset);
+    CHECK(std::fabs(section.layers[1].topInner.offset - (section.layers[0].bottomInner.offset - 0.05)) < 1.0e-9);
+    CHECK(std::fabs(section.layers[1].topOuter.offset - (section.layers[0].bottomOuter.offset + 0.10)) < 1.0e-9);
+    CHECK(std::fabs(section.layers[1].topInner.elevation - (section.layers[0].bottomInner.elevation - 0.05 * secondTopGrade)) < 1.0e-9);
+    CHECK(std::fabs(section.layers[1].topOuter.elevation - (section.layers[0].bottomOuter.elevation + 0.10 * secondTopGrade)) < 1.0e-9);
+    CHECK(std::fabs(section.layers[1].bottomInner.offset - section.layers[1].topInner.offset) < 1.0e-9);
+    CHECK(std::fabs(section.layers[1].bottomOuter.offset - section.layers[1].topOuter.offset) < 1.0e-9);
+}
+
+void pavementLayerTemplateRulesAllowNegativeWideningAndSlope()
+{
+    using namespace roadproto::domain::cross_section;
+
+    PavementLayerTemplateData data;
+    PavementLayerTemplateLayer layer;
+    layer.type = PavementLayerType::Base;
+    layer.name = L"基层";
+    layer.uniformThickness = true;
+    layer.thickness = 0.20;
+    layer.innerWidening = -0.50;
+    layer.outerWidening = -0.25;
+    layer.innerSlope = -0.50;
+    layer.outerSlope = 0.50;
+    data.layers.push_back(layer);
+
+    const auto section = PavementLayerTemplateRules::buildSection(data, 7.5, SubgradeSide::Right, 100.0, 100.0);
+
+    CHECK(section.succeeded);
+    CHECK(section.layers.size() == 1);
+    if (section.layers.size() == 1) {
+        CHECK(std::fabs(section.layers[0].topInner.offset - 0.50) < 1.0e-9);
+        CHECK(std::fabs(section.layers[0].topOuter.offset - 7.25) < 1.0e-9);
+        CHECK(std::fabs(section.layers[0].bottomInner.offset - 0.60) < 1.0e-9);
+        CHECK(std::fabs(section.layers[0].bottomOuter.offset - 7.35) < 1.0e-9);
+        CHECK(std::fabs(section.layers[0].bottomInner.elevation - 99.80) < 1.0e-9);
+        CHECK(std::fabs(section.layers[0].bottomOuter.elevation - 99.80) < 1.0e-9);
+    }
+}
+
+void pavementLayerTemplateWideningExpandsSecondLayerFromSubgradeWidth()
+{
+    using namespace roadproto::domain::cross_section;
+
+    PavementLayerTemplateData data;
+    PavementLayerTemplateLayer first;
+    first.type = PavementLayerType::UpperSurface;
+    first.name = L"上面层";
+    first.uniformThickness = true;
+    first.thickness = 0.10;
+    data.layers.push_back(first);
+
+    PavementLayerTemplateLayer second;
+    second.type = PavementLayerType::Base;
+    second.name = L"基层";
+    second.uniformThickness = true;
+    second.thickness = 0.20;
+    second.innerWidening = 1.0;
+    second.outerWidening = 1.0;
+    second.innerSlope = 0.0;
+    second.outerSlope = 0.0;
+    data.layers.push_back(second);
+
+    const auto section = PavementLayerTemplateRules::buildSection(data, 7.5, SubgradeSide::Right, 100.0, 100.0);
+
+    CHECK(section.succeeded);
+    CHECK(section.layers.size() == 2);
+    if (section.layers.size() == 2) {
+        const auto layerWidth = [](const PavementLayerSectionPoint& inner, const PavementLayerSectionPoint& outer) {
+            return outer.offset - inner.offset;
+        };
+
+        CHECK(std::fabs(layerWidth(section.layers[0].topInner, section.layers[0].topOuter) - 7.5) < 1.0e-9);
+        CHECK(std::fabs(layerWidth(section.layers[0].bottomInner, section.layers[0].bottomOuter) - 7.5) < 1.0e-9);
+        CHECK(std::fabs(layerWidth(section.layers[1].topInner, section.layers[1].topOuter) - 9.5) < 1.0e-9);
+        CHECK(std::fabs(layerWidth(section.layers[1].bottomInner, section.layers[1].bottomOuter) - 9.5) < 1.0e-9);
+        CHECK(std::fabs(section.layers[1].topInner.elevation - 99.90) < 1.0e-9);
+        CHECK(std::fabs(section.layers[1].topOuter.elevation - 99.90) < 1.0e-9);
+        CHECK(std::fabs(section.layers[1].bottomInner.elevation - 99.70) < 1.0e-9);
+        CHECK(std::fabs(section.layers[1].bottomOuter.elevation - 99.70) < 1.0e-9);
+    }
+}
+
+void pavementLayerTemplateKeepsAdjacentLayerBoundariesCoincidentAfterNonUniformThickness()
+{
+    using namespace roadproto::domain::cross_section;
+
+    PavementLayerTemplateData data;
+    data.properties.previewWidth = 7.5;
+
+    PavementLayerTemplateLayer upper;
+    upper.type = PavementLayerType::UpperSurface;
+    upper.name = L"上面层";
+    upper.uniformThickness = true;
+    upper.thickness = 0.04;
+    data.layers.push_back(upper);
+
+    PavementLayerTemplateLayer middle;
+    middle.type = PavementLayerType::MiddleSurface;
+    middle.name = L"中面层";
+    middle.uniformThickness = false;
+    middle.innerThickness = 0.001;
+    middle.outerThickness = 2.0;
+    middle.innerWidening = 1.0;
+    middle.outerWidening = 1.0;
+    data.layers.push_back(middle);
+
+    PavementLayerTemplateLayer lower;
+    lower.type = PavementLayerType::LowerSurface;
+    lower.name = L"下面层";
+    lower.uniformThickness = true;
+    lower.thickness = 0.08;
+    data.layers.push_back(lower);
+
+    PavementLayerTemplateLayer base;
+    base.type = PavementLayerType::Base;
+    base.name = L"基层";
+    base.uniformThickness = true;
+    base.thickness = 0.18;
+    base.innerWidening = 0.15;
+    base.outerWidening = 0.15;
+    data.layers.push_back(base);
+
+    const auto section = PavementLayerTemplateRules::buildSection(data, 7.5, SubgradeSide::Right, 100.0, 100.0);
+
+    CHECK(section.succeeded);
+    CHECK(section.layers.size() == 4);
+    if (section.layers.size() == 4) {
+        const auto signedDistanceToLine = [](
+            const PavementLayerSectionPoint& lineStart,
+            const PavementLayerSectionPoint& lineEnd,
+            const PavementLayerSectionPoint& point) {
+            return (lineEnd.offset - lineStart.offset) * (point.elevation - lineStart.elevation) -
+                (lineEnd.elevation - lineStart.elevation) * (point.offset - lineStart.offset);
+        };
+        for (std::size_t i = 1; i < section.layers.size(); ++i) {
+            const auto& previous = section.layers[i - 1];
+            const auto& current = section.layers[i];
+            CHECK(std::fabs(signedDistanceToLine(previous.bottomInner, previous.bottomOuter, current.topInner)) < 1.0e-9);
+            CHECK(std::fabs(signedDistanceToLine(previous.bottomInner, previous.bottomOuter, current.topOuter)) < 1.0e-9);
+            CHECK(current.topInner.offset <= previous.bottomInner.offset + 1.0e-9);
+            CHECK(current.topOuter.offset >= previous.bottomOuter.offset - 1.0e-9);
+        }
+
+        const auto layerWidth = [](const PavementLayerSectionPoint& inner, const PavementLayerSectionPoint& outer) {
+            return outer.offset - inner.offset;
+        };
+        CHECK(std::fabs(layerWidth(section.layers[1].topInner, section.layers[1].topOuter) - 9.5) < 1.0e-9);
+        CHECK(std::fabs(layerWidth(section.layers[1].bottomInner, section.layers[1].bottomOuter) - 9.5) < 1.0e-9);
+    }
+}
+
+void pavementLayerTemplateWideningExtendsCurrentTopEdgeLine()
+{
+    using namespace roadproto::domain::cross_section;
+
+    PavementLayerTemplateData data;
+
+    PavementLayerTemplateLayer upper;
+    upper.type = PavementLayerType::UpperSurface;
+    upper.name = L"upper";
+    upper.uniformThickness = false;
+    upper.innerThickness = 0.10;
+    upper.outerThickness = 0.40;
+    data.layers.push_back(upper);
+
+    PavementLayerTemplateLayer base;
+    base.type = PavementLayerType::Base;
+    base.name = L"base";
+    base.uniformThickness = true;
+    base.thickness = 0.20;
+    base.innerWidening = 1.0;
+    base.outerWidening = 0.50;
+    base.innerSlope = 0.0;
+    base.outerSlope = 0.0;
+    data.layers.push_back(base);
+
+    const auto section = PavementLayerTemplateRules::buildSection(data, 7.5, SubgradeSide::Right, 100.0, 100.0);
+
+    CHECK(section.succeeded);
+    CHECK(section.layers.size() == 2);
+    if (section.layers.size() == 2) {
+        const auto& previousBottomInner = section.layers[0].bottomInner;
+        const auto& previousBottomOuter = section.layers[0].bottomOuter;
+        const auto& current = section.layers[1];
+        const double grade =
+            (previousBottomOuter.elevation - previousBottomInner.elevation) /
+            (previousBottomOuter.offset - previousBottomInner.offset);
+
+        CHECK(std::fabs(current.topInner.offset - (previousBottomInner.offset - 1.0)) < 1.0e-9);
+        CHECK(std::fabs(current.topOuter.offset - (previousBottomOuter.offset + 0.50)) < 1.0e-9);
+        CHECK(std::fabs(current.topInner.elevation - (previousBottomInner.elevation - grade * 1.0)) < 1.0e-9);
+        CHECK(std::fabs(current.topOuter.elevation - (previousBottomOuter.elevation + grade * 0.50)) < 1.0e-9);
+        CHECK(std::fabs(current.bottomInner.offset - current.topInner.offset) < 1.0e-9);
+        CHECK(std::fabs(current.bottomOuter.offset - current.topOuter.offset) < 1.0e-9);
+    }
+}
+
+void pavementLayerTemplateRulesAcceptPositiveFiniteDisplayScale()
+{
+    using namespace roadproto::domain::cross_section;
+
+    auto data = PavementLayerTemplateDefaults::create();
+    data.properties.displayScale = 2.0;
+
+    std::wstring errorMessage;
+    CHECK(PavementLayerTemplateRules::normalize(data, errorMessage));
+    CHECK(PavementLayerTemplateRules::isSupportedDisplayScale(25.0));
+    CHECK(!PavementLayerTemplateRules::isSupportedDisplayScale(0.0));
+    CHECK(!PavementLayerTemplateRules::isSupportedDisplayScale(std::numeric_limits<double>::quiet_NaN()));
 }
 
 void slopeTemplateDefaultsBuildFillAndCutProfiles()
@@ -886,6 +1342,547 @@ void roadModelBuilderCreatesThreeDimensionalComponentLines()
         CHECK(firstLine.key.templateHandle == L"T1");
         CHECK(firstLine.color.r == 1);
     }
+}
+
+void roadModelBuilderCreatesPavementLayerWireLinesForBoundSubgradeComponent()
+{
+    using namespace roadproto::domain::alignment;
+    using namespace roadproto::domain::cross_section;
+    using namespace roadproto::domain::profile;
+
+    SubgradeTemplateComponent lane;
+    lane.side = SubgradeSide::Right;
+    lane.type = SubgradeComponentType::TravelLane;
+    lane.width = 3.75;
+    lane.fixedSlope = -0.02;
+    lane.pavementLayerLinked = true;
+    lane.pavementLayerHandle = L"PV-1";
+    lane.pavementLayerName = L"行车道路面结构层";
+
+    SubgradeTemplateData subgrade;
+    subgrade.components.push_back(lane);
+
+    PavementLayerTemplateData pavement;
+    pavement.properties.name = L"行车道路面结构层";
+    PavementLayerTemplateLayer upper;
+    upper.type = PavementLayerType::UpperSurface;
+    upper.name = L"上面层";
+    upper.uniformThickness = true;
+    upper.thickness = 0.04;
+    pavement.layers.push_back(upper);
+
+    RoadModelBuildInput input;
+    input.config.sampleInterval = 10.0;
+    input.config.assignments = {RoadModelTemplateAssignment{0.0, 20.0, L"SG-1", L"路基模板"}};
+    input.verticalCurve.controlPoints = {
+        {VerticalCurvePointRole::Start, 0.0, 100.0},
+        {VerticalCurvePointRole::End, 20.0, 100.0},
+    };
+    input.alignmentSamples = {
+        {{0.0, 0.0}, 0.0},
+        {{20.0, 0.0}, 20.0},
+    };
+    input.templates = {RoadModelTemplateSource{L"SG-1", subgrade}};
+    input.pavementLayerTemplates = {RoadModelPavementLayerTemplateSource{L"PV-1", pavement}};
+
+    const auto result = RoadModelBuilder::build(input);
+    CHECK(result.succeeded);
+    CHECK(!result.data.pavementLayerLines.empty());
+    CHECK(std::any_of(result.data.wireLines.begin(), result.data.wireLines.end(), [](const auto& line) {
+        return line.kind == RoadModelWireLineKind::PavementLayer;
+    }));
+    CHECK(std::any_of(result.data.sections.begin(), result.data.sections.end(), [](const auto& section) {
+        return !section.rightPavementLayerNodes.empty();
+    }));
+}
+
+void roadModelBuilderKeepsPavementLayerInnerOuterSemanticOnLeftSide()
+{
+    using namespace roadproto::domain::alignment;
+    using namespace roadproto::domain::cross_section;
+    using namespace roadproto::domain::profile;
+
+    SubgradeTemplateComponent lane;
+    lane.side = SubgradeSide::Left;
+    lane.type = SubgradeComponentType::TravelLane;
+    lane.width = 3.75;
+    lane.fixedSlope = -0.02;
+    lane.pavementLayerLinked = true;
+    lane.pavementLayerHandle = L"PV-LEFT";
+    lane.pavementLayerName = L"左侧行车道路面结构层";
+
+    SubgradeTemplateData subgrade;
+    subgrade.components.push_back(lane);
+
+    PavementLayerTemplateData pavement;
+    pavement.properties.name = L"左侧行车道路面结构层";
+    PavementLayerTemplateLayer layer;
+    layer.type = PavementLayerType::Base;
+    layer.name = L"基层";
+    layer.uniformThickness = true;
+    layer.thickness = 0.18;
+    layer.innerWidening = 0.10;
+    layer.outerWidening = 0.30;
+    pavement.layers.push_back(layer);
+
+    RoadModelBuildInput input;
+    input.config.sampleInterval = 20.0;
+    input.config.assignments = {RoadModelTemplateAssignment{0.0, 20.0, L"SG-LEFT", L"左侧路基模板"}};
+    input.verticalCurve.controlPoints = {
+        {VerticalCurvePointRole::Start, 0.0, 100.0},
+        {VerticalCurvePointRole::End, 20.0, 100.0},
+    };
+    input.alignmentSamples = {
+        {{0.0, 0.0}, 0.0},
+        {{20.0, 0.0}, 20.0},
+    };
+    input.templates = {RoadModelTemplateSource{L"SG-LEFT", subgrade}};
+    input.pavementLayerTemplates = {RoadModelPavementLayerTemplateSource{L"PV-LEFT", pavement}};
+
+    const auto result = RoadModelBuilder::build(input);
+    CHECK(result.succeeded);
+    CHECK(!result.data.sections.empty());
+
+    const auto section = std::find_if(
+        result.data.sections.begin(),
+        result.data.sections.end(),
+        [](const auto& candidate) {
+            return !candidate.leftPavementLayerNodes.empty();
+        });
+    CHECK(section != result.data.sections.end());
+    if (section != result.data.sections.end()) {
+        const auto& nodes = section->leftPavementLayerNodes;
+        CHECK(nodes.size() >= 4);
+        if (nodes.size() >= 4) {
+            const double innerTop = nodes[0].offset;
+            const double outerTop = nodes[1].offset;
+            const double innerBottom = nodes[2].offset;
+            const double outerBottom = nodes[3].offset;
+            CHECK(innerTop < 0.0);
+            CHECK(outerTop > 3.75);
+            CHECK(std::fabs(innerBottom - innerTop) < 1.0e-9);
+            CHECK(std::fabs(outerBottom - outerTop) < 1.0e-9);
+            CHECK(std::fabs(innerTop) <= std::fabs(outerTop) + 1.0e-9);
+        }
+    }
+}
+
+void roadModelBuilderUsesCurrentPavementLayerContourForWidenedModelWires()
+{
+    using namespace roadproto::domain::alignment;
+    using namespace roadproto::domain::cross_section;
+    using namespace roadproto::domain::profile;
+
+    SubgradeTemplateComponent lane;
+    lane.side = SubgradeSide::Right;
+    lane.type = SubgradeComponentType::TravelLane;
+    lane.width = 7.5;
+    lane.fixedSlope = 0.0;
+    lane.pavementLayerLinked = true;
+    lane.pavementLayerHandle = L"PV-WIDEN";
+    lane.pavementLayerName = L"加宽结构层";
+
+    SubgradeTemplateData subgrade;
+    subgrade.components.push_back(lane);
+
+    PavementLayerTemplateData pavement;
+    pavement.properties.name = L"加宽结构层";
+
+    PavementLayerTemplateLayer upper;
+    upper.type = PavementLayerType::UpperSurface;
+    upper.name = L"上面层";
+    upper.uniformThickness = true;
+    upper.thickness = 0.20;
+    pavement.layers.push_back(upper);
+
+    PavementLayerTemplateLayer base;
+    base.type = PavementLayerType::Base;
+    base.name = L"基层";
+    base.uniformThickness = true;
+    base.thickness = 0.20;
+    base.innerWidening = 1.0;
+    base.outerWidening = 1.0;
+    base.innerSlope = 1.0;
+    base.outerSlope = 1.0;
+    pavement.layers.push_back(base);
+
+    RoadModelBuildInput input;
+    input.config.sampleInterval = 20.0;
+    input.config.assignments = {RoadModelTemplateAssignment{0.0, 20.0, L"SG-WIDEN", L"路基模板"}};
+    input.verticalCurve.controlPoints = {
+        {VerticalCurvePointRole::Start, 0.0, 100.0},
+        {VerticalCurvePointRole::End, 20.0, 100.0},
+    };
+    input.alignmentSamples = {
+        {{0.0, 0.0}, 0.0},
+        {{20.0, 0.0}, 20.0},
+    };
+    input.templates = {RoadModelTemplateSource{L"SG-WIDEN", subgrade}};
+    input.pavementLayerTemplates = {RoadModelPavementLayerTemplateSource{L"PV-WIDEN", pavement}};
+
+    const auto result = RoadModelBuilder::build(input);
+    CHECK(result.succeeded);
+
+    const auto section = std::find_if(
+        result.data.sections.begin(),
+        result.data.sections.end(),
+        [](const auto& candidate) {
+            return candidate.rightPavementLayerNodes.size() >= 8;
+        });
+    CHECK(section != result.data.sections.end());
+    if (section == result.data.sections.end()) {
+        return;
+    }
+
+    const auto& nodes = section->rightPavementLayerNodes;
+    const auto& secondLayerTopInner = nodes[4];
+    const auto& secondLayerTopOuter = nodes[5];
+    const auto& secondLayerBottomInner = nodes[6];
+    const auto& secondLayerBottomOuter = nodes[7];
+
+    const auto samePoint = [](const RoadModelPoint3d& lhs, const RoadModelPoint3d& rhs) {
+        return std::fabs(lhs.x - rhs.x) <= 1.0e-9
+            && std::fabs(lhs.y - rhs.y) <= 1.0e-9
+            && std::fabs(lhs.z - rhs.z) <= 1.0e-9;
+    };
+    const auto pavementWireCount = [&](const RoadModelPoint3d& first, const RoadModelPoint3d& second) {
+        return std::count_if(
+            result.data.wireLines.begin(),
+            result.data.wireLines.end(),
+            [&](const auto& line) {
+                return line.kind == RoadModelWireLineKind::PavementLayer
+                    && line.points.size() == 2
+                    && ((samePoint(line.points[0], first) && samePoint(line.points[1], second))
+                        || (samePoint(line.points[0], second) && samePoint(line.points[1], first)));
+            });
+    };
+
+    CHECK(pavementWireCount(secondLayerTopInner.point, secondLayerTopOuter.point) >= 1);
+    CHECK(pavementWireCount(secondLayerTopOuter.point, secondLayerBottomOuter.point) >= 1);
+    CHECK(pavementWireCount(secondLayerBottomOuter.point, secondLayerBottomInner.point) >= 1);
+    CHECK(pavementWireCount(secondLayerBottomInner.point, secondLayerTopInner.point) >= 1);
+    CHECK(secondLayerTopInner.offset > nodes[2].offset);
+    CHECK(secondLayerTopOuter.offset < nodes[3].offset);
+    CHECK(secondLayerBottomInner.offset > secondLayerTopInner.offset);
+    CHECK(secondLayerBottomOuter.offset < secondLayerTopOuter.offset);
+    for (int boundaryIndex = 0; boundaryIndex < 4; ++boundaryIndex) {
+        CHECK(std::any_of(
+            result.data.pavementLayerLines.begin(),
+            result.data.pavementLayerLines.end(),
+            [boundaryIndex](const auto& line) {
+                return line.key.layerIndex == 1 && line.key.boundaryIndex == boundaryIndex;
+            }));
+    }
+}
+
+void roadModelBuilderUsesPavementLayerRgbForLayerModel()
+{
+    using namespace roadproto::domain::alignment;
+    using namespace roadproto::domain::cross_section;
+    using namespace roadproto::domain::profile;
+
+    SubgradeTemplateComponent lane;
+    lane.side = SubgradeSide::Right;
+    lane.type = SubgradeComponentType::TravelLane;
+    lane.width = 3.75;
+    lane.fixedSlope = 0.0;
+    lane.color = {12, 34, 56};
+    lane.pavementLayerLinked = true;
+    lane.pavementLayerHandle = L"PV-COLOR";
+    lane.pavementLayerName = L"PV-COLOR";
+
+    SubgradeTemplateData subgrade;
+    subgrade.components.push_back(lane);
+
+    PavementLayerTemplateData pavement;
+    pavement.properties.name = L"PV-COLOR";
+
+    PavementLayerTemplateLayer upper;
+    upper.type = PavementLayerType::UpperSurface;
+    upper.name = L"upper";
+    upper.uniformThickness = true;
+    upper.thickness = 0.10;
+    upper.color = {210, 50, 40};
+    pavement.layers.push_back(upper);
+
+    PavementLayerTemplateLayer base;
+    base.type = PavementLayerType::Base;
+    base.name = L"base";
+    base.uniformThickness = true;
+    base.thickness = 0.20;
+    base.innerWidening = 0.25;
+    base.outerWidening = 0.25;
+    base.color = {20, 180, 230};
+    pavement.layers.push_back(base);
+
+    RoadModelBuildInput input;
+    input.config.sampleInterval = 20.0;
+    input.config.assignments = {RoadModelTemplateAssignment{0.0, 20.0, L"SG-COLOR", L"SG-COLOR"}};
+    input.verticalCurve.controlPoints = {
+        {VerticalCurvePointRole::Start, 0.0, 100.0},
+        {VerticalCurvePointRole::End, 20.0, 100.0},
+    };
+    input.alignmentSamples = {
+        {{0.0, 0.0}, 0.0},
+        {{20.0, 0.0}, 20.0},
+    };
+    input.templates = {RoadModelTemplateSource{L"SG-COLOR", subgrade}};
+    input.pavementLayerTemplates = {RoadModelPavementLayerTemplateSource{L"PV-COLOR", pavement}};
+
+    const auto result = RoadModelBuilder::build(input);
+    CHECK(result.succeeded);
+
+    const auto firstColor = PavementLayerTemplateDisplayColor{210, 50, 40};
+    const auto secondColor = PavementLayerTemplateDisplayColor{20, 180, 230};
+    const auto colorMatches = [](const RoadModelWireColor& actual, const PavementLayerTemplateDisplayColor& expected) {
+        return actual.r == expected.r && actual.g == expected.g && actual.b == expected.b;
+    };
+
+    const auto section = std::find_if(
+        result.data.sections.begin(),
+        result.data.sections.end(),
+        [](const auto& candidate) {
+            return candidate.rightPavementLayerNodes.size() >= 8;
+        });
+    CHECK(section != result.data.sections.end());
+    if (section == result.data.sections.end()) {
+        return;
+    }
+
+    CHECK(colorMatches(section->rightPavementLayerNodes[0].color, firstColor));
+    CHECK(colorMatches(section->rightPavementLayerNodes[3].color, firstColor));
+    CHECK(colorMatches(section->rightPavementLayerNodes[4].color, secondColor));
+    CHECK(colorMatches(section->rightPavementLayerNodes[7].color, secondColor));
+    CHECK(!colorMatches(section->rightPavementLayerNodes[0].color, PavementLayerTemplateRules::displayColorForLayerIndex(0)));
+
+    CHECK(std::any_of(
+        result.data.pavementLayerLines.begin(),
+        result.data.pavementLayerLines.end(),
+        [&](const auto& line) {
+            return line.key.layerIndex == 0 && colorMatches(line.color, firstColor);
+        }));
+    CHECK(std::any_of(
+        result.data.pavementLayerLines.begin(),
+        result.data.pavementLayerLines.end(),
+        [&](const auto& line) {
+            return line.key.layerIndex == 1 && colorMatches(line.color, secondColor);
+        }));
+}
+
+void roadModelBuilderTreatsEmptyPavementLayerHandleAsUnlinked()
+{
+    using namespace roadproto::domain::alignment;
+    using namespace roadproto::domain::cross_section;
+    using namespace roadproto::domain::profile;
+
+    SubgradeTemplateComponent lane;
+    lane.side = SubgradeSide::Right;
+    lane.type = SubgradeComponentType::TravelLane;
+    lane.width = 3.75;
+    lane.fixedSlope = -0.02;
+    lane.pavementLayerLinked = true;
+    lane.pavementLayerHandle.clear();
+
+    SubgradeTemplateData subgrade;
+    subgrade.components.push_back(lane);
+
+    RoadModelBuildInput input;
+    input.config.sampleInterval = 10.0;
+    input.config.assignments = {RoadModelTemplateAssignment{0.0, 20.0, L"SG-EMPTY-PV", L"路基模板"}};
+    input.verticalCurve.controlPoints = {
+        {VerticalCurvePointRole::Start, 0.0, 100.0},
+        {VerticalCurvePointRole::End, 20.0, 100.0},
+    };
+    input.alignmentSamples = {
+        {{0.0, 0.0}, 0.0},
+        {{20.0, 0.0}, 20.0},
+    };
+    input.templates = {RoadModelTemplateSource{L"SG-EMPTY-PV", subgrade}};
+
+    const auto result = RoadModelBuilder::build(input);
+    CHECK(result.succeeded);
+    CHECK(result.errorMessage.empty());
+    CHECK(result.data.pavementLayerLines.empty());
+    CHECK(std::all_of(
+        result.data.sections.begin(),
+        result.data.sections.end(),
+        [](const auto& section) {
+            return section.leftPavementLayerNodes.empty()
+                && section.rightPavementLayerNodes.empty();
+        }));
+}
+
+void roadModelBuilderRejectsMissingPavementLayerTemplateSource()
+{
+    using namespace roadproto::domain::alignment;
+    using namespace roadproto::domain::cross_section;
+    using namespace roadproto::domain::profile;
+
+    SubgradeTemplateComponent lane;
+    lane.side = SubgradeSide::Right;
+    lane.type = SubgradeComponentType::TravelLane;
+    lane.width = 3.75;
+    lane.fixedSlope = -0.02;
+    lane.pavementLayerLinked = true;
+    lane.pavementLayerHandle = L"PV-MISSING";
+
+    SubgradeTemplateData subgrade;
+    subgrade.components.push_back(lane);
+
+    RoadModelBuildInput input;
+    input.config.sampleInterval = 10.0;
+    input.config.assignments = {RoadModelTemplateAssignment{0.0, 20.0, L"SG-MISSING-PV", L"路基模板"}};
+    input.verticalCurve.controlPoints = {
+        {VerticalCurvePointRole::Start, 0.0, 100.0},
+        {VerticalCurvePointRole::End, 20.0, 100.0},
+    };
+    input.alignmentSamples = {
+        {{0.0, 0.0}, 0.0},
+        {{20.0, 0.0}, 20.0},
+    };
+    input.templates = {RoadModelTemplateSource{L"SG-MISSING-PV", subgrade}};
+
+    const auto result = RoadModelBuilder::build(input);
+    CHECK(!result.succeeded);
+    CHECK(!result.errorMessage.empty());
+    CHECK(result.errorMessage.find(L"PV-MISSING") != std::wstring::npos);
+    CHECK(result.errorMessage.find(L"pavement") != std::wstring::npos);
+    CHECK(result.errorMessage.find(L"template") != std::wstring::npos);
+}
+
+void roadModelBuilderRejectsInvalidPavementLayerTemplateSource()
+{
+    using namespace roadproto::domain::alignment;
+    using namespace roadproto::domain::cross_section;
+    using namespace roadproto::domain::profile;
+
+    SubgradeTemplateComponent lane;
+    lane.side = SubgradeSide::Right;
+    lane.type = SubgradeComponentType::TravelLane;
+    lane.width = 3.75;
+    lane.fixedSlope = -0.02;
+    lane.pavementLayerLinked = true;
+    lane.pavementLayerHandle = L"PV-INVALID";
+
+    SubgradeTemplateData subgrade;
+    subgrade.components.push_back(lane);
+
+    PavementLayerTemplateData pavement;
+    pavement.properties.name = L"无效路面结构层";
+    pavement.layers.clear();
+
+    RoadModelBuildInput input;
+    input.config.sampleInterval = 10.0;
+    input.config.assignments = {RoadModelTemplateAssignment{0.0, 20.0, L"SG-INVALID-PV", L"路基模板"}};
+    input.verticalCurve.controlPoints = {
+        {VerticalCurvePointRole::Start, 0.0, 100.0},
+        {VerticalCurvePointRole::End, 20.0, 100.0},
+    };
+    input.alignmentSamples = {
+        {{0.0, 0.0}, 0.0},
+        {{20.0, 0.0}, 20.0},
+    };
+    input.templates = {RoadModelTemplateSource{L"SG-INVALID-PV", subgrade}};
+    input.pavementLayerTemplates = {RoadModelPavementLayerTemplateSource{L"PV-INVALID", pavement}};
+
+    const auto result = RoadModelBuilder::build(input);
+    CHECK(!result.succeeded);
+    CHECK(!result.errorMessage.empty());
+    CHECK(result.errorMessage.find(L"PV-INVALID") != std::wstring::npos);
+    CHECK(result.errorMessage.find(L"pavement") != std::wstring::npos);
+    CHECK(result.errorMessage.find(L"template") != std::wstring::npos);
+    CHECK(result.errorMessage.find(L"invalid") != std::wstring::npos);
+}
+
+roadproto::domain::cross_section::RoadModelBuildInput makePavementLayerPreviewBuildInput()
+{
+    using namespace roadproto::domain::alignment;
+    using namespace roadproto::domain::cross_section;
+    using namespace roadproto::domain::profile;
+
+    SubgradeTemplateComponent lane;
+    lane.side = SubgradeSide::Right;
+    lane.type = SubgradeComponentType::TravelLane;
+    lane.width = 3.75;
+    lane.fixedSlope = -0.02;
+    lane.pavementLayerLinked = true;
+    lane.pavementLayerHandle = L"PV-PREVIEW";
+    lane.pavementLayerName = L"Preview pavement";
+
+    SubgradeTemplateData subgrade;
+    subgrade.components.push_back(lane);
+
+    PavementLayerTemplateData pavement;
+    pavement.properties.name = L"Preview pavement";
+    PavementLayerTemplateLayer upper;
+    upper.type = PavementLayerType::UpperSurface;
+    upper.name = L"Upper surface";
+    upper.uniformThickness = true;
+    upper.thickness = 0.04;
+    pavement.layers.push_back(upper);
+
+    RoadModelBuildInput input;
+    input.config.sampleInterval = 10.0;
+    input.config.assignments = {RoadModelTemplateAssignment{0.0, 20.0, L"SG-PREVIEW", L"Preview subgrade"}};
+    input.verticalCurve.controlPoints = {
+        {VerticalCurvePointRole::Start, 0.0, 100.0},
+        {VerticalCurvePointRole::End, 20.0, 100.0},
+    };
+    input.alignmentSamples = {
+        {{0.0, 0.0}, 0.0},
+        {{20.0, 0.0}, 20.0},
+    };
+    input.templates = {RoadModelTemplateSource{L"SG-PREVIEW", subgrade}};
+    input.pavementLayerTemplates = {RoadModelPavementLayerTemplateSource{L"PV-PREVIEW", pavement}};
+    return input;
+}
+
+std::size_t countPavementLayerPreviewSegments(const roadproto::domain::cross_section::RoadModelSectionPreview& preview)
+{
+    return static_cast<std::size_t>(std::count_if(
+        preview.segments.begin(),
+        preview.segments.end(),
+        [](const auto& segment) {
+            return segment.kind == roadproto::domain::cross_section::RoadModelSectionPreviewSegmentKind::PavementLayer;
+        }));
+}
+
+void roadModelSectionPreviewBuilderDrawsPavementLayerRectangleAtSampledStation()
+{
+    using namespace roadproto::domain::cross_section;
+
+    const auto input = makePavementLayerPreviewBuildInput();
+    const auto result = RoadModelBuilder::build(input);
+    CHECK(result.succeeded);
+
+    RoadModelSectionPreviewRequest request;
+    request.data = result.data;
+    request.alignmentSamples = input.alignmentSamples;
+    request.station = 10.0;
+
+    const auto preview = RoadModelSectionPreviewBuilder::build(request);
+
+    CHECK(preview.succeeded);
+    CHECK(countPavementLayerPreviewSegments(preview) >= 4);
+}
+
+void roadModelSectionPreviewBuilderInterpolatesPavementLayerRectangleBetweenSamples()
+{
+    using namespace roadproto::domain::cross_section;
+
+    const auto input = makePavementLayerPreviewBuildInput();
+    const auto result = RoadModelBuilder::build(input);
+    CHECK(result.succeeded);
+
+    RoadModelSectionPreviewRequest request;
+    request.data = result.data;
+    request.alignmentSamples = input.alignmentSamples;
+    request.station = 5.0;
+
+    const auto preview = RoadModelSectionPreviewBuilder::build(request);
+
+    CHECK(preview.succeeded);
+    CHECK(countPavementLayerPreviewSegments(preview) >= 4);
 }
 
 void roadModelSectionPreviewBuilderCreatesSubgradePreviewAtStation()
@@ -1937,6 +2934,22 @@ void roadModelBuildServiceRejectsMissingHandlesAndDelegatesBuild()
     CHECK(result.data.config.profileVerticalCurveHandle == L"V1");
 }
 
+void pavementLayerTemplateCreateServiceBuildsDefaultTemplate()
+{
+    using namespace roadproto::application::cross_section;
+
+    PavementLayerTemplateCreateInput input;
+    const PavementLayerTemplateCreateService service;
+    const auto result = service.create(input);
+
+    CHECK(result.succeeded);
+    CHECK(result.errorMessage.empty());
+    CHECK(result.templateData.properties.name == L"\u8def\u9762\u7ed3\u6784\u5c42\u6a21\u677f");
+    CHECK(std::fabs(result.templateData.properties.displayScale - 10.0) < 1.0e-9);
+    CHECK(std::fabs(result.templateData.properties.previewWidth - 3.75) < 1.0e-9);
+    CHECK(!result.templateData.layers.empty());
+}
+
 void crossSectionModuleRegistersSubgradeTemplateCommandsAndRibbonPanel()
 {
     roadproto::core::CommandRegistry commands;
@@ -2002,6 +3015,35 @@ void crossSectionModuleRegistersSubgradeTemplateCommandsAndRibbonPanel()
         CHECK(!slopeApplyCommand->reusable);
     }
 
+    const auto pavementLayerCreateCommand = commands.find(L"RD_SECTION_PAVEMENT_LAYER_TEMPLATE_CREATE");
+    CHECK(pavementLayerCreateCommand.has_value());
+    if (pavementLayerCreateCommand.has_value()) {
+        CHECK(pavementLayerCreateCommand->moduleCode == L"CROSS_SECTION");
+        CHECK(pavementLayerCreateCommand->displayName == L"\u521b\u5efa\u8def\u9762\u7ed3\u6784\u5c42\u6a21\u677f");
+        CHECK(pavementLayerCreateCommand->businessDocPath == L"docs/business/cross_section/\u8def\u9762\u7ed3\u6784\u5c42\u6a21\u677f_\u521b\u5efa.md");
+        CHECK(pavementLayerCreateCommand->ribbonAttachable);
+        CHECK(pavementLayerCreateCommand->isPrototype);
+        CHECK(pavementLayerCreateCommand->reusable);
+    }
+
+    const auto pavementLayerEditCommand = commands.find(L"RD_SECTION_PAVEMENT_LAYER_TEMPLATE_EDIT_HANDLE");
+    CHECK(pavementLayerEditCommand.has_value());
+    if (pavementLayerEditCommand.has_value()) {
+        CHECK(pavementLayerEditCommand->moduleCode == L"CROSS_SECTION");
+        CHECK(pavementLayerEditCommand->businessDocPath == L"docs/business/cross_section/\u8def\u9762\u7ed3\u6784\u5c42\u6a21\u677f_\u7f16\u8f91.md");
+        CHECK(!pavementLayerEditCommand->ribbonAttachable);
+        CHECK(!pavementLayerEditCommand->reusable);
+    }
+
+    const auto pavementLayerApplyCommand = commands.find(L"RD_SECTION_PAVEMENT_LAYER_TEMPLATE_APPLY_DIALOG_FILE");
+    CHECK(pavementLayerApplyCommand.has_value());
+    if (pavementLayerApplyCommand.has_value()) {
+        CHECK(pavementLayerApplyCommand->moduleCode == L"CROSS_SECTION");
+        CHECK(pavementLayerApplyCommand->businessDocPath == L"docs/business/cross_section/\u8def\u9762\u7ed3\u6784\u5c42\u6a21\u677f_WPF\u6865\u63a5\u56de\u5199.md");
+        CHECK(!pavementLayerApplyCommand->ribbonAttachable);
+        CHECK(!pavementLayerApplyCommand->reusable);
+    }
+
     const auto roadModelCreateCommand = commands.find(L"RD_SECTION_ROAD_MODEL_CREATE");
     CHECK(roadModelCreateCommand.has_value());
     if (roadModelCreateCommand.has_value()) {
@@ -2062,6 +3104,9 @@ void crossSectionModuleRegistersSubgradeTemplateCommandsAndRibbonPanel()
     checkBusinessDocExistsForTests(L"docs/business/cross_section/边坡模板_创建.md");
     checkBusinessDocExistsForTests(L"docs/business/cross_section/边坡模板_编辑.md");
     checkBusinessDocExistsForTests(L"docs/business/cross_section/边坡模板_WPF桥接回写.md");
+    checkBusinessDocExistsForTests(L"docs/business/cross_section/路面结构层模板_创建.md");
+    checkBusinessDocExistsForTests(L"docs/business/cross_section/路面结构层模板_编辑.md");
+    checkBusinessDocExistsForTests(L"docs/business/cross_section/路面结构层模板_WPF桥接回写.md");
     checkBusinessDocExistsForTests(L"docs/business/cross_section/查看横断面.md");
 
     CHECK(ribbon.tab().panels.size() == 1);
@@ -2091,6 +3136,9 @@ void startupRegistrationIncludesCrossSectionModule()
     CHECK(commands.contains(L"RD_SECTION_SLOPE_TEMPLATE_CREATE"));
     CHECK(commands.contains(L"RD_SECTION_SLOPE_TEMPLATE_EDIT_HANDLE"));
     CHECK(commands.contains(L"RD_SECTION_SLOPE_TEMPLATE_APPLY_DIALOG_FILE"));
+    CHECK(commands.contains(L"RD_SECTION_PAVEMENT_LAYER_TEMPLATE_CREATE"));
+    CHECK(commands.contains(L"RD_SECTION_PAVEMENT_LAYER_TEMPLATE_EDIT_HANDLE"));
+    CHECK(commands.contains(L"RD_SECTION_PAVEMENT_LAYER_TEMPLATE_APPLY_DIALOG_FILE"));
     CHECK(commands.contains(L"RD_SECTION_ROAD_MODEL_CREATE"));
     CHECK(commands.contains(L"RD_SECTION_ROAD_MODEL_EDIT"));
     CHECK(commands.contains(L"RD_SECTION_ROAD_MODEL_EDIT_HANDLE"));
@@ -2204,6 +3252,8 @@ void roadModelSectionViewerNativeBridgeSourceContainsRequiredFields()
     CHECK(bridge.find("segmentCount") != std::string::npos);
     CHECK(bridge.find("pointCount") != std::string::npos);
     CHECK(bridge.find("stationLabel") != std::string::npos);
+    CHECK(bridge.find("RoadModelSectionPreviewSegmentKind::PavementLayer") != std::string::npos);
+    CHECK(bridge.find("return L\"PavementLayer\"") != std::string::npos);
     CHECK(commandHeader.find("roadModelViewSectionCommandProcedure") != std::string::npos);
     CHECK(command.find("RoadModelSectionViewerBridge.h") != std::string::npos);
     CHECK(command.find("runRoadModelViewSectionCommand") != std::string::npos);
@@ -2398,6 +3448,7 @@ void roadModelCommandSourceContainsCompleteObjectArxFlow()
     CHECK(source.find("DnProfileVerticalCurveEntity") != std::string::npos);
     CHECK(source.find("DnSubgradeTemplateEntity") != std::string::npos);
     CHECK(source.find("DnSlopeTemplateEntity") != std::string::npos);
+    CHECK(source.find("DnPavementLayerTemplateEntity") != std::string::npos);
     CHECK(source.find("DnTerrainTinEntity") != std::string::npos);
     CHECK(source.find("DnRoadModelEntity") != std::string::npos);
     CHECK(source.find("selectTypedEntity") != std::string::npos);
@@ -2410,6 +3461,7 @@ void roadModelCommandSourceContainsCompleteObjectArxFlow()
     CHECK(source.find("progressCallback") != std::string::npos);
     CHECK(source.find("readSubgradeTemplate") != std::string::npos);
     CHECK(source.find("readSlopeTemplate") != std::string::npos);
+    CHECK(source.find("readPavementLayerTemplate") != std::string::npos);
     CHECK(source.find("readTerrainSurface") != std::string::npos);
     CHECK(source.find("appendEntityToModelSpace") != std::string::npos);
     CHECK(source.find("setRoadModelData") != std::string::npos);
@@ -2458,14 +3510,343 @@ void roadModelCommandSourceContainsCompleteObjectArxFlow()
     CHECK(source.find("return;", applyRelationValidation) < applyBuild);
     CHECK(source.find("readSubgradeTemplate", applyCommand) != std::string::npos);
     CHECK(source.find("readSlopeTemplate", applyCommand) != std::string::npos);
+    CHECK(source.find("collectPavementLayerTemplates", applyCommand) != std::string::npos);
     CHECK(source.find("terrainSurface", applyCommand) != std::string::npos);
     CHECK(source.find("RoadModelBuildInput input", applyCommand) != std::string::npos);
+    CHECK(source.find("input.pavementLayerTemplates", applyCommand) != std::string::npos);
     CHECK(source.find("service.build(input)", applyCommand) != std::string::npos);
     CHECK(source.find("new DnRoadModelEntity", applyCommand) != std::string::npos);
     CHECK(source.find("appendEntityToModelSpace", applyCommand) != std::string::npos);
     CHECK(source.find("AcDb::kForWrite", applyCommand) != std::string::npos);
     CHECK(source.find("recordGraphicsModified(true)", applyCommand) != std::string::npos);
     CHECK(source.find("acedUpdateDisplay()", applyCommand) != std::string::npos);
+}
+
+void roadModelCommandSourceCollectsPavementTemplateSources()
+{
+    const auto sourcePath = findRepositoryRootForTests()
+        / "src"
+        / "cad_adapter"
+        / "objectarx"
+        / "cross_section"
+        / "ObjectArxRoadModelCommand.cpp";
+    CHECK(std::filesystem::exists(sourcePath));
+
+    const auto source = readTextFileForTests(sourcePath);
+    CHECK(!source.empty());
+
+    CHECK(source.find("#include \"cad_adapter/objectarx/cross_section/DnPavementLayerTemplateEntity.h\"") != std::string::npos);
+    CHECK(source.find("using roadproto::domain::cross_section::RoadModelPavementLayerTemplateSource;") != std::string::npos);
+    CHECK(source.find("bool readPavementLayerTemplate") != std::string::npos);
+    CHECK(source.find("DnPavementLayerTemplateEntity::desc()") != std::string::npos);
+    CHECK(source.find("source.data = entity->templateData();") != std::string::npos);
+
+    const auto collect = source.find("collectPavementLayerTemplates");
+    CHECK(collect != std::string::npos);
+    if (collect != std::string::npos) {
+        CHECK(source.find("source.data.components", collect) != std::string::npos);
+        CHECK(source.find("component.pavementLayerLinked", collect) != std::string::npos);
+        CHECK(source.find("component.pavementLayerHandle", collect) != std::string::npos);
+        CHECK(source.find("alreadyAdded", collect) != std::string::npos);
+        CHECK(source.find("readPavementLayerTemplate(component.pavementLayerHandle", collect) != std::string::npos);
+        CHECK(source.find("Cannot read pavement layer template entity", collect) != std::string::npos);
+        CHECK(source.find("component", collect) != std::string::npos);
+        CHECK(source.find("pavementLayerTemplates.push_back", collect) != std::string::npos);
+    }
+}
+
+void pavementLayerTemplateNativeSourcesContainRequiredContracts()
+{
+    const auto root = findRepositoryRootForTests();
+    const auto entityHeaderPath = root
+        / "src"
+        / "cad_adapter"
+        / "objectarx"
+        / "cross_section"
+        / "DnPavementLayerTemplateEntity.h";
+    const auto entitySourcePath = root
+        / "src"
+        / "cad_adapter"
+        / "objectarx"
+        / "cross_section"
+        / "DnPavementLayerTemplateEntity.cpp";
+    const auto bridgeHeaderPath = root
+        / "src"
+        / "cad_adapter"
+        / "objectarx"
+        / "cross_section"
+        / "PavementLayerTemplateDialogBridge.h";
+    const auto bridgeSourcePath = root
+        / "src"
+        / "cad_adapter"
+        / "objectarx"
+        / "cross_section"
+        / "PavementLayerTemplateDialogBridge.cpp";
+    const auto commandHeaderPath = root
+        / "src"
+        / "cad_adapter"
+        / "objectarx"
+        / "cross_section"
+        / "ObjectArxPavementLayerTemplateCommand.h";
+    const auto commandSourcePath = root
+        / "src"
+        / "cad_adapter"
+        / "objectarx"
+        / "cross_section"
+        / "ObjectArxPavementLayerTemplateCommand.cpp";
+    const auto entryPath = root / "src" / "app" / "arx_entry" / "RoadProtoArxEntry.cpp";
+    const auto arxProjectPath = root / "src" / "app" / "RoadProtoArx.vcxproj";
+    const auto testProjectPath = root / "tests" / "RoadProtoCoreTests.vcxproj";
+
+    CHECK(std::filesystem::exists(entityHeaderPath));
+    CHECK(std::filesystem::exists(entitySourcePath));
+    CHECK(std::filesystem::exists(bridgeHeaderPath));
+    CHECK(std::filesystem::exists(bridgeSourcePath));
+    CHECK(std::filesystem::exists(commandHeaderPath));
+    CHECK(std::filesystem::exists(commandSourcePath));
+    CHECK(std::filesystem::exists(entryPath));
+    CHECK(std::filesystem::exists(arxProjectPath));
+    CHECK(std::filesystem::exists(testProjectPath));
+
+    const auto entityHeader = readTextFileForTests(entityHeaderPath);
+    const auto entitySource = readTextFileForTests(entitySourcePath);
+    const auto bridgeHeader = readTextFileForTests(bridgeHeaderPath);
+    const auto bridgeSource = readTextFileForTests(bridgeSourcePath);
+    const auto commandHeader = readTextFileForTests(commandHeaderPath);
+    const auto commandSource = readTextFileForTests(commandSourcePath);
+    const auto entry = readTextFileForTests(entryPath);
+    const auto arxProject = readTextFileForTests(arxProjectPath);
+    const auto testProject = readTextFileForTests(testProjectPath);
+
+    CHECK(entityHeader.find("class DnPavementLayerTemplateEntity : public AcDbEntity") != std::string::npos);
+    CHECK(entityHeader.find("ACRX_DECLARE_MEMBERS(DnPavementLayerTemplateEntity)") != std::string::npos);
+    CHECK(entityHeader.find("PavementLayerTemplateData templateData_") != std::string::npos);
+    CHECK(entityHeader.find("Acad::ErrorStatus setTemplateData") != std::string::npos);
+    CHECK(entityHeader.find("templateData") != std::string::npos);
+    CHECK(entityHeader.find("setInsertionPoint") != std::string::npos);
+    CHECK(entityHeader.find("insertionPoint") != std::string::npos);
+    CHECK(entityHeader.find("dwgInFields") != std::string::npos);
+    CHECK(entityHeader.find("dwgOutFields") != std::string::npos);
+    CHECK(entityHeader.find("subWorldDraw") != std::string::npos);
+    CHECK(entityHeader.find("subGetGeomExtents") != std::string::npos);
+    CHECK(entityHeader.find("subTransformBy") != std::string::npos);
+    CHECK(entityHeader.find("subGetGripPoints") != std::string::npos);
+    CHECK(entityHeader.find("subMoveGripPointsAt") != std::string::npos);
+    CHECK(entityHeader.find("initializePavementLayerTemplateEntityClass") != std::string::npos);
+    CHECK(entityHeader.find("uninitializePavementLayerTemplateEntityClass") != std::string::npos);
+
+    CHECK(entitySource.find("DNPAVEMENTLAYERTEMPLATEENTITY") != std::string::npos);
+    CHECK(entitySource.find("dwgOutFields") != std::string::npos);
+    CHECK(entitySource.find("dwgInFields") != std::string::npos);
+    CHECK(entitySource.find("constexpr Adesk::Int16 kEntityVersion = 2") != std::string::npos);
+    CHECK(entitySource.find("properties.name") != std::string::npos);
+    CHECK(entitySource.find("properties.displayScale") != std::string::npos);
+    CHECK(entitySource.find("properties.previewWidth") != std::string::npos);
+    CHECK(entitySource.find("layerCount") != std::string::npos);
+    CHECK(entitySource.find("uniformThickness") != std::string::npos);
+    CHECK(entitySource.find("innerThickness") != std::string::npos);
+    CHECK(entitySource.find("outerThickness") != std::string::npos);
+    CHECK(entitySource.find("innerWidening") != std::string::npos);
+    CHECK(entitySource.find("outerWidening") != std::string::npos);
+    CHECK(entitySource.find("innerSlope") != std::string::npos);
+    CHECK(entitySource.find("outerSlope") != std::string::npos);
+    CHECK(entitySource.find("layer.color.r") != std::string::npos);
+    CHECK(entitySource.find("layer.color.g") != std::string::npos);
+    CHECK(entitySource.find("layer.color.b") != std::string::npos);
+    CHECK(entitySource.find("layer.type") != std::string::npos);
+    CHECK(entitySource.find("layer.name") != std::string::npos);
+    CHECK(entitySource.find("PavementLayerTemplateRules::buildSection") != std::string::npos);
+    CHECK(entitySource.find("SubgradeSide::Right") != std::string::npos);
+    CHECK(entitySource.find("gripPoints.append(insertionPoint_)") != std::string::npos);
+    CHECK(entitySource.find("insertionPoint_ += offset") != std::string::npos);
+    CHECK(entitySource.find("worldDraw->geometry().polygon(4, fillPoints)") != std::string::npos);
+    CHECK(entitySource.find("kAcGiFillAlways") != std::string::npos);
+    const auto drawLayerPreviewFill = entitySource.find("void drawLayerPreviewFill");
+    CHECK(drawLayerPreviewFill != std::string::npos);
+    if (drawLayerPreviewFill != std::string::npos) {
+        const auto drawLayerPreviewFillEnd = entitySource.find("void drawLayerEdge", drawLayerPreviewFill);
+        const auto drawLayerPreviewFillSource = entitySource.substr(
+            drawLayerPreviewFill,
+            drawLayerPreviewFillEnd == std::string::npos
+                ? std::string::npos
+                : drawLayerPreviewFillEnd - drawLayerPreviewFill);
+        CHECK(drawLayerPreviewFillSource.find("layer.topInner.offset * scale") != std::string::npos);
+        CHECK(drawLayerPreviewFillSource.find("layer.topOuter.offset * scale") != std::string::npos);
+        CHECK(drawLayerPreviewFillSource.find("layer.bottomOuter.offset * scale") != std::string::npos);
+        CHECK(drawLayerPreviewFillSource.find("layer.bottomInner.offset * scale") != std::string::npos);
+        CHECK(drawLayerPreviewFillSource.find("pavementLayerFillColor(layer.color)") != std::string::npos);
+        CHECK(drawLayerPreviewFillSource.find("setTrueColor(color)") != std::string::npos);
+        CHECK(drawLayerPreviewFillSource.find("setFillType(kAcGiFillAlways)") != std::string::npos);
+        CHECK(drawLayerPreviewFillSource.find("worldDraw->geometry().polygon(4, fillPoints)") != std::string::npos);
+        CHECK(drawLayerPreviewFillSource.find("setFillType(kAcGiFillNever)") != std::string::npos);
+        CHECK(drawLayerPreviewFillSource.find("drawLayerFillLine") == std::string::npos);
+        CHECK(drawLayerPreviewFillSource.find("intersections") == std::string::npos);
+        CHECK(drawLayerPreviewFillSource.find("colorIndex(layer.type)") == std::string::npos);
+        CHECK(drawLayerPreviewFillSource.find("AcGePoint3d outline[5]") == std::string::npos);
+    }
+    CHECK(entitySource.find("drawLayerEdges") != std::string::npos);
+    CHECK(entitySource.find("layerIndex == 0") != std::string::npos);
+    CHECK(entitySource.find("if (drawTopEdge)") != std::string::npos);
+    CHECK(entitySource.find("AcCmEntityColor pavementLayerStrokeColor") != std::string::npos);
+    CHECK(entitySource.find("AcCmEntityColor pavementLayerFillColor") != std::string::npos);
+    CHECK(entitySource.find("blendPreviewFillChannel") != std::string::npos);
+    CHECK(entitySource.find("void drawLayerLabels") != std::string::npos);
+    CHECK(entitySource.find("drawText(worldDraw") != std::string::npos);
+    CHECK(entitySource.find("void makePreviewTextStyle") != std::string::npos);
+    CHECK(entitySource.find("setFont(L\"SimSun\"") != std::string::npos);
+    CHECK(entitySource.find("kChineseSimpCharset") != std::string::npos);
+    CHECK(entitySource.find("static_cast<Adesk::Int32>(text.size())") != std::string::npos);
+    CHECK(entitySource.find("layer.name") != std::string::npos);
+    CHECK(entitySource.find("L\"\\u539a \"") != std::string::npos);
+    CHECK(entitySource.find("L\"\\u5185\\u4fa7\\u52a0\\u5bbd \"") != std::string::npos);
+    CHECK(entitySource.find("L\"\\u5916\\u4fa7\\u52a0\\u5bbd \"") != std::string::npos);
+    CHECK(entitySource.find("L\"\\u5185\\u4fa7\\u5761\\u5ea6 \"") != std::string::npos);
+    CHECK(entitySource.find("L\"\\u5916\\u4fa7\\u5761\\u5ea6 \"") != std::string::npos);
+    CHECK(entitySource.find("for (std::size_t layerIndex = 0; layerIndex < section.layers.size(); ++layerIndex)") != std::string::npos);
+    CHECK(entitySource.find("drawLayerPreviewFill(worldDraw, insertionPoint_, xAxis_, yAxis_, section.layers[layerIndex], scale)") != std::string::npos);
+    const auto setTemplateDataFunction = entitySource.find("Acad::ErrorStatus DnPavementLayerTemplateEntity::setTemplateData");
+    CHECK(setTemplateDataFunction != std::string::npos);
+    if (setTemplateDataFunction != std::string::npos) {
+        const auto setTemplateDataEnd = entitySource.find(
+            "const PavementLayerTemplateData& DnPavementLayerTemplateEntity::templateData() const",
+            setTemplateDataFunction);
+        const auto setTemplateDataSource = entitySource.substr(
+            setTemplateDataFunction,
+            setTemplateDataEnd == std::string::npos
+                ? std::string::npos
+                : setTemplateDataEnd - setTemplateDataFunction);
+        const auto localCopy = setTemplateDataSource.find("auto normalized = data");
+        const auto normalizeCall = setTemplateDataSource.find("PavementLayerTemplateRules::normalize(normalized, errorMessage)");
+        const auto invalidReturn = setTemplateDataSource.find("return Acad::eInvalidInput");
+        const auto assignment = setTemplateDataSource.find("templateData_ = std::move(normalized)");
+        const auto markGraphics = setTemplateDataSource.find("markGraphicsModifiedIfResident");
+        CHECK(localCopy != std::string::npos);
+        CHECK(normalizeCall != std::string::npos);
+        CHECK(invalidReturn != std::string::npos);
+        CHECK(assignment != std::string::npos);
+        CHECK(markGraphics != std::string::npos);
+        CHECK(setTemplateDataSource.find("templateData_ = data") == std::string::npos);
+        CHECK(localCopy < normalizeCall);
+        CHECK(normalizeCall < assignment);
+        CHECK(invalidReturn < assignment);
+        CHECK(assignment < markGraphics);
+    }
+    CHECK(entitySource.find("if (version < 1 || version > kEntityVersion)") != std::string::npos);
+    CHECK(entitySource.find("version == 0") == std::string::npos);
+    CHECK(entitySource.find("Acad::ErrorStatus checkFilerStatus") != std::string::npos);
+    CHECK(entitySource.find("return checkFilerStatus(filer);") != std::string::npos);
+    CHECK(entitySource.find("const auto finalStatus = checkFilerStatus(filer);") != std::string::npos);
+    const auto finalFilerStatus = entitySource.find("const auto finalStatus = checkFilerStatus(filer);");
+    const auto pavementDataAssignment = entitySource.find("templateData_ = std::move(data);");
+    CHECK(finalFilerStatus != std::string::npos);
+    CHECK(pavementDataAssignment != std::string::npos);
+    CHECK(finalFilerStatus < pavementDataAssignment);
+
+    CHECK(bridgeHeader.find("PavementLayerTemplateDialogRequest") != std::string::npos);
+    CHECK(bridgeHeader.find("PavementLayerTemplateDialogResponse") != std::string::npos);
+    CHECK(bridgeHeader.find("PavementLayerTemplateData data") != std::string::npos);
+    CHECK(bridgeHeader.find("queuePavementLayerTemplateWpfDialog") != std::string::npos);
+    CHECK(bridgeHeader.find("readPavementLayerTemplateDialogResponse") != std::string::npos);
+    CHECK(bridgeSource.find("RoadProtoPavementLayerTemplateDialog_") != std::string::npos);
+    CHECK(bridgeSource.find("RD_SECTION_PAVEMENT_LAYER_TEMPLATE_SHOW_WPF_DIALOG") != std::string::npos);
+    CHECK(bridgeSource.find("layerCount") != std::string::npos);
+    CHECK(bridgeSource.find("L\"layer.\" + std::to_wstring(i)") != std::string::npos);
+    CHECK(bridgeSource.find(".type") != std::string::npos);
+    CHECK(bridgeSource.find(".name") != std::string::npos);
+    CHECK(bridgeSource.find(".uniformThickness") != std::string::npos);
+    CHECK(bridgeSource.find(".thickness") != std::string::npos);
+    CHECK(bridgeSource.find(".innerThickness") != std::string::npos);
+    CHECK(bridgeSource.find(".outerThickness") != std::string::npos);
+    CHECK(bridgeSource.find(".innerWidening") != std::string::npos);
+    CHECK(bridgeSource.find(".outerWidening") != std::string::npos);
+    CHECK(bridgeSource.find(".innerSlope") != std::string::npos);
+    CHECK(bridgeSource.find(".outerSlope") != std::string::npos);
+    CHECK(bridgeSource.find(".colorR") != std::string::npos);
+    CHECK(bridgeSource.find(".colorG") != std::string::npos);
+    CHECK(bridgeSource.find(".colorB") != std::string::npos);
+    CHECK(bridgeSource.find("stream.imbue(std::locale::classic())") != std::string::npos);
+    CHECK(bridgeSource.find("parsed.imbue(std::locale::classic())") != std::string::npos);
+    CHECK(bridgeSource.find("requiredValue") != std::string::npos);
+    CHECK(bridgeSource.find("requiredDoubleValue") != std::string::npos);
+    CHECK(bridgeSource.find("requiredBoolValue") != std::string::npos);
+    CHECK(bridgeSource.find("requiredIntValue") != std::string::npos);
+    CHECK(bridgeSource.find("requiredPavementLayerType") != std::string::npos);
+    CHECK(bridgeSource.find("Missing pavement layer template dialog field:") != std::string::npos);
+    CHECK(bridgeSource.find("Invalid pavement layer template numeric field:") != std::string::npos);
+    CHECK(bridgeSource.find("Unknown pavement layer type code:") != std::string::npos);
+    CHECK(bridgeSource.find("requiredBoolValue(values, L\"accepted\", response.accepted, errorMessage)") != std::string::npos);
+    CHECK(bridgeSource.find("requiredDoubleValue(values, L\"insertionX\", insertionX, errorMessage)") != std::string::npos);
+    CHECK(bridgeSource.find("requiredDoubleValue(values, L\"insertionY\", insertionY, errorMessage)") != std::string::npos);
+    CHECK(bridgeSource.find("requiredDoubleValue(values, L\"insertionZ\", insertionZ, errorMessage)") != std::string::npos);
+    CHECK(bridgeSource.find("response.accepted = boolValue(values, L\"accepted\"") == std::string::npos);
+    CHECK(bridgeSource.find("doubleValue(values, L\"insertionX\"") == std::string::npos);
+    CHECK(bridgeSource.find("doubleValue(values, L\"insertionY\"") == std::string::npos);
+    CHECK(bridgeSource.find("doubleValue(values, L\"insertionZ\"") == std::string::npos);
+    CHECK(bridgeSource.find("valueOrDefault(values, prefix + L\".type\", L\"UpperSurface\")") == std::string::npos);
+    CHECK(bridgeSource.find("doubleValue(values, prefix + L\".thickness\", 0.04)") == std::string::npos);
+    CHECK(bridgeSource.find("requiredIntValue(values, prefix + L\".colorR\", layer.color.r, errorMessage)") != std::string::npos);
+    CHECK(bridgeSource.find("requiredIntValue(values, prefix + L\".colorG\", layer.color.g, errorMessage)") != std::string::npos);
+    CHECK(bridgeSource.find("requiredIntValue(values, prefix + L\".colorB\", layer.color.b, errorMessage)") != std::string::npos);
+
+    CHECK(commandHeader.find("pavementLayerTemplateCreateCommandProcedure") != std::string::npos);
+    CHECK(commandHeader.find("pavementLayerTemplateEditHandleCommandProcedure") != std::string::npos);
+    CHECK(commandHeader.find("pavementLayerTemplateApplyDialogFileCommandProcedure") != std::string::npos);
+    CHECK(commandSource.find("runPavementLayerTemplateCreateCommand") != std::string::npos);
+    CHECK(commandSource.find("runPavementLayerTemplateEditHandleCommand") != std::string::npos);
+    CHECK(commandSource.find("runPavementLayerTemplateApplyDialogFileCommand") != std::string::npos);
+    CHECK(commandSource.find("queuePavementLayerTemplateWpfDialog") != std::string::npos);
+    CHECK(commandSource.find("DnPavementLayerTemplateEntity") != std::string::npos);
+    CHECK(commandSource.find("请选择路面结构层模板插入位置") != std::string::npos);
+    CHECK(commandSource.find("new DnPavementLayerTemplateEntity") != std::string::npos);
+    CHECK(commandSource.find("AcDb::kForWrite") != std::string::npos);
+    CHECK(commandSource.find("appendEntityToModelSpace") != std::string::npos);
+    CHECK(commandSource.find("acedUpdateDisplay") != std::string::npos);
+    CHECK(commandSource.find("if (entity->setTemplateData(result.templateData) != Acad::eOk)") != std::string::npos);
+    CHECK(commandSource.find("if (entity->setTemplateData(response.data) != Acad::eOk)") != std::string::npos);
+
+    const auto createCommand = commandSource.find("void runPavementLayerTemplateCreateCommand()");
+    CHECK(createCommand != std::string::npos);
+    if (createCommand != std::string::npos) {
+        const auto createCommandEnd = commandSource.find(
+            "void runPavementLayerTemplateEditHandleCommand()",
+            createCommand);
+        const auto createCommandSource = commandSource.substr(
+            createCommand,
+            createCommandEnd == std::string::npos
+                ? std::string::npos
+                : createCommandEnd - createCommand);
+        const auto createEntity = createCommandSource.find("new DnPavementLayerTemplateEntity");
+        const auto setTemplateData = createCommandSource.find("setTemplateData(result.templateData)");
+        const auto setInsertionPoint = createCommandSource.find("setInsertionPoint(insertionPoint)");
+        const auto appendEntity = createCommandSource.find("appendEntityToModelSpace");
+        const auto readHandle = createCommandSource.find("entityHandleText(entity)");
+        const auto requestHandle = createCommandSource.find("request.handle = handle");
+        const auto queueDialog = createCommandSource.find("queuePavementLayerTemplateWpfDialog");
+
+        CHECK(createEntity != std::string::npos);
+        CHECK(setTemplateData != std::string::npos);
+        CHECK(setInsertionPoint != std::string::npos);
+        CHECK(appendEntity != std::string::npos);
+        CHECK(readHandle != std::string::npos);
+        CHECK(requestHandle != std::string::npos);
+        CHECK(queueDialog != std::string::npos);
+        CHECK(createEntity < setTemplateData);
+        CHECK(createEntity < setInsertionPoint);
+        CHECK(setTemplateData < appendEntity);
+        CHECK(setInsertionPoint < appendEntity);
+        CHECK(appendEntity < readHandle);
+        CHECK(readHandle < requestHandle);
+        CHECK(requestHandle < queueDialog);
+    }
+
+    CHECK(entry.find("initializePavementLayerTemplateEntityClass()") != std::string::npos);
+    CHECK(entry.find("uninitializePavementLayerTemplateEntityClass()") != std::string::npos);
+    CHECK(arxProject.find("PavementLayerTemplateCreateService.cpp") != std::string::npos);
+    CHECK(arxProject.find("DnPavementLayerTemplateEntity.cpp") != std::string::npos);
+    CHECK(arxProject.find("PavementLayerTemplateDialogBridge.cpp") != std::string::npos);
+    CHECK(arxProject.find("ObjectArxPavementLayerTemplateCommand.cpp") != std::string::npos);
+    CHECK(testProject.find("PavementLayerTemplateCreateService.cpp") != std::string::npos);
+    CHECK(testProject.find("ObjectArxPavementLayerTemplateCommand.cpp") != std::string::npos);
 }
 
 void subgradeTemplateEntitySourceContainsMoveGrip()
@@ -2493,6 +3874,72 @@ void subgradeTemplateEntitySourceContainsMoveGrip()
     CHECK(source.find("gripPoints.append(insertionPoint_)") != std::string::npos);
     CHECK(source.find("insertionPoint_ += offset") != std::string::npos);
     CHECK(source.find("recordGraphicsModified(true)") != std::string::npos);
+}
+
+void subgradeTemplateDialogBridgeSourceContainsPavementTemplatePickContracts()
+{
+    const auto sourcePath = findRepositoryRootForTests()
+        / "src"
+        / "cad_adapter"
+        / "objectarx"
+        / "cross_section"
+        / "SubgradeTemplateDialogBridge.cpp";
+    const auto headerPath = findRepositoryRootForTests()
+        / "src"
+        / "cad_adapter"
+        / "objectarx"
+        / "cross_section"
+        / "SubgradeTemplateDialogBridge.h";
+    CHECK(std::filesystem::exists(sourcePath));
+    CHECK(std::filesystem::exists(headerPath));
+
+    const auto source = readTextFileForTests(sourcePath);
+    const auto header = readTextFileForTests(headerPath);
+    CHECK(header.find("enum class SubgradeTemplateDialogAction") != std::string::npos);
+    CHECK(header.find("PickPavementLayerTemplate") != std::string::npos);
+    CHECK(header.find("pickComponentIndex") != std::string::npos);
+    CHECK(source.find("action") != std::string::npos);
+    CHECK(source.find("pickPavementLayerTemplate") != std::string::npos);
+    CHECK(source.find("pickComponentIndex") != std::string::npos);
+    CHECK(source.find("prefix + L\".pavementLayerName\"") != std::string::npos);
+    CHECK(source.find("component.pavementLayerName") != std::string::npos);
+}
+
+void subgradeTemplateCommandSourceContainsPavementTemplatePickFlow()
+{
+    const auto sourcePath = findRepositoryRootForTests()
+        / "src"
+        / "cad_adapter"
+        / "objectarx"
+        / "cross_section"
+        / "ObjectArxSubgradeTemplateCommand.cpp";
+    CHECK(std::filesystem::exists(sourcePath));
+
+    const auto source = readTextFileForTests(sourcePath);
+    CHECK(source.find("DnPavementLayerTemplateEntity") != std::string::npos);
+    CHECK(source.find("PickPavementLayerTemplate") != std::string::npos);
+    CHECK(source.find("pickComponentIndex") != std::string::npos);
+    CHECK(source.find("templateData().properties.name") != std::string::npos);
+    CHECK(source.find("pavementLayerName") != std::string::npos);
+    CHECK(
+        source.find("DNPAVEMENTLAYERTEMPLATEENTITY") != std::string::npos
+        || source.find("DnPavementLayerTemplateEntity::desc()") != std::string::npos);
+}
+
+void subgradeTemplateEntityPersistenceSourceContainsPavementTemplateName()
+{
+    const auto sourcePath = findRepositoryRootForTests()
+        / "src"
+        / "cad_adapter"
+        / "objectarx"
+        / "cross_section"
+        / "DnSubgradeTemplateEntity.cpp";
+    CHECK(std::filesystem::exists(sourcePath));
+
+    const auto source = readTextFileForTests(sourcePath);
+    CHECK(source.find("constexpr Adesk::Int16 kEntityVersion = 2") != std::string::npos);
+    CHECK(source.find("component.pavementLayerName = version >= 2") != std::string::npos);
+    CHECK(source.find("writeWideString(filer, component.pavementLayerName)") != std::string::npos);
 }
 
 void roadModelEntitySourceContainsRequiredObjectArxContracts()
@@ -2546,11 +3993,39 @@ void roadModelEntitySourceContainsRequiredObjectArxContracts()
     CHECK(source.find("componentLines") != std::string::npos);
     CHECK(source.find("sections") != std::string::npos);
     CHECK(source.find("wireLines") != std::string::npos);
+    CHECK(source.find("pavementLayerLines") != std::string::npos);
+    CHECK(source.find("leftPavementLayerNodes") != std::string::npos);
+    CHECK(source.find("rightPavementLayerNodes") != std::string::npos);
     CHECK(source.find("RoadModelGroundProfilePoint") != std::string::npos);
+    CHECK(source.find("RoadModelPavementLayerLine") != std::string::npos);
     CHECK(source.find("RoadModelWireLineKind") != std::string::npos);
-    CHECK(source.find("constexpr Adesk::Int16 kEntityVersion = 5") != std::string::npos);
+    const auto nodeKindValidation = source.find("bool isValidRoadModelSectionNodeKindValue");
+    CHECK(nodeKindValidation != std::string::npos);
+    if (nodeKindValidation != std::string::npos) {
+        const auto nodeKindValidationEnd = source.find("bool isValidRoadModelWireLineKindValue", nodeKindValidation);
+        const auto nodeKindValidationSource = source.substr(
+            nodeKindValidation,
+            nodeKindValidationEnd == std::string::npos
+                ? std::string::npos
+                : nodeKindValidationEnd - nodeKindValidation);
+        CHECK(nodeKindValidationSource.find("RoadModelSectionNodeKind::PavementLayer") != std::string::npos);
+    }
+    const auto wireKindValidation = source.find("bool isValidRoadModelWireLineKindValue");
+    CHECK(wireKindValidation != std::string::npos);
+    if (wireKindValidation != std::string::npos) {
+        const auto wireKindValidationEnd = source.find("bool isValidLineKey", wireKindValidation);
+        const auto wireKindValidationSource = source.substr(
+            wireKindValidation,
+            wireKindValidationEnd == std::string::npos
+                ? std::string::npos
+                : wireKindValidationEnd - wireKindValidation);
+        CHECK(wireKindValidationSource.find("RoadModelWireLineKind::PavementLayer") != std::string::npos);
+    }
+    CHECK(source.find("constexpr Adesk::Int16 kEntityVersion = 6") != std::string::npos);
     CHECK(source.find("readRoadModelSection") != std::string::npos);
     CHECK(source.find("writeRoadModelSection") != std::string::npos);
+    CHECK(source.find("readPavementLayerLine") != std::string::npos);
+    CHECK(source.find("writePavementLayerLine") != std::string::npos);
     CHECK(source.find("readRoadModelGroundProfile") != std::string::npos);
     CHECK(source.find("writeRoadModelGroundProfile") != std::string::npos);
     CHECK(source.find("readRoadModelWireLine") != std::string::npos);
@@ -2584,6 +4059,88 @@ void roadModelEntitySourceContainsRequiredObjectArxContracts()
     CHECK(source.find("transformedPointIsFinite") != std::string::npos);
     CHECK(source.find("validateAllRoadModelPointsFinite") != std::string::npos);
 
+    const auto sectionReader = source.find("Acad::ErrorStatus readRoadModelSection");
+    CHECK(sectionReader != std::string::npos);
+    if (sectionReader != std::string::npos) {
+        const auto sectionWriter = source.find("\nvoid writeRoadModelSection(", sectionReader);
+        const auto sectionReadSource = source.substr(
+            sectionReader,
+            sectionWriter == std::string::npos ? std::string::npos : sectionWriter - sectionReader);
+        CHECK(sectionReadSource.find("if (version >= 6)") != std::string::npos);
+        CHECK(sectionReadSource.find("section.leftPavementLayerNodes") != std::string::npos);
+        CHECK(sectionReadSource.find("section.rightPavementLayerNodes") != std::string::npos);
+    }
+
+    const auto sectionWriter = source.find("\nvoid writeRoadModelSection(");
+    CHECK(sectionWriter != std::string::npos);
+    if (sectionWriter != std::string::npos) {
+        const auto wireReader = source.find("Acad::ErrorStatus readRoadModelWireLine", sectionWriter);
+        const auto sectionWriteSource = source.substr(
+            sectionWriter,
+            wireReader == std::string::npos ? std::string::npos : wireReader - sectionWriter);
+        CHECK(sectionWriteSource.find("section.leftPavementLayerNodes") != std::string::npos);
+        CHECK(sectionWriteSource.find("section.rightPavementLayerNodes") != std::string::npos);
+    }
+
+    const auto dwgIn = source.find("Acad::ErrorStatus DnRoadModelEntity::dwgInFields");
+    const auto dwgOut = source.find("Acad::ErrorStatus DnRoadModelEntity::dwgOutFields");
+    CHECK(dwgIn != std::string::npos);
+    CHECK(dwgOut != std::string::npos);
+    if (dwgIn != std::string::npos && dwgOut != std::string::npos) {
+        const auto dwgInSource = source.substr(dwgIn, dwgOut - dwgIn);
+        CHECK(dwgInSource.find("if (version >= 6)") != std::string::npos);
+        CHECK(dwgInSource.find("readPavementLayerLine") != std::string::npos);
+        CHECK(dwgInSource.find("readData.pavementLayerLines") != std::string::npos);
+    }
+    if (dwgOut != std::string::npos) {
+        const auto worldDraw = source.find("Adesk::Boolean DnRoadModelEntity::subWorldDraw", dwgOut);
+        const auto dwgOutSource = source.substr(
+            dwgOut,
+            worldDraw == std::string::npos ? std::string::npos : worldDraw - dwgOut);
+        CHECK(dwgOutSource.find("data_.pavementLayerLines") != std::string::npos);
+        CHECK(dwgOutSource.find("writePavementLayerLine") != std::string::npos);
+    }
+
+    const auto validationFunction = source.find("bool validateRoadModelDataForPersistence");
+    CHECK(validationFunction != std::string::npos);
+    if (validationFunction != std::string::npos) {
+        const auto readerStart = source.find("void readAssignment", validationFunction);
+        const auto validationSource = source.substr(
+            validationFunction,
+            readerStart == std::string::npos ? std::string::npos : readerStart - validationFunction);
+        CHECK(validationSource.find("data.pavementLayerLines.size()") != std::string::npos);
+        CHECK(validationSource.find("isValidPavementLayerLine") != std::string::npos);
+        CHECK(validationSource.find("section.leftPavementLayerNodes.size()") != std::string::npos);
+        CHECK(validationSource.find("section.rightPavementLayerNodes.size()") != std::string::npos);
+    }
+
+    const auto worldDraw = source.find("Adesk::Boolean DnRoadModelEntity::subWorldDraw");
+    CHECK(worldDraw != std::string::npos);
+    if (worldDraw != std::string::npos) {
+        CHECK(source.find("void drawPavementLayerFaces") != std::string::npos);
+        CHECK(source.find("drawPavementLayerFacesFromLines") != std::string::npos);
+        CHECK(source.find("roadModelPavementLayerFillColor") != std::string::npos);
+        CHECK(source.find("worldDraw->geometry().polygon(4, facePoints)") != std::string::npos);
+        CHECK(source.find("setFillType(kAcGiFillAlways)") != std::string::npos);
+        const auto lineFillCall = source.find("drawPavementLayerFacesFromLines(worldDraw, data_.pavementLayerLines)", worldDraw);
+        const auto fillCall = source.find("drawPavementLayerFaces(worldDraw, data_.sections)", worldDraw);
+        const auto wireCall = source.find("drawRoadModelWireLines(worldDraw, data_.wireLines)", worldDraw);
+        CHECK(lineFillCall != std::string::npos);
+        CHECK(fillCall != std::string::npos);
+        CHECK(wireCall != std::string::npos);
+        CHECK(lineFillCall < wireCall);
+        CHECK(fillCall < wireCall);
+        CHECK(source.find("drawPavementLayerLines", worldDraw) != std::string::npos);
+    }
+
+    const auto extentsFunction = source.find("Acad::ErrorStatus DnRoadModelEntity::subGetGeomExtents");
+    CHECK(extentsFunction != std::string::npos);
+    if (extentsFunction != std::string::npos) {
+        CHECK(source.find("data_.pavementLayerLines", extentsFunction) != std::string::npos);
+        CHECK(source.find("section.leftPavementLayerNodes", extentsFunction) != std::string::npos);
+        CHECK(source.find("section.rightPavementLayerNodes", extentsFunction) != std::string::npos);
+    }
+
     const auto finalFilerStatus = source.find("const auto finalStatus = filer->filerStatus();");
     const auto roadModelDataAssignment = source.find("data_ = std::move(readData);");
     CHECK(finalFilerStatus != std::string::npos);
@@ -2602,6 +4159,9 @@ void roadModelEntitySourceContainsRequiredObjectArxContracts()
     CHECK(transformCommit != std::string::npos);
     CHECK(transformExistingValidation < transformCopy);
     CHECK(transformCopy < transformCommit);
+    CHECK(source.find("transformedData.pavementLayerLines", transformFunction) != std::string::npos);
+    CHECK(source.find("section.leftPavementLayerNodes", transformFunction) != std::string::npos);
+    CHECK(source.find("section.rightPavementLayerNodes", transformFunction) != std::string::npos);
     CHECK(source.find("continue;", transformFunction) == std::string::npos
         || source.find("continue;", transformFunction) > transformCommit);
 
@@ -4392,8 +5952,20 @@ int main()
     subgradeTemplateDefaultsBuildUrbanRoadClassProfiles();
     subgradeTemplateComponentDisplayNamesAreChinese();
     subgradeTemplateRulesUseWideningTableAndPavementThicknessGate();
+    subgradeTemplateNormalizePreservesLinkedPavementTemplateReference();
+    subgradeTemplateNormalizeUnlinksEmptyPavementTemplateHandle();
     subgradeTemplateVariableSlopeUsesOnlySlopeTable();
     subgradeTemplateCreateServiceBuildsDefaultTemplate();
+    pavementLayerTemplateCreateServiceBuildsDefaultTemplate();
+    pavementLayerTemplateRulesNormalizeThicknessAndCodes();
+    pavementLayerTemplateDisplayColorsMatchWpfPreviewPalette();
+    pavementLayerTemplateCarriesLayerRgbIntoBuiltSection();
+    pavementLayerTemplateGeometryUsesWideningAsWidthDeltaAndAppliesEdgeSlopes();
+    pavementLayerTemplateRulesAllowNegativeWideningAndSlope();
+    pavementLayerTemplateWideningExpandsSecondLayerFromSubgradeWidth();
+    pavementLayerTemplateKeepsAdjacentLayerBoundariesCoincidentAfterNonUniformThickness();
+    pavementLayerTemplateWideningExtendsCurrentTopEdgeLine();
+    pavementLayerTemplateRulesAcceptPositiveFiniteDisplayScale();
     slopeTemplateDefaultsBuildFillAndCutProfiles();
     slopeTemplateRulesResolveThreeGeometryModes();
     slopeTemplateRulesValidateRepeatLastGroup();
@@ -4404,6 +5976,15 @@ int main()
     roadModelStationSamplerOnlyKeepsTemplateCoveredStations();
     roadModelStationSamplerSnapsTemplateBoundaryTolerance();
     roadModelBuilderCreatesThreeDimensionalComponentLines();
+    roadModelBuilderCreatesPavementLayerWireLinesForBoundSubgradeComponent();
+    roadModelBuilderKeepsPavementLayerInnerOuterSemanticOnLeftSide();
+    roadModelBuilderUsesCurrentPavementLayerContourForWidenedModelWires();
+    roadModelBuilderUsesPavementLayerRgbForLayerModel();
+    roadModelBuilderTreatsEmptyPavementLayerHandleAsUnlinked();
+    roadModelBuilderRejectsMissingPavementLayerTemplateSource();
+    roadModelBuilderRejectsInvalidPavementLayerTemplateSource();
+    roadModelSectionPreviewBuilderDrawsPavementLayerRectangleAtSampledStation();
+    roadModelSectionPreviewBuilderInterpolatesPavementLayerRectangleBetweenSamples();
     roadModelSectionPreviewBuilderCreatesSubgradePreviewAtStation();
     roadModelSectionPreviewBuilderAddsGroundLineFromTin();
     roadModelBuilderStoresGroundProfileSnapshotsForSections();
@@ -4423,6 +6004,7 @@ int main()
     roadModelBuilderRejectsInvalidTemplateSource();
     roadModelBuildServiceRejectsMissingHandlesAndDelegatesBuild();
     crossSectionModuleRegistersSubgradeTemplateCommandsAndRibbonPanel();
+    pavementLayerTemplateDocumentationAndVersionContracts();
     startupRegistrationIncludesCrossSectionModule();
     managedRibbonExtensionRegistersSubgradeTemplateEntryPoints();
     managedRibbonExtensionRegistersRoadModelEntryPoints();
@@ -4430,8 +6012,13 @@ int main()
     roadModelNativeDialogBridgeSourceContainsRequiredFields();
     roadModelSectionViewerNativeBridgeSourceContainsRequiredFields();
     roadModelCommandSourceContainsCompleteObjectArxFlow();
+    roadModelCommandSourceCollectsPavementTemplateSources();
+    pavementLayerTemplateNativeSourcesContainRequiredContracts();
     roadModelEntitySourceContainsRequiredObjectArxContracts();
     subgradeTemplateEntitySourceContainsMoveGrip();
+    subgradeTemplateDialogBridgeSourceContainsPavementTemplatePickContracts();
+    subgradeTemplateCommandSourceContainsPavementTemplatePickFlow();
+    subgradeTemplateEntityPersistenceSourceContainsPavementTemplateName();
     subgradeTemplateWindowSourceKeepsControlsReadable();
     subgradeTemplateBridgeWritesEnumCodesAsText();
     managedRibbonExtensionRegistersVerticalCurveContextMenu();

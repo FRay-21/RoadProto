@@ -1,6 +1,7 @@
 #pragma once
 
 #include "domain/alignment/AlignmentGeometry.h"
+#include "domain/cross_section/PavementLayerTemplateModel.h"
 #include "domain/cross_section/SlopeTemplateModel.h"
 #include "domain/cross_section/SubgradeTemplateModel.h"
 #include "domain/profile/ProfileVerticalCurveModel.h"
@@ -63,12 +64,23 @@ struct RoadModelSlopeTemplateSource {
     SlopeTemplateData data;
 };
 
+struct RoadModelPavementLayerTemplateSource {
+    std::wstring templateHandle;
+    PavementLayerTemplateData data;
+};
+
 struct RoadModelTerrainSurface {
     std::vector<terrain::TinPoint> points;
     std::vector<terrain::TinTriangle> triangles;
 };
 
 using RoadModelProgressCallback = std::function<void(int percent, const std::wstring& message)>;
+
+struct RoadModelWireColor {
+    int r = 0;
+    int g = 0;
+    int b = 0;
+};
 
 struct RoadModelLineKey {
     std::wstring templateHandle;
@@ -100,6 +112,21 @@ struct RoadModelSlopeComponentLine {
     std::vector<RoadModelPoint3d> points;
 };
 
+struct RoadModelPavementLayerLineKey {
+    std::wstring subgradeTemplateHandle;
+    std::wstring pavementLayerTemplateHandle;
+    SubgradeSide side = SubgradeSide::Right;
+    std::size_t componentIndex = 0;
+    std::size_t layerIndex = 0;
+    std::size_t boundaryIndex = 0;
+};
+
+struct RoadModelPavementLayerLine {
+    RoadModelPavementLayerLineKey key;
+    RoadModelWireColor color;
+    std::vector<RoadModelPoint3d> points;
+};
+
 struct RoadModelSlopeSectionResult {
     double station = 0.0;
     SubgradeSide side = SubgradeSide::Right;
@@ -114,12 +141,7 @@ enum class RoadModelSectionNodeKind {
     Subgrade,
     Slope,
     Ground,
-};
-
-struct RoadModelWireColor {
-    int r = 0;
-    int g = 0;
-    int b = 0;
+    PavementLayer,
 };
 
 struct RoadModelSectionNode {
@@ -143,6 +165,8 @@ struct RoadModelSection {
     std::wstring errorMessage;
     std::vector<RoadModelSectionNode> leftNodes;
     std::vector<RoadModelSectionNode> rightNodes;
+    std::vector<RoadModelSectionNode> leftPavementLayerNodes;
+    std::vector<RoadModelSectionNode> rightPavementLayerNodes;
     std::vector<RoadModelGroundProfilePoint> leftGroundProfile;
     std::vector<RoadModelGroundProfilePoint> rightGroundProfile;
 };
@@ -153,6 +177,7 @@ enum class RoadModelWireLineKind {
     OuterBoundary,
     Transition,
     EndCap,
+    PavementLayer,
 };
 
 struct RoadModelWireLine {
@@ -167,6 +192,7 @@ struct RoadModelData {
     std::vector<double> sampledStations;
     std::vector<RoadModelComponentLine> componentLines;
     std::vector<RoadModelSlopeComponentLine> slopeLines;
+    std::vector<RoadModelPavementLayerLine> pavementLayerLines;
     std::vector<RoadModelSlopeSectionResult> slopeSectionResults;
     std::vector<RoadModelSection> sections;
     std::vector<RoadModelWireLine> wireLines;
@@ -179,6 +205,7 @@ struct RoadModelBuildInput {
     profile::ProfileVerticalCurveData verticalCurve;
     std::vector<RoadModelTemplateSource> templates;
     std::vector<RoadModelSlopeTemplateSource> slopeTemplates;
+    std::vector<RoadModelPavementLayerTemplateSource> pavementLayerTemplates;
     RoadModelTerrainSurface terrainSurface;
     RoadModelProgressCallback progressCallback;
 };
@@ -205,6 +232,7 @@ enum class RoadModelSectionPreviewSegmentKind {
     Subgrade,
     Slope,
     Ground,
+    PavementLayer,
 };
 
 struct RoadModelSectionPreviewPoint {

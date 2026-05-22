@@ -8,6 +8,7 @@ public enum RoadModelSectionViewerSegmentKind
     Subgrade,
     Slope,
     Ground,
+    PavementLayer,
 }
 
 public sealed class RoadModelSectionViewerPointDto

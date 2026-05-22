@@ -62,6 +62,7 @@
     <ClCompile Include="..\src\domain\alignment\HorizontalAlignmentBuilder.cpp" />
     <ClCompile Include="..\src\domain\alignment\IcdAlignmentFile.cpp" />
     <ClCompile Include="..\src\domain\alignment\StationFormatter.cpp" />
+    <ClCompile Include="..\src\domain\cross_section\PavementLayerTemplateModel.cpp" />
     <ClCompile Include="..\src\domain\cross_section\RoadModel.cpp" />
     <ClCompile Include="..\src\domain\cross_section\SlopeTemplateModel.cpp" />
     <ClCompile Include="..\src\domain\cross_section\SubgradeTemplateModel.cpp" />
@@ -80,12 +81,14 @@
     <ClCompile Include="..\src\application\profile\ProfileVerticalCurveCreateService.cpp" />
     <ClCompile Include="..\src\application\profile\ProfileVerticalCurveEditService.cpp" />
     <ClCompile Include="..\src\application\cross_section\RoadModelBuildService.cpp" />
+    <ClCompile Include="..\src\application\cross_section\PavementLayerTemplateCreateService.cpp" />
     <ClCompile Include="..\src\application\cross_section\SlopeTemplateCreateService.cpp" />
     <ClCompile Include="..\src\application\cross_section\SubgradeTemplateCreateService.cpp" />
     <ClCompile Include="..\src\application\terrain\TerrainUpdateSampleService.cpp" />
     <ClCompile Include="..\src\modules\cross_section\CrossSectionModule.cpp" />
     <ClCompile Include="..\src\modules\profile\ProfileModule.cpp" />
     <ClCompile Include="..\src\cad_adapter\objectarx\cross_section\ObjectArxRoadModelCommand.cpp" />
+    <ClCompile Include="..\src\cad_adapter\objectarx\cross_section\ObjectArxPavementLayerTemplateCommand.cpp" />
     <ClCompile Include="..\src\cad_adapter\objectarx\cross_section\ObjectArxSlopeTemplateCommand.cpp" />
     <ClCompile Include="..\src\cad_adapter\objectarx\cross_section\ObjectArxSubgradeTemplateCommand.cpp" />
     <ClCompile Include="..\src\cad_adapter\objectarx\profile\ObjectArxProfileGradeGraphCommand.cpp" />

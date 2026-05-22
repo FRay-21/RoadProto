@@ -86,9 +86,13 @@
                             <Rectangle Width="22" Height="3" Fill="#2A9D5B" VerticalAlignment="Center" />
                             <TextBlock Text="边坡模板" Margin="6,0,0,0" />
                         </StackPanel>
-                        <StackPanel Orientation="Horizontal">
+                        <StackPanel Orientation="Horizontal" Margin="0,0,16,0">
                             <Rectangle Width="22" Height="3" Fill="#846038" VerticalAlignment="Center" />
                             <TextBlock Text="地面线" Margin="6,0,0,0" />
+                        </StackPanel>
+                        <StackPanel Orientation="Horizontal">
+                            <Rectangle Width="22" Height="3" Fill="#C4561C" VerticalAlignment="Center" />
+                            <TextBlock Text="结构层" Margin="6,0,0,0" />
                         </StackPanel>
                     </StackPanel>
                 </Grid>

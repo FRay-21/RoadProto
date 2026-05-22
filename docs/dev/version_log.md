@@ -1,5 +1,23 @@
 # 版本记录
 
+## v0.1.20 - 2026-05-22
+
+- 版本标识：`v0.1.20_20260522_PavementLayerTemplateDisplay`。
+- ARX 文件：`RoadProto_v0.1.20_20260522_PavementLayerTemplateDisplay.arx`。
+- 阶段：路面结构层模板 DWG 实体显示一致性与独立加载文件名。
+- 是否可作为稳定测试版本：是。核心测试 Debug/Release、托管 bridge 测试、WPF Release 构建和 ARX Release 构建已验证；AutoCAD 2021 图形界面已使用新文件名 ARX 对正常创建路面结构层模板实体做回归截图验证。
+
+### 修改内容
+
+- 更新构建版本信息为 `v0.1.20_20260522_PavementLayerTemplateDisplay`，让本轮 ARX 输出为新的独立文件名，避免 AutoCAD 当前进程继续复用已加载的同名 `v0.1.19` 旧模块。
+- 保持路面结构层模板几何规则不变：`DnPavementLayerTemplateEntity` 仍使用 `PavementLayerTemplateRules::buildSection` 的四点轮廓、预览式弱化填充色、层保存 RGB 边线和中文标注。
+- 更新 README、测试说明和路面结构层模板业务文档中的当前版本记录与加载路径。
+
+### 验证状态
+
+- 回归测试：核心测试 Debug/Release、托管 bridge 测试、WPF Release 构建、ARX Debug/Release 构建通过。
+- 图形界面验证：已在 AutoCAD 2021 图形界面加载新文件名 ARX，执行 `RD_SECTION_PAVEMENT_LAYER_TEMPLATE_CREATE` 正常创建实体，截图确认模型空间自定义实体使用预览式弱化填充、层 RGB 边线和四边形/梯形轮廓。
+
 ## v0.1.0
 
 - 日期：2026-05-08
@@ -828,3 +846,67 @@
 - 地面剖面快照表达的是道路模型生成时的 TIN 状态；TIN、中线、竖曲线或模板变化后，需要重新生成道路模型以刷新快照。
 - TIN 网格索引是生成过程内的临时索引，不写入 DWG，也不作为长期内存缓存；查看横断面主要依赖实体内快照提速。
 - 当前优化仅在 AutoCAD 命令行输出 TIN 索引和候选数量诊断，未加入正式耗时统计 UI；大图纸下如需进一步定位，可后续记录 TIN 索引构建、剖切求交和 WPF 请求文件大小。
+
+## v0.1.19 - 2026-05-20
+
+- 版本标识：`v0.1.19_20260520_PavementLayerTemplate`。
+- ARX 文件：`RoadProto_v0.1.19_20260520_PavementLayerTemplate.arx`。
+- 阶段：完整路面结构层模板工作流。
+- 是否可作为稳定测试版本：是。核心测试 Debug/Release、托管 bridge 测试、WPF Release 构建和 ARX Release 构建已验证；完整 AutoCAD 图形界面的 Ribbon 点击、`.rpavement.xml` 文件对话框、双击编辑、路基模板绑定和道路模型线框效果仍建议人工点验。
+
+### 新增内容
+
+- 新增完整路面结构层模板文档闭环：创建、编辑、WPF 桥接回写三份独立业务文档。
+- 新增复用说明 `docs/reuse/pavement_layer_template.md`，沉淀结构层类型、等厚/非等厚、内外侧语义、`.rpavement.xml` 和道路模型结构层边界线/弱化填充面复用边界。
+- 路基模板文档更新为“部件绑定独立路面结构层模板实体”，所有部件类型均允许点选 `DnPavementLayerTemplateEntity`。
+- 横断面道路模型文档更新为读取绑定的路面结构层模板，并生成结构层三维边界线和弱化填充面显示。
+- 查看横断面文档更新为显示 `结构层`，与路基模板线、边坡模板线和地面线同屏预览。
+
+### 修改内容
+
+- 更新 `README.md` 当前版本、ARX 加载路径、横断面入口、命令清单、路面结构层模板 `.rpavement.xml` 后缀和测试覆盖说明。
+- 更新 `docs/modules/cross_section.md`，补充路面结构层模板 Ribbon 入口、代码落点、WPF 窗口、绑定关系和 V0.1.19 更新记录。
+- 更新 `docs/reuse/road_model.md` 和 `docs/reuse/capability_catalog.md`，补充道路模型读取结构层模板、生成 `PavementLayer` 线框和查看横断面结构层预览。
+- 更新 `tests/README.md`，补充路面结构层模板核心测试、托管 bridge 测试和 AutoCAD 手工验证范围。
+- 更新构建版本信息为 `v0.1.19_20260520_PavementLayerTemplate`。
+- 更新 `tests/core_tests.cpp` 文档/版本 source-contract，检查新版本元数据、复用文档、README 和版本记录。
+- 2026-05-21 补充修复路面结构层模板窗口预览：初始居中、滚轮缩放以鼠标位置为基点；加宽和坡度编辑改为默认内外侧一致，取消勾选后分侧配置。
+- 2026-05-21 补充修复路面结构层几何：加宽只表达当前层相对上一层扩宽，内外侧坡度参与对应侧边界高程计算。
+- 2026-05-22 补充修复路面结构层几何表达：加宽先作用于当前层顶边，让当前层相对上一层底边直接变宽；内外侧坡度只作用于当前层自身侧边，底边按厚度和坡度向内收；同步 WPF 预览、CAD 模板实体和道路模型结构层显示。
+- 2026-05-22 补充修复道路模型结构层拓扑：道路模型改为与路面结构层模板预览使用同一组四边形/梯形轮廓，当前层顶边、外侧边、底边和内侧边共同表达当前层，避免模型、模板实体和 WPF 预览样式分叉。
+- 2026-05-22 补充修复结构层显示样式：`PavementLayerTemplateRules` 统一提供与 WPF 预览一致的按层号循环配色；`DnPavementLayerTemplateEntity` 改用真彩色和半透明填充绘制，`RoadModelBuilder` 生成的结构层节点、纵向线和三维线框改用同一套结构层配色，不再继承路基部件颜色。
+- 2026-05-22 补充修复结构层坡度口径：每一层改为顶边、底边、内侧边、外侧边四边形表达；加宽先确定当前层顶边，坡度再让当前层侧边向内收并决定底边宽度，WPF 预览、CAD 模板实体、道路模型和查看横断面统一使用四边形/梯形轮廓，不再沿用六边形过渡表达。
+- 2026-05-22 补充修复结构层预览共用边显示：WPF 预览和 `DnPavementLayerTemplateEntity` 改为先绘制全部填充、再绘制边线；相邻层边界共线重叠时沿同一几何线表达，避免左右厚度不一致时斜向边界重复描边造成层间相交的视觉误判。
+- 2026-05-22 补充修复结构层左右非等厚后的层间连续性：除第一层外，当前层顶边改为以上一层底边所在直线为基准；加宽沿该直线平行/共线延长或收回，坡度再作用于顶边到底边的侧边，避免某一层左右厚度不同后下方各层看起来错位或相交。
+- 2026-05-22 补充新增结构层每层 RGB 颜色：颜色从 `PavementLayerTemplateLayer` 进入领域数据、WPF 请求/响应、`.rpavement.xml`、DWG 模板实体持久化和道路模型结构层边界线/填充面；WPF 预览、`DnPavementLayerTemplateEntity`、道路模型和查看横断面统一使用层保存色，默认层号色仅作为新建和旧数据补齐。
+- 2026-05-22 补充修复 DWG 模板实体显示差异：`DnPavementLayerTemplateEntity` 改为预览式弱化填充色、层保存 RGB 边线和层名/厚度/加宽/坡度文字标注，减少 AutoCAD 透明显示开关和旧高亮层号色造成的视觉差异。
+- 2026-05-22 重新评估并修复 DWG 模板实体形状显示差异：确认 WPF 使用 2D Canvas 四边形预览，`DnPavementLayerTemplateEntity` 的横向线填充无法与对话框预览保持同一视觉样式；实体改为按同一套四点轮廓绘制预混合弱化色 `polygon` 填充、层色边线和支持中文的标注。
+- 2026-05-22 补充修复道路模型结构层显示差异：`DnRoadModelEntity` 改为优先从连续 `pavementLayerLines` 组合四点结构层轮廓，按同一套预混合弱化色绘制顶面、底面、内外侧面和端面 `polygon` 填充，再叠加层 RGB 线框；没有结构层边界线的旧数据才回退到采样断面节点。
+
+### 验证状态
+
+- 核心测试：`RoadProtoCoreTests.vcxproj` Debug 构建通过，Debug `RoadProtoCoreTests.exe` 输出 `All RoadProto core tests passed.`；Release `RoadProtoCoreTests.exe` 同样通过。
+- 文档/版本契约：核心测试检查 `RoadProto.Build.props` 中 `RoadProtoVersion=v0.1.19`、`RoadProtoBuildDate=20260520`、`RoadProtoStage=PavementLayerTemplate`，并检查 `docs/reuse/pavement_layer_template.md`、README 和版本记录包含路面结构层模板发布信息。
+- 托管 bridge 测试：`dotnet run --project tests\RoadProtoManagedBridgeTests\RoadProtoManagedBridgeTests.csproj -c Debug` 通过，覆盖 `.rpavement.xml` 往返、非法 XML 拒绝、WPF `SaveXml` / `ImportXml` 和托管命令注册。
+- 构建验证：`dotnet build src\ui\wpf\RoadProto.Terrain.UI\RoadProto.Terrain.UI.csproj -c Release` 通过；`RoadProto.sln /p:Configuration=Release /p:Platform=x64` 通过，生成 `artifacts\x64\Release\RoadProto_v0.1.19_20260520_PavementLayerTemplate.arx` 和 `artifacts\managed\Release\net48\RoadProto.Terrain.UI.dll`。
+- 2026-05-21 回归验证：核心测试 Debug/Release 构建和运行通过；托管 bridge 测试通过；WPF Release 构建通过；`RoadProto.sln` Release 构建通过，0 警告，0 错误。
+- 2026-05-22 回归验证：核心测试 Debug/Release 构建和运行通过；托管 bridge 测试通过；WPF Release 构建通过；`RoadProto.sln` Release 标准输出构建通过，生成 `artifacts\x64\Release\RoadProto_v0.1.19_20260520_PavementLayerTemplate.arx` 和 `artifacts\managed\Release\net48\RoadProto.Terrain.UI.dll`。验证过程中曾遇到 AutoCAD 残留进程占用旧 ARX，进程释放后已重新生成标准产物。
+- 2026-05-22 结构层线框拓扑和显示样式回归验证：新增核心测试覆盖“第二层加宽的模型轮廓必须与模板预览四边形/梯形一致”以及“道路模型结构层配色必须与模板预览一致”，Debug/Release 核心测试通过；托管 bridge 测试、WPF Release 构建和 `RoadProto.sln` Release 构建通过，0 警告，0 错误。
+- 2026-05-22 结构层坡度四边形回归验证：新增核心测试和托管 bridge 源码契约，覆盖当前层顶边先按加宽确定、侧边按 `1:n` 坡度向内收、底边按坡度形成梯形，且 WPF 预览、CAD 模板实体、道路模型和查看横断面共用同一四边形轮廓规则。
+- 2026-05-22 结构层坡度和加宽口径二次修正：坡度 `1:n` 改为按每 1 个竖向厚度产生 `n` 个水平位移，`1:1` 侧边与底边约 45°、`1:2` 约 30°、`1:0.5` 约 60°；加宽允许负值，用于表达当前层顶边相对上一层底边缩短。
+- 2026-05-22 结构层坡度和负加宽回归验证：新增核心测试覆盖负加宽和负坡度；新增托管 bridge 测试覆盖 `.rpavement.xml` 负加宽往返、WPF 预览允许负 `1:n` 和负加宽输入。Debug/Release 核心测试通过；托管 bridge 测试通过；WPF Release 构建和 `RoadProto.sln` Release 构建通过，0 警告，0 错误。
+- 2026-05-22 结构层坡度符号修正回归验证：明确顶边为图形上方边、底边为图形下方边；坡度 `1:n` 的正值表示从顶边向下到底边时侧边向外放，负值表示向内收。新增/调整核心测试和托管 bridge 源码契约后，Debug/Release 核心测试通过；托管 bridge 测试通过；WPF Release 构建和 `RoadProto.sln` Release 构建通过，0 警告，0 错误。
+- 2026-05-22 结构层共用边显示回归验证：新增核心源码契约覆盖 `DnPavementLayerTemplateEntity` 使用单独边线绘制和首层/非重合顶边条件，新增托管 bridge 源码契约覆盖 WPF 预览 `drawTopEdge` 策略；Debug 核心测试和托管 bridge 测试通过。
+- 2026-05-22 结构层层间连续性回归验证：新增核心测试覆盖左右非等厚后相邻层边界必须共线连续，并同步更新道路模型结构层节点为顶边/底边/内侧边/外侧边四点表达；Debug 核心测试和托管 bridge 测试通过。
+- 2026-05-22 结构层加宽四边形修正：加宽后的边沿上一层底边所在直线平行/共线延长或收回，当前层始终保持四边形/梯形；移除 WPF 预览、DWG 模板实体和道路模型中的六点台阶轮廓，新增核心回归测试覆盖斜顶边加宽外推。
+- 2026-05-22 结构层每层 RGB 回归验证：新增核心测试覆盖默认层色、自定义层色进入 `PavementLayerTemplateSection` 和道路模型结构层边界线；新增托管 bridge 测试覆盖请求/响应、`.rpavement.xml` 和 WPF 预览读取层 RGB；Debug/Release 核心测试通过，托管 bridge 测试通过，WPF Release 构建和 `RoadProto.sln` Release 构建通过，0 警告，0 错误。
+- 2026-05-22 DWG 模板实体显示一致性回归验证：新增核心源码契约覆盖 `DnPavementLayerTemplateEntity` 的预览式填充色、层 RGB 边线和层名/厚度/加宽/坡度文字标注；Debug/Release 核心测试通过，托管 bridge 测试通过，WPF Release 构建通过，Debug ARX 和 `RoadProto.sln` Release 构建通过，0 警告，0 错误。
+- 2026-05-22 DWG 模板实体形状一致性回归验证：新增核心源码契约要求 `DnPavementLayerTemplateEntity` 使用四点 `worldDraw->geometry().polygon(4, fillPoints)`、预混合弱化填充色、层 RGB 边线和 `SimSun` 简体中文文字样式；契约先失败于横向线填充实现，修复后 Debug 核心测试通过并完成 Debug ARX 构建。
+- 2026-05-22 道路模型结构层显示一致性回归验证：新增核心源码契约要求 `DnRoadModelEntity` 在 `wireLines` 前调用 `drawPavementLayerFacesFromLines`，使用四点 `worldDraw->geometry().polygon(4, facePoints)`、预混合弱化填充色和层 RGB 线框；契约先失败于只绘制线框的实现，修复后 Debug/Release 核心测试通过，托管 bridge 测试通过，WPF Release 构建、Debug ARX 构建和 Release ARX 构建通过，0 警告，0 错误。
+- 图形界面验证：已在 AutoCAD 2021 图形界面加载 Debug ARX，使用脚本创建不等厚模板（第二层内侧厚 0.35、外侧厚 0.9，内外坡度 1，含加宽和每层 RGB），截图确认模型空间自定义实体为四边形/梯形整块弱化填充、层色边线和中文标注，不再显示为横向线填充或问号文字。
+
+### 已知问题
+
+- 路面结构层模板修改后，当前不会自动标记已引用它的路基模板或道路模型需要重建，需要用户重新生成道路模型。
+- 当前道路模型结构层弱化填充面属于 `DnRoadModelEntity` 的显示表达，不是可单独选择、赋材质、编辑或算量的实体体积。
+- `.rpavement.xml` 当前是 WPF 模板参数流转格式，不包含正式材料库和规范参数。

@@ -42,6 +42,7 @@ public sealed class RoadProtoRibbonExtension : IExtensionApplication
     private const string CrossSectionPanelId = "ROADPROTO_CROSS_SECTION_PANEL";
     private const string SubgradeTemplateButtonId = "ROADPROTO_RD_SECTION_SUBGRADE_TEMPLATE_CREATE";
     private const string SlopeTemplateButtonId = "ROADPROTO_RD_SECTION_SLOPE_TEMPLATE_CREATE";
+    private const string PavementLayerTemplateButtonId = "ROADPROTO_RD_SECTION_PAVEMENT_LAYER_TEMPLATE_CREATE";
     private const string RoadModelCreateButtonId = "ROADPROTO_RD_SECTION_ROAD_MODEL_CREATE";
     private const string RoadModelEditButtonId = "ROADPROTO_RD_SECTION_ROAD_MODEL_EDIT";
     private const string RoadModelSectionViewerButtonId = "ROADPROTO_RD_SECTION_ROAD_MODEL_VIEW_SECTION";
@@ -52,6 +53,7 @@ public sealed class RoadProtoRibbonExtension : IExtensionApplication
     private const string RoadModelDxfName = "DNROADMODELENTITY";
     private const string SubgradeTemplateDxfName = "DNSUBGRADETEMPLATEENTITY";
     private const string SlopeTemplateDxfName = "DNSLOPETEMPLATEENTITY";
+    private const string PavementLayerTemplateDxfName = "DNPAVEMENTLAYERTEMPLATEENTITY";
     private static ObjectId _lastDoubleClickObjectId = ObjectId.Null;
     private static DateTime _lastDoubleClickUtc = DateTime.MinValue;
     private static bool _doubleClickHookAttached;
@@ -282,6 +284,15 @@ public sealed class RoadProtoRibbonExtension : IExtensionApplication
                 "RD_SECTION_SLOPE_TEMPLATE_CREATE "));
         }
 
+        if (!crossSectionPanel.Source.Items.OfType<RibbonButton>().Any(item => item.Id == PavementLayerTemplateButtonId))
+        {
+            crossSectionPanel.Source.Items.Add(CreateCrossSectionCommandButton(
+                PavementLayerTemplateButtonId,
+                "创建路面结构层模板",
+                "点取插入点并创建独立路面结构层模板",
+                "RD_SECTION_PAVEMENT_LAYER_TEMPLATE_CREATE "));
+        }
+
         if (!crossSectionPanel.Source.Items.OfType<RibbonButton>().Any(item => item.Id == RoadModelCreateButtonId))
         {
             crossSectionPanel.Source.Items.Add(CreateCrossSectionCommandButton(
@@ -489,6 +500,15 @@ public sealed class RoadProtoRibbonExtension : IExtensionApplication
                 if (!SuppressDuplicateDoubleClick(slopeTemplateId))
                 {
                     QueueSlopeTemplateEditByHandle(document, slopeTemplateId);
+                }
+                return;
+            }
+
+            if (TryFindEntityByDxfName(document, e.Location, PavementLayerTemplateDxfName, out var pavementLayerTemplateId))
+            {
+                if (!SuppressDuplicateDoubleClick(pavementLayerTemplateId))
+                {
+                    QueuePavementLayerTemplateEditByHandle(document, pavementLayerTemplateId);
                 }
             }
         }
@@ -702,6 +722,17 @@ public sealed class RoadProtoRibbonExtension : IExtensionApplication
         }
 
         document.SendStringToExecute($"RD_SECTION_SLOPE_TEMPLATE_EDIT_HANDLE {handle}\n", true, false, true);
+    }
+
+    private static void QueuePavementLayerTemplateEditByHandle(Document document, ObjectId entityId)
+    {
+        var handle = entityId.Handle.ToString();
+        if (string.IsNullOrWhiteSpace(handle))
+        {
+            return;
+        }
+
+        document.SendStringToExecute($"RD_SECTION_PAVEMENT_LAYER_TEMPLATE_EDIT_HANDLE {handle}\n", true, false, true);
     }
 
     private static void QueueRoadModelEditByHandle(Document document, ObjectId entityId)

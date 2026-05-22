@@ -89,6 +89,9 @@
                         <RowDefinition Height="34" />
                         <RowDefinition Height="34" />
                         <RowDefinition Height="34" />
+                        <RowDefinition Height="34" />
+                        <RowDefinition Height="34" />
+                        <RowDefinition Height="34" />
                     </Grid.RowDefinitions>
 
                     <TextBlock Text="侧别" VerticalAlignment="Center" />
@@ -129,19 +132,22 @@
                     <CheckBox x:Name="PavementLayerCheckBox"
                               Grid.Row="9"
                               Grid.ColumnSpan="2"
-                              Content="关联路面结构层"
+                              Content="启用路面结构层模板"
                               VerticalAlignment="Center"
+                              Focusable="False"
+                              IsHitTestVisible="False"
                               Checked="PavementLayerCheckBox_Changed"
                               Unchecked="PavementLayerCheckBox_Changed" />
 
-                    <TextBlock Grid.Row="10" Text="结构层厚度" VerticalAlignment="Center" />
-                    <TextBox x:Name="PavementLayerThicknessBox" Grid.Row="10" Grid.Column="1" Height="26" TextChanged="ComponentInput_Changed" />
-                </Grid>
+                    <TextBlock Grid.Row="10" Text="模板名称" VerticalAlignment="Center" />
+                    <TextBox x:Name="PavementLayerNameBox" Grid.Row="10" Grid.Column="1" Height="26" IsReadOnly="True" />
 
-                <TextBox x:Name="PavementLayerHandleBox"
-                         Height="26"
-                         Margin="0,8,0,0"
-                         TextChanged="ComponentInput_Changed" />
+                    <TextBlock Grid.Row="11" Text="模板 handle" VerticalAlignment="Center" />
+                    <TextBox x:Name="PavementLayerHandleBox" Grid.Row="11" Grid.Column="1" Height="26" IsReadOnly="True" />
+
+                    <Button x:Name="PickPavementLayerTemplateButton" Grid.Row="12" Grid.ColumnSpan="2" Content="选择结构层模板" Height="28" Click="PickPavementLayerTemplate_Click" />
+                    <Button x:Name="ClearPavementLayerTemplateButton" Grid.Row="13" Grid.ColumnSpan="2" Content="清除结构层模板" Height="28" Click="ClearPavementLayerTemplate_Click" />
+                </Grid>
             </StackPanel>
         </ScrollViewer>
 

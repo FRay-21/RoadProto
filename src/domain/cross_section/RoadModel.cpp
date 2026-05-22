@@ -62,6 +62,16 @@ struct ActiveSlopeBoundaryPoint {
     double elevation = 0.0;
 };
 
+struct ActivePavementLayerBoundaryPoint {
+    RoadModelPavementLayerLineKey key;
+    RoadModelWireColor color;
+    RoadModelPoint3d point;
+    double station = 0.0;
+    double offset = 0.0;
+    double elevation = 0.0;
+    std::wstring label;
+};
+
 struct RoadModelLineAccumulator {
     RoadModelComponentLine line;
     double lastStation = 0.0;
@@ -69,6 +79,11 @@ struct RoadModelLineAccumulator {
 
 struct RoadModelSlopeLineAccumulator {
     RoadModelSlopeComponentLine line;
+    double lastStation = 0.0;
+};
+
+struct RoadModelPavementLayerLineAccumulator {
+    RoadModelPavementLayerLine line;
     double lastStation = 0.0;
 };
 
@@ -249,6 +264,16 @@ bool sameLineKey(const RoadModelSlopeLineKey& lhs, const RoadModelSlopeLineKey& 
         lhs.groupIndex == rhs.groupIndex &&
         lhs.templateOrder == rhs.templateOrder &&
         lhs.componentIndex == rhs.componentIndex &&
+        lhs.boundaryIndex == rhs.boundaryIndex;
+}
+
+bool sameLineKey(const RoadModelPavementLayerLineKey& lhs, const RoadModelPavementLayerLineKey& rhs)
+{
+    return lhs.subgradeTemplateHandle == rhs.subgradeTemplateHandle &&
+        lhs.pavementLayerTemplateHandle == rhs.pavementLayerTemplateHandle &&
+        lhs.side == rhs.side &&
+        lhs.componentIndex == rhs.componentIndex &&
+        lhs.layerIndex == rhs.layerIndex &&
         lhs.boundaryIndex == rhs.boundaryIndex;
 }
 
@@ -490,14 +515,53 @@ RoadModelSectionPreviewColor toPreviewColor(const RoadModelWireColor& color)
     return RoadModelSectionPreviewColor{color.r, color.g, color.b};
 }
 
+std::wstring previewLabelForKind(RoadModelSectionPreviewSegmentKind kind)
+{
+    if (kind == RoadModelSectionPreviewSegmentKind::Slope) {
+        return L"边坡模板";
+    }
+    if (kind == RoadModelSectionPreviewSegmentKind::PavementLayer) {
+        return L"路面结构层";
+    }
+    return L"路基模板";
+}
+
 RoadModelSectionPreviewSegmentKind previewKindFromSectionNode(const RoadModelSectionNode& node)
 {
     if (node.kind == RoadModelSectionNodeKind::Ground) {
         return RoadModelSectionPreviewSegmentKind::Ground;
     }
+    if (node.kind == RoadModelSectionNodeKind::PavementLayer) {
+        return RoadModelSectionPreviewSegmentKind::PavementLayer;
+    }
     return node.kind == RoadModelSectionNodeKind::Slope
         ? RoadModelSectionPreviewSegmentKind::Slope
         : RoadModelSectionPreviewSegmentKind::Subgrade;
+}
+
+bool isFinitePreviewPoint(const RoadModelSectionPreviewPoint& point)
+{
+    return isFinite(point.offset) && isFinite(point.elevation);
+}
+
+void appendSectionNodePreviewSegment(
+    RoadModelSectionPreview& preview,
+    const RoadModelSectionNode& start,
+    const RoadModelSectionNode& end)
+{
+    if (!isFinite(start.offset) || !isFinite(start.elevation) ||
+        !isFinite(end.offset) || !isFinite(end.elevation)) {
+        return;
+    }
+
+    RoadModelSectionPreviewSegment segment;
+    segment.kind = previewKindFromSectionNode(end);
+    segment.color = toPreviewColor(end.color);
+    segment.label = previewLabelForKind(segment.kind);
+    segment.points = {
+        RoadModelSectionPreviewPoint{start.offset, start.elevation},
+        RoadModelSectionPreviewPoint{end.offset, end.elevation}};
+    preview.segments.push_back(std::move(segment));
 }
 
 void appendSectionNodePreviewSegments(
@@ -505,19 +569,20 @@ void appendSectionNodePreviewSegments(
     const std::vector<RoadModelSectionNode>& nodes)
 {
     for (std::size_t i = 1; i < nodes.size(); ++i) {
-        if (!isFinite(nodes[i - 1].offset) || !isFinite(nodes[i - 1].elevation) ||
-            !isFinite(nodes[i].offset) || !isFinite(nodes[i].elevation)) {
-            continue;
-        }
+        appendSectionNodePreviewSegment(preview, nodes[i - 1], nodes[i]);
+    }
+}
 
-        RoadModelSectionPreviewSegment segment;
-        segment.kind = previewKindFromSectionNode(nodes[i]);
-        segment.color = toPreviewColor(nodes[i].color);
-        segment.label = segment.kind == RoadModelSectionPreviewSegmentKind::Slope ? L"边坡模板" : L"路基模板";
-        segment.points = {
-            RoadModelSectionPreviewPoint{nodes[i - 1].offset, nodes[i - 1].elevation},
-            RoadModelSectionPreviewPoint{nodes[i].offset, nodes[i].elevation}};
-        preview.segments.push_back(std::move(segment));
+void appendPavementLayerSectionPreviewSegments(
+    RoadModelSectionPreview& preview,
+    const std::vector<RoadModelSectionNode>& nodes)
+{
+    const std::size_t nodesPerLayer = 4;
+    for (std::size_t i = 0; i + nodesPerLayer - 1 < nodes.size(); i += nodesPerLayer) {
+        appendSectionNodePreviewSegment(preview, nodes[i], nodes[i + 1]);
+        appendSectionNodePreviewSegment(preview, nodes[i + 1], nodes[i + 3]);
+        appendSectionNodePreviewSegment(preview, nodes[i + 3], nodes[i + 2]);
+        appendSectionNodePreviewSegment(preview, nodes[i + 2], nodes[i]);
     }
 }
 
@@ -542,7 +607,8 @@ void appendPreviewSegmentPairs(
     const std::vector<PreviewBoundarySample>& samples)
 {
     for (const auto& inner : samples) {
-        if (inner.boundaryIndex != 0) {
+        if (inner.boundaryIndex != 0 ||
+            inner.kind == RoadModelSectionPreviewSegmentKind::PavementLayer) {
             continue;
         }
 
@@ -559,11 +625,68 @@ void appendPreviewSegmentPairs(
         RoadModelSectionPreviewSegment segment;
         segment.kind = inner.kind;
         segment.color = inner.color;
-        segment.label = inner.kind == RoadModelSectionPreviewSegmentKind::Subgrade
-            ? L"路基模板"
-            : L"边坡模板";
+        segment.label = previewLabelForKind(inner.kind);
         segment.points = {inner.point, outer->point};
         preview.segments.push_back(std::move(segment));
+    }
+}
+
+const PreviewBoundarySample* findPreviewBoundarySample(
+    const std::vector<PreviewBoundarySample>& samples,
+    const PreviewBoundarySample& anchor,
+    std::size_t boundaryIndex)
+{
+    const auto found = std::find_if(
+        samples.begin(),
+        samples.end(),
+        [&anchor, boundaryIndex](const auto& candidate) {
+            return candidate.boundaryIndex == boundaryIndex &&
+                samePreviewComponentKey(anchor, candidate);
+        });
+    return found == samples.end() ? nullptr : &*found;
+}
+
+void appendPreviewBoundarySampleSegment(
+    RoadModelSectionPreview& preview,
+    const PreviewBoundarySample& start,
+    const PreviewBoundarySample& end)
+{
+    if (!isFinitePreviewPoint(start.point) || !isFinitePreviewPoint(end.point)) {
+        return;
+    }
+
+    RoadModelSectionPreviewSegment segment;
+    segment.kind = start.kind;
+    segment.color = start.color;
+    segment.label = previewLabelForKind(segment.kind);
+    segment.points = {start.point, end.point};
+    preview.segments.push_back(std::move(segment));
+}
+
+void appendPavementLayerPreviewSampleSegments(
+    RoadModelSectionPreview& preview,
+    const std::vector<PreviewBoundarySample>& samples)
+{
+    for (const auto& topInner : samples) {
+        if (topInner.kind != RoadModelSectionPreviewSegmentKind::PavementLayer ||
+            topInner.boundaryIndex != 0) {
+            continue;
+        }
+
+        const auto* topOuter = findPreviewBoundarySample(samples, topInner, 1);
+        const auto* bottomInner = findPreviewBoundarySample(samples, topInner, 2);
+        const auto* bottomOuter = findPreviewBoundarySample(samples, topInner, 3);
+        if (topOuter == nullptr) {
+            continue;
+        }
+
+        appendPreviewBoundarySampleSegment(preview, topInner, *topOuter);
+        if (bottomInner == nullptr || bottomOuter == nullptr) {
+            continue;
+        }
+        appendPreviewBoundarySampleSegment(preview, *topOuter, *bottomOuter);
+        appendPreviewBoundarySampleSegment(preview, *bottomOuter, *bottomInner);
+        appendPreviewBoundarySampleSegment(preview, *bottomInner, topInner);
     }
 }
 
@@ -746,6 +869,46 @@ const RoadModelSlopeTemplateSource* findOrNormalizeSlopeTemplate(
     return &normalizedTemplates.back();
 }
 
+const RoadModelPavementLayerTemplateSource* findPavementLayerTemplate(
+    const std::vector<RoadModelPavementLayerTemplateSource>& templates,
+    const std::wstring& templateHandle)
+{
+    const auto found = std::find_if(
+        templates.begin(),
+        templates.end(),
+        [&templateHandle](const auto& source) {
+            return source.templateHandle == templateHandle;
+        });
+    return found == templates.end() ? nullptr : &*found;
+}
+
+const RoadModelPavementLayerTemplateSource* findOrNormalizePavementLayerTemplate(
+    const std::vector<RoadModelPavementLayerTemplateSource>& templates,
+    std::vector<RoadModelPavementLayerTemplateSource>& normalizedTemplates,
+    const std::wstring& templateHandle,
+    std::wstring& errorMessage)
+{
+    if (const auto* cached = findPavementLayerTemplate(normalizedTemplates, templateHandle)) {
+        return cached;
+    }
+
+    const auto* source = findPavementLayerTemplate(templates, templateHandle);
+    if (source == nullptr) {
+        errorMessage = L"Road model pavement layer template source was not found: " + templateHandle;
+        return nullptr;
+    }
+
+    RoadModelPavementLayerTemplateSource normalized = *source;
+    std::wstring normalizeError;
+    if (!PavementLayerTemplateRules::normalize(normalized.data, normalizeError)) {
+        errorMessage = L"Road model pavement layer template source is invalid (" + templateHandle + L"): " + normalizeError;
+        return nullptr;
+    }
+
+    normalizedTemplates.push_back(std::move(normalized));
+    return &normalizedTemplates.back();
+}
+
 std::vector<const SubgradeTemplateComponent*> componentsForSide(
     const SubgradeTemplateData& data,
     SubgradeSide side)
@@ -784,6 +947,11 @@ RoadModelWireColor toWireColor(const SubgradeTemplateRgbColor& color)
 }
 
 RoadModelWireColor toWireColor(const SlopeTemplateRgbColor& color)
+{
+    return RoadModelWireColor{color.r, color.g, color.b};
+}
+
+RoadModelWireColor toWireColor(const PavementLayerTemplateDisplayColor& color)
 {
     return RoadModelWireColor{color.r, color.g, color.b};
 }
@@ -1086,6 +1254,164 @@ void appendTemplateBoundaryPoints(
             elevationOffset = outerElevationOffset;
         }
     }
+}
+
+void appendPavementLayerBoundaryPoint(
+    std::vector<ActivePavementLayerBoundaryPoint>& points,
+    const RoadModelTemplateAssignment& assignment,
+    const RoadModelPavementLayerTemplateSource& pavementSource,
+    SubgradeSide side,
+    std::size_t componentIndex,
+    std::size_t layerIndex,
+    std::size_t boundaryIndex,
+    RoadModelWireColor color,
+    const AlignmentFrame& frame,
+    double centerElevation,
+    double componentInnerOffset,
+    const PavementLayerSectionPoint& sectionPoint,
+    const std::wstring& label)
+{
+    const double absoluteOffset = componentInnerOffset + sectionPoint.offset;
+    points.push_back(
+        ActivePavementLayerBoundaryPoint{
+            RoadModelPavementLayerLineKey{
+                assignment.templateHandle,
+                pavementSource.templateHandle,
+                side,
+                componentIndex,
+                layerIndex,
+                boundaryIndex},
+            color,
+            pointAtOffset(
+                frame,
+                centerElevation,
+                side,
+                absoluteOffset,
+                sectionPoint.elevation - centerElevation),
+            frame.station,
+            signedOffset(side, absoluteOffset),
+            sectionPoint.elevation,
+            label});
+}
+
+bool appendPavementLayerBoundaryPoints(
+    std::vector<ActivePavementLayerBoundaryPoint>& points,
+    const RoadModelTemplateAssignment& assignment,
+    const SubgradeTemplateData& data,
+    const std::vector<RoadModelPavementLayerTemplateSource>& pavementLayerTemplates,
+    std::vector<RoadModelPavementLayerTemplateSource>& normalizedPavementLayerTemplates,
+    const AlignmentFrame& frame,
+    double centerElevation,
+    std::wstring& errorMessage)
+{
+    for (const auto side : {SubgradeSide::Left, SubgradeSide::Right}) {
+        double offset = 0.0;
+        double elevationOffset = 0.0;
+        const auto components = componentsForSide(data, side);
+        for (std::size_t index = 0; index < components.size(); ++index) {
+            const auto& component = *components[index];
+            const double width = SubgradeTemplateRules::widthAtStation(component, frame.station);
+            const double slope = SubgradeTemplateRules::slopeAtStation(component, frame.station);
+            const double innerElevationOffset = elevationOffset;
+            const double outerElevationOffset =
+                elevationOffset + component.height + std::fabs(width) * slope;
+
+            if (component.pavementLayerLinked) {
+                if (component.pavementLayerHandle.empty()) {
+                    errorMessage = L"Road model pavement layer template handle must not be empty.";
+                    return false;
+                }
+
+                const auto* pavementSource = findOrNormalizePavementLayerTemplate(
+                    pavementLayerTemplates,
+                    normalizedPavementLayerTemplates,
+                    component.pavementLayerHandle,
+                    errorMessage);
+                if (pavementSource == nullptr) {
+                    return false;
+                }
+
+                const auto pavementSection = PavementLayerTemplateRules::buildSection(
+                    pavementSource->data,
+                    width,
+                    side,
+                    centerElevation + innerElevationOffset,
+                    centerElevation + outerElevationOffset);
+                if (!pavementSection.succeeded) {
+                    errorMessage = L"Road model pavement layer section is invalid (" +
+                        component.pavementLayerHandle + L"): " + pavementSection.errorMessage;
+                    return false;
+                }
+
+                for (std::size_t layerIndex = 0; layerIndex < pavementSection.layers.size(); ++layerIndex) {
+                    const auto& layer = pavementSection.layers[layerIndex];
+                    const auto color = toWireColor(layer.color);
+                    const auto label = layer.name.empty() ? L"路面结构层" : layer.name;
+                    appendPavementLayerBoundaryPoint(
+                        points,
+                        assignment,
+                        *pavementSource,
+                        side,
+                        index,
+                        layerIndex,
+                        0,
+                        color,
+                        frame,
+                        centerElevation,
+                        offset,
+                        layer.topInner,
+                        label);
+                    appendPavementLayerBoundaryPoint(
+                        points,
+                        assignment,
+                        *pavementSource,
+                        side,
+                        index,
+                        layerIndex,
+                        1,
+                        color,
+                        frame,
+                        centerElevation,
+                        offset,
+                        layer.topOuter,
+                        label);
+                    appendPavementLayerBoundaryPoint(
+                        points,
+                        assignment,
+                        *pavementSource,
+                        side,
+                        index,
+                        layerIndex,
+                        2,
+                        color,
+                        frame,
+                        centerElevation,
+                        offset,
+                        layer.bottomInner,
+                        label);
+                    appendPavementLayerBoundaryPoint(
+                        points,
+                        assignment,
+                        *pavementSource,
+                        side,
+                        index,
+                        layerIndex,
+                        3,
+                        color,
+                        frame,
+                        centerElevation,
+                        offset,
+                        layer.bottomOuter,
+                        label);
+                }
+            }
+
+            offset += width;
+            elevationOffset = outerElevationOffset;
+        }
+    }
+
+    return true;
 }
 
 void appendLocalSlopeBoundaryPair(
@@ -1458,6 +1784,31 @@ void appendSlopeBoundaryPoint(
     accumulators.push_back(std::move(accumulator));
 }
 
+void appendPavementLayerBoundaryPoint(
+    std::vector<RoadModelPavementLayerLineAccumulator>& accumulators,
+    const ActivePavementLayerBoundaryPoint& previous,
+    const ActivePavementLayerBoundaryPoint& current)
+{
+    for (auto& accumulator : accumulators) {
+        if (sameLineKey(accumulator.line.key, current.key) &&
+            !accumulator.line.points.empty() &&
+            std::fabs(accumulator.lastStation - previous.station) <= kStationTolerance &&
+            samePoint(accumulator.line.points.back(), previous.point)) {
+            accumulator.line.points.push_back(current.point);
+            accumulator.lastStation = current.station;
+            return;
+        }
+    }
+
+    RoadModelPavementLayerLineAccumulator accumulator;
+    accumulator.line.key = current.key;
+    accumulator.line.color = current.color;
+    accumulator.line.points.push_back(previous.point);
+    accumulator.line.points.push_back(current.point);
+    accumulator.lastStation = current.station;
+    accumulators.push_back(std::move(accumulator));
+}
+
 RoadModelSectionNode sectionNodeFromBoundary(const ActiveBoundaryPoint& point)
 {
     return RoadModelSectionNode{
@@ -1480,6 +1831,18 @@ RoadModelSectionNode sectionNodeFromSlopeBoundary(const ActiveSlopeBoundaryPoint
         point.point,
         toWireColor(point.color),
         L"边坡"};
+}
+
+RoadModelSectionNode sectionNodeFromPavementLayerBoundary(const ActivePavementLayerBoundaryPoint& point)
+{
+    return RoadModelSectionNode{
+        RoadModelSectionNodeKind::PavementLayer,
+        point.key.side,
+        point.offset,
+        point.elevation,
+        point.point,
+        point.color,
+        point.label.empty() ? L"路面结构层" : point.label};
 }
 
 void appendSectionNode(std::vector<RoadModelSectionNode>& nodes, RoadModelSectionNode node)
@@ -1508,19 +1871,41 @@ void appendSectionNodesForSide(
     }
 }
 
+void appendPavementLayerSectionNodesForSide(
+    std::vector<RoadModelSectionNode>& nodes,
+    SubgradeSide side,
+    const std::vector<ActivePavementLayerBoundaryPoint>& pavementLayerPoints)
+{
+    for (const auto& point : pavementLayerPoints) {
+        if (point.key.side == side) {
+            nodes.push_back(sectionNodeFromPavementLayerBoundary(point));
+        }
+    }
+}
+
 RoadModelSection makeRoadModelSection(
     double station,
     const std::vector<ActiveBoundaryPoint>& boundaryPoints,
     const std::vector<ActiveSlopeBoundaryPoint>& slopePoints,
+    const std::vector<ActivePavementLayerBoundaryPoint>& pavementLayerPoints,
     const SectionGroundProfiles& groundProfiles)
 {
     RoadModelSection section;
     section.station = station;
     appendSectionNodesForSide(section.leftNodes, SubgradeSide::Left, boundaryPoints, slopePoints);
     appendSectionNodesForSide(section.rightNodes, SubgradeSide::Right, boundaryPoints, slopePoints);
+    appendPavementLayerSectionNodesForSide(
+        section.leftPavementLayerNodes,
+        SubgradeSide::Left,
+        pavementLayerPoints);
+    appendPavementLayerSectionNodesForSide(
+        section.rightPavementLayerNodes,
+        SubgradeSide::Right,
+        pavementLayerPoints);
     section.leftGroundProfile = toGroundProfileSnapshot(groundProfiles.left);
     section.rightGroundProfile = toGroundProfileSnapshot(groundProfiles.right);
-    section.succeeded = !section.leftNodes.empty() || !section.rightNodes.empty();
+    section.succeeded = !section.leftNodes.empty() || !section.rightNodes.empty() ||
+        !section.leftPavementLayerNodes.empty() || !section.rightPavementLayerNodes.empty();
     if (!section.succeeded) {
         section.errorMessage = L"Road model section has no nodes.";
     }
@@ -1596,6 +1981,65 @@ void appendSectionRibs(
                 nodes[i].color,
                 nodes[i - 1].point,
                 nodes[i].point);
+        }
+    }
+}
+
+void appendPavementLayerSectionWires(
+    std::vector<RoadModelWireLine>& wireLines,
+    SubgradeSide side,
+    const std::vector<RoadModelSectionNode>& nodes)
+{
+    const std::size_t nodesPerLayer = 4;
+    for (std::size_t i = 0; i + nodesPerLayer - 1 < nodes.size(); i += nodesPerLayer) {
+        const auto& topInner = nodes[i];
+        const auto& topOuter = nodes[i + 1];
+        const auto& bottomInner = nodes[i + 2];
+        const auto& bottomOuter = nodes[i + 3];
+        appendWireLine(
+            wireLines,
+            RoadModelWireLineKind::PavementLayer,
+            side,
+            topOuter.color,
+            topInner.point,
+            topOuter.point);
+        appendWireLine(
+            wireLines,
+            RoadModelWireLineKind::PavementLayer,
+            side,
+            bottomOuter.color,
+            topOuter.point,
+            bottomOuter.point);
+        appendWireLine(
+            wireLines,
+            RoadModelWireLineKind::PavementLayer,
+            side,
+            bottomOuter.color,
+            bottomInner.point,
+            bottomOuter.point);
+        appendWireLine(
+            wireLines,
+            RoadModelWireLineKind::PavementLayer,
+            side,
+            bottomInner.color,
+            bottomInner.point,
+            topInner.point);
+    }
+}
+
+void appendPavementLayerLongitudinalWires(
+    std::vector<RoadModelWireLine>& wireLines,
+    const std::vector<RoadModelPavementLayerLine>& pavementLayerLines)
+{
+    for (const auto& line : pavementLayerLines) {
+        for (std::size_t i = 1; i < line.points.size(); ++i) {
+            appendWireLine(
+                wireLines,
+                RoadModelWireLineKind::PavementLayer,
+                line.key.side,
+                line.color,
+                line.points[i - 1],
+                line.points[i]);
         }
     }
 }
@@ -1750,6 +2194,14 @@ std::vector<RoadModelWireLine> buildWireLinesFromSections(std::vector<RoadModelS
         const bool endCap = i == 0 || i + 1 == sections.size();
         appendSectionRibs(wireLines, sections[i], SubgradeSide::Left, sections[i].leftNodes, endCap);
         appendSectionRibs(wireLines, sections[i], SubgradeSide::Right, sections[i].rightNodes, endCap);
+        appendPavementLayerSectionWires(
+            wireLines,
+            SubgradeSide::Left,
+            sections[i].leftPavementLayerNodes);
+        appendPavementLayerSectionWires(
+            wireLines,
+            SubgradeSide::Right,
+            sections[i].rightPavementLayerNodes);
 
         if (i == 0) {
             continue;
@@ -1986,6 +2438,8 @@ RoadModelSectionPreview RoadModelSectionPreviewBuilder::build(const RoadModelSec
     if (const auto* section = findSectionAtStation(request.data.sections, request.station)) {
         appendSectionNodePreviewSegments(preview, section->leftNodes);
         appendSectionNodePreviewSegments(preview, section->rightNodes);
+        appendPavementLayerSectionPreviewSegments(preview, section->leftPavementLayerNodes);
+        appendPavementLayerSectionPreviewSegments(preview, section->rightPavementLayerNodes);
         appendGroundPreviewSegment(preview, request, *frame, section);
         preview.succeeded = true;
         if (preview.statusMessage.empty()) {
@@ -2035,7 +2489,28 @@ RoadModelSectionPreview RoadModelSectionPreviewBuilder::build(const RoadModelSec
                 toPreviewPoint(*frame, *point)});
     }
 
+    for (const auto& line : request.data.pavementLayerLines) {
+        const auto point = interpolateLinePointAtStation(line.points, *normalizedAlignmentSamples, request.station);
+        if (!point.has_value()) {
+            continue;
+        }
+
+        samples.push_back(
+            PreviewBoundarySample{
+                RoadModelSectionPreviewSegmentKind::PavementLayer,
+                line.key.pavementLayerTemplateHandle,
+                line.key.side,
+                0,
+                line.key.layerIndex,
+                0,
+                line.key.componentIndex,
+                line.key.boundaryIndex,
+                toPreviewColor(line.color),
+                toPreviewPoint(*frame, *point)});
+    }
+
     appendPreviewSegmentPairs(preview, samples);
+    appendPavementLayerPreviewSampleSegments(preview, samples);
     appendGroundPreviewSegment(preview, request, *frame, nullptr);
 
     preview.succeeded = true;
@@ -2120,8 +2595,10 @@ RoadModelBuildResult RoadModelBuilder::build(const RoadModelBuildInput& input)
     RoadModelTemplateResolver resolver(input.config.assignments);
     std::vector<RoadModelTemplateSource> normalizedTemplates;
     std::vector<RoadModelSlopeTemplateSource> normalizedSlopeTemplates;
+    std::vector<RoadModelPavementLayerTemplateSource> normalizedPavementLayerTemplates;
     std::vector<RoadModelLineAccumulator> lineAccumulators;
     std::vector<RoadModelSlopeLineAccumulator> slopeLineAccumulators;
+    std::vector<RoadModelPavementLayerLineAccumulator> pavementLayerLineAccumulators;
     std::vector<std::vector<RoadModelSection>> sectionRuns;
     std::vector<RoadModelSection>* activeSectionRun = nullptr;
     double activeSectionRunLastEnd = std::numeric_limits<double>::quiet_NaN();
@@ -2189,6 +2666,8 @@ RoadModelBuildResult RoadModelBuilder::build(const RoadModelBuildInput& input)
         std::vector<ActiveBoundaryPoint> endPoints;
         std::vector<ActiveSlopeBoundaryPoint> startSlopePoints;
         std::vector<ActiveSlopeBoundaryPoint> endSlopePoints;
+        std::vector<ActivePavementLayerBoundaryPoint> startPavementLayerPoints;
+        std::vector<ActivePavementLayerBoundaryPoint> endPavementLayerPoints;
         appendTemplateBoundaryPoints(
             startPoints,
             *assignment,
@@ -2201,6 +2680,30 @@ RoadModelBuildResult RoadModelBuilder::build(const RoadModelBuildInput& input)
             templateSource->data,
             *endFrame,
             endElevation.value);
+        std::wstring pavementLayerError;
+        if (!appendPavementLayerBoundaryPoints(
+                startPavementLayerPoints,
+                *assignment,
+                templateSource->data,
+                input.pavementLayerTemplates,
+                normalizedPavementLayerTemplates,
+                *startFrame,
+                startElevation.value,
+                pavementLayerError) ||
+            !appendPavementLayerBoundaryPoints(
+                endPavementLayerPoints,
+                *assignment,
+                templateSource->data,
+                input.pavementLayerTemplates,
+                normalizedPavementLayerTemplates,
+                *endFrame,
+                endElevation.value,
+                pavementLayerError)) {
+            result.errorMessage = pavementLayerError;
+            result.data.componentLines.clear();
+            result.data.pavementLayerLines.clear();
+            return result;
+        }
 
         const auto startGroundProfiles = previousGroundProfiles.has_value() &&
                 std::fabs(previousGroundProfiles->station - startStation) <= kStationTolerance
@@ -2276,11 +2779,13 @@ RoadModelBuildResult RoadModelBuilder::build(const RoadModelBuildInput& input)
             startStation,
             startPoints,
             startSlopePoints,
+            startPavementLayerPoints,
             startGroundProfiles);
         const auto endSection = makeRoadModelSection(
             endStation,
             endPoints,
             endSlopePoints,
+            endPavementLayerPoints,
             endGroundProfiles);
         const bool continuesCurrentRun = activeSectionRun != nullptr
             && std::fabs(activeSectionRunLastEnd - startStation) <= kStationTolerance;
@@ -2319,6 +2824,21 @@ RoadModelBuildResult RoadModelBuilder::build(const RoadModelBuildInput& input)
             }
         }
 
+        for (const auto& startPoint : startPavementLayerPoints) {
+            const auto endPoint = std::find_if(
+                endPavementLayerPoints.begin(),
+                endPavementLayerPoints.end(),
+                [&startPoint](const auto& point) {
+                    return sameLineKey(point.key, startPoint.key);
+                });
+            if (endPoint != endPavementLayerPoints.end()) {
+                appendPavementLayerBoundaryPoint(
+                    pavementLayerLineAccumulators,
+                    startPoint,
+                    *endPoint);
+            }
+        }
+
         const auto percent = 30 + static_cast<int>((i * 60) / intervalCount);
         if (percent > lastReportedPercent) {
             reportProgress(input, percent, L"正在生成横断面道路模型...");
@@ -2335,6 +2855,10 @@ RoadModelBuildResult RoadModelBuilder::build(const RoadModelBuildInput& input)
     for (auto& accumulator : slopeLineAccumulators) {
         result.data.slopeLines.push_back(std::move(accumulator.line));
     }
+    result.data.pavementLayerLines.reserve(pavementLayerLineAccumulators.size());
+    for (auto& accumulator : pavementLayerLineAccumulators) {
+        result.data.pavementLayerLines.push_back(std::move(accumulator.line));
+    }
     result.data.wireLines.clear();
     for (const auto& sectionRun : sectionRuns) {
         auto runWireLines = buildWireLinesFromSections(sectionRun);
@@ -2343,6 +2867,7 @@ RoadModelBuildResult RoadModelBuilder::build(const RoadModelBuildInput& input)
             std::make_move_iterator(runWireLines.begin()),
             std::make_move_iterator(runWireLines.end()));
     }
+    appendPavementLayerLongitudinalWires(result.data.wireLines, result.data.pavementLayerLines);
 
     if (result.data.componentLines.empty()) {
         result.errorMessage = L"Road model produced no component boundary lines.";

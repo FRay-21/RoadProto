@@ -6,6 +6,7 @@
 #include "cad_adapter/common/IEditor.h"
 #include "cad_adapter/objectarx/ObjectArxSelectionSetGuard.h"
 #include "cad_adapter/objectarx/alignment/DnRoadCenterlineEntity.h"
+#include "cad_adapter/objectarx/cross_section/DnPavementLayerTemplateEntity.h"
 #include "cad_adapter/objectarx/cross_section/DnRoadModelEntity.h"
 #include "cad_adapter/objectarx/cross_section/DnSlopeTemplateEntity.h"
 #include "cad_adapter/objectarx/cross_section/DnSubgradeTemplateEntity.h"
@@ -47,6 +48,7 @@ using roadproto::domain::alignment::AlignmentPoint2d;
 using roadproto::domain::alignment::AlignmentSamplePoint;
 using roadproto::domain::cross_section::RoadModelConfig;
 using roadproto::domain::cross_section::RoadModelData;
+using roadproto::domain::cross_section::RoadModelPavementLayerTemplateSource;
 using roadproto::domain::cross_section::RoadModelSection;
 using roadproto::domain::cross_section::RoadModelSectionPreviewBuilder;
 using roadproto::domain::cross_section::RoadModelSectionPreviewRequest;
@@ -330,6 +332,68 @@ bool readSlopeTemplate(const std::wstring& handle, RoadModelSlopeTemplateSource&
     source.data = entity->templateData();
     entity->close();
     return !source.templateHandle.empty();
+}
+
+bool readPavementLayerTemplate(const std::wstring& handle, RoadModelPavementLayerTemplateSource& source)
+{
+    AcDbObjectId entityId;
+    if (!resolveObjectIdFromHandle(handle, entityId)) {
+        return false;
+    }
+
+    DnPavementLayerTemplateEntity* entity = nullptr;
+    if (acdbOpenObject(entity, entityId, AcDb::kForRead) != Acad::eOk || entity == nullptr) {
+        return false;
+    }
+    if (!entity->isKindOf(DnPavementLayerTemplateEntity::desc())) {
+        entity->close();
+        return false;
+    }
+
+    source.templateHandle = handle;
+    source.data = entity->templateData();
+    entity->close();
+    return !source.templateHandle.empty();
+}
+
+bool collectPavementLayerTemplates(
+    roadproto::cad_adapter::IEditor& editor,
+    const std::vector<RoadModelTemplateSource>& subgradeTemplateSources,
+    std::vector<RoadModelPavementLayerTemplateSource>& pavementLayerTemplates)
+{
+    for (const auto& source : subgradeTemplateSources) {
+        for (std::size_t componentIndex = 0; componentIndex < source.data.components.size(); ++componentIndex) {
+            const auto& component = source.data.components[componentIndex];
+            if (!component.pavementLayerLinked || component.pavementLayerHandle.empty()) {
+                continue;
+            }
+
+            const auto alreadyAdded = std::any_of(
+                pavementLayerTemplates.begin(),
+                pavementLayerTemplates.end(),
+                [&component](const auto& candidate) {
+                    return candidate.templateHandle == component.pavementLayerHandle;
+                });
+            if (alreadyAdded) {
+                continue;
+            }
+
+            RoadModelPavementLayerTemplateSource pavementSource;
+            if (!readPavementLayerTemplate(component.pavementLayerHandle, pavementSource)) {
+                std::wstringstream message;
+                message << L"Cannot read pavement layer template entity for handle: "
+                        << component.pavementLayerHandle
+                        << L", subgrade template: " << source.templateHandle
+                        << L", component index: " << componentIndex << L".";
+                editor.writeError(message.str());
+                return false;
+            }
+
+            pavementLayerTemplates.push_back(std::move(pavementSource));
+        }
+    }
+
+    return true;
 }
 
 bool readTerrainSurface(const std::wstring& handle, RoadModelTerrainSurface& surface)
@@ -1063,6 +1127,11 @@ void runRoadModelApplyDialogFileCommand()
         return;
     }
 
+    std::vector<RoadModelPavementLayerTemplateSource> pavementLayerTemplateSources;
+    if (!collectPavementLayerTemplates(editor, templateSources, pavementLayerTemplateSources)) {
+        return;
+    }
+
     RoadModelTerrainSurface terrainSurface;
     const auto terrainHandle = terrainTinHandleForProfileGraph(verticalCurve.profileGraphHandle);
     if (!terrainHandle.empty()) {
@@ -1075,6 +1144,7 @@ void runRoadModelApplyDialogFileCommand()
     input.verticalCurve = std::move(verticalCurve);
     input.templates = std::move(templateSources);
     input.slopeTemplates = std::move(slopeTemplateSources);
+    input.pavementLayerTemplates = std::move(pavementLayerTemplateSources);
     input.terrainSurface = std::move(terrainSurface);
 
     StatusProgressMeter progressMeter(L"横断面戴帽生成模型", 0, 100);

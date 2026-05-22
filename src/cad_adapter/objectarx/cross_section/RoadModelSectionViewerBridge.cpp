@@ -117,6 +117,8 @@ std::wstring segmentKindText(roadproto::domain::cross_section::RoadModelSectionP
         return L"Slope";
     case RoadModelSectionPreviewSegmentKind::Ground:
         return L"Ground";
+    case RoadModelSectionPreviewSegmentKind::PavementLayer:
+        return L"PavementLayer";
     case RoadModelSectionPreviewSegmentKind::Subgrade:
     default:
         return L"Subgrade";

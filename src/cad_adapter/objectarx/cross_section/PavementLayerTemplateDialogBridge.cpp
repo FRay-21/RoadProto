@@ -165,6 +165,10 @@ bool writeRequestFile(
     writeKeyValue(stream, L"templateName", request.data.properties.name);
     writeKeyValue(stream, L"displayScale", request.data.properties.displayScale);
     writeKeyValue(stream, L"previewWidth", request.data.properties.previewWidth);
+    writeKeyValue(
+        stream,
+        L"displayMode",
+        roadproto::domain::cross_section::PavementLayerTemplateRules::displayModeCode(request.data.properties.displayMode));
     writeKeyValue(stream, L"layerCount", request.data.layers.size());
 
     for (std::size_t i = 0; i < request.data.layers.size(); ++i) {
@@ -183,6 +187,7 @@ bool writeRequestFile(
         writeKeyValue(stream, prefix + L".colorR", layer.color.r);
         writeKeyValue(stream, prefix + L".colorG", layer.color.g);
         writeKeyValue(stream, prefix + L".colorB", layer.color.b);
+        writeKeyValue(stream, prefix + L".hatchPattern", layer.hatchPattern);
     }
     return true;
 }
@@ -449,6 +454,9 @@ bool readPavementLayerTemplateDialogResponse(
         || !requiredDoubleValue(values, L"previewWidth", response.data.properties.previewWidth, errorMessage)) {
         return false;
     }
+    response.data.properties.displayMode =
+        roadproto::domain::cross_section::PavementLayerTemplateRules::displayModeFromCode(
+            valueOrDefault(values, L"displayMode", L"Color"));
 
     int layerCount = 0;
     if (!requiredIntValue(values, L"layerCount", layerCount, errorMessage)) {
@@ -479,6 +487,7 @@ bool readPavementLayerTemplateDialogResponse(
             || !requiredIntValue(values, prefix + L".colorB", layer.color.b, errorMessage)) {
             return false;
         }
+        layer.hatchPattern = valueOrDefault(values, prefix + L".hatchPattern", L"SOLID");
         response.data.layers.push_back(std::move(layer));
     }
 

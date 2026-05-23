@@ -12,10 +12,12 @@
 #include <iomanip>
 #include <sstream>
 #include <utility>
+#include <vector>
 
 using roadproto::domain::cross_section::PavementLayerSectionLayer;
 using roadproto::domain::cross_section::PavementLayerTemplateData;
 using roadproto::domain::cross_section::PavementLayerTemplateDisplayColor;
+using roadproto::domain::cross_section::PavementLayerTemplateDisplayMode;
 using roadproto::domain::cross_section::PavementLayerTemplateLayer;
 using roadproto::domain::cross_section::PavementLayerTemplateRules;
 using roadproto::domain::cross_section::PavementLayerType;
@@ -32,7 +34,7 @@ ACRX_DXF_DEFINE_MEMBERS(
 
 namespace {
 
-constexpr Adesk::Int16 kEntityVersion = 2;
+constexpr Adesk::Int16 kEntityVersion = 3;
 constexpr Adesk::Int32 kMaxLayers = 1000;
 constexpr double kMinAxisLength = 1.0e-9;
 constexpr double kMaxAxisLength = 1.0e9;
@@ -260,6 +262,21 @@ std::wstring formatPreviewNumber(double value)
     return text;
 }
 
+std::wstring layerLabel(const std::wstring& name, const PavementLayerTemplateLayer& layer)
+{
+    const auto innerThickness = layer.uniformThickness ? layer.thickness : layer.innerThickness;
+    const auto outerThickness = layer.uniformThickness ? layer.thickness : layer.outerThickness;
+    const auto thickness = std::fabs(innerThickness - outerThickness) <= 1.0e-9
+        ? formatPreviewNumber(innerThickness)
+        : formatPreviewNumber(innerThickness) + L"/" + formatPreviewNumber(outerThickness);
+    return name + L"  \u539a" + thickness;
+}
+
+std::wstring formatSlopeLabel(double slope)
+{
+    return L"1:" + formatPreviewNumber(slope);
+}
+
 bool sameSectionPoint(
     const roadproto::domain::cross_section::PavementLayerSectionPoint& first,
     const roadproto::domain::cross_section::PavementLayerSectionPoint& second)
@@ -269,14 +286,221 @@ bool sameSectionPoint(
         && std::fabs(first.elevation - second.elevation) <= tolerance;
 }
 
+struct SectionPoint2d {
+    double x = 0.0;
+    double y = 0.0;
+};
+
+SectionPoint2d makeSectionPoint(double x, double y)
+{
+    return SectionPoint2d{x, y};
+}
+
+SectionPoint2d scaledSectionPoint(
+    const roadproto::domain::cross_section::PavementLayerSectionPoint& point,
+    double scale)
+{
+    return SectionPoint2d{point.offset * scale, point.elevation * scale};
+}
+
+double dot(const SectionPoint2d& first, const SectionPoint2d& second)
+{
+    return first.x * second.x + first.y * second.y;
+}
+
+SectionPoint2d operator+(const SectionPoint2d& first, const SectionPoint2d& second)
+{
+    return SectionPoint2d{first.x + second.x, first.y + second.y};
+}
+
+SectionPoint2d operator-(const SectionPoint2d& first, const SectionPoint2d& second)
+{
+    return SectionPoint2d{first.x - second.x, first.y - second.y};
+}
+
+SectionPoint2d operator*(const SectionPoint2d& point, double scale)
+{
+    return SectionPoint2d{point.x * scale, point.y * scale};
+}
+
+double length(const SectionPoint2d& vector)
+{
+    return std::hypot(vector.x, vector.y);
+}
+
+SectionPoint2d normalized(const SectionPoint2d& vector)
+{
+    const auto vectorLength = length(vector);
+    return vectorLength <= 1.0e-9
+        ? SectionPoint2d{1.0, 0.0}
+        : SectionPoint2d{vector.x / vectorLength, vector.y / vectorLength};
+}
+
+SectionPoint2d perpendicular(const SectionPoint2d& vector)
+{
+    return SectionPoint2d{-vector.y, vector.x};
+}
+
+void drawSectionLine(
+    AcGiWorldDraw* worldDraw,
+    const AcGePoint3d& origin,
+    const AcGeVector3d& xAxis,
+    const AcGeVector3d& yAxis,
+    const SectionPoint2d& start,
+    const SectionPoint2d& end)
+{
+    if (length(end - start) <= 1.0e-9) {
+        return;
+    }
+
+    AcGePoint3d line[2] = {
+        sectionPoint(origin, xAxis, yAxis, start.x, start.y),
+        sectionPoint(origin, xAxis, yAxis, end.x, end.y)};
+    worldDraw->geometry().polyline(2, line);
+}
+
+void drawDimensionArrow(
+    AcGiWorldDraw* worldDraw,
+    const AcGePoint3d& origin,
+    const AcGeVector3d& xAxis,
+    const AcGeVector3d& yAxis,
+    const SectionPoint2d& tip,
+    const SectionPoint2d& tail,
+    double size)
+{
+    const auto direction = normalized(tail - tip);
+    const auto normal = perpendicular(direction);
+    const auto p1 = tip + direction * size + normal * (size * 0.45);
+    const auto p2 = tip + direction * size - normal * (size * 0.45);
+    AcGePoint3d arrow[3] = {
+        sectionPoint(origin, xAxis, yAxis, tip.x, tip.y),
+        sectionPoint(origin, xAxis, yAxis, p1.x, p1.y),
+        sectionPoint(origin, xAxis, yAxis, p2.x, p2.y)};
+    worldDraw->subEntityTraits().setFillType(kAcGiFillAlways);
+    worldDraw->geometry().polygon(3, arrow);
+    worldDraw->subEntityTraits().setFillType(kAcGiFillNever);
+}
+
+void drawWideningDimension(
+    AcGiWorldDraw* worldDraw,
+    const AcGePoint3d& origin,
+    const AcGeVector3d& xAxis,
+    const AcGeVector3d& yAxis,
+    const SectionPoint2d& from,
+    const SectionPoint2d& to,
+    const std::wstring& text,
+    double scale)
+{
+    if (length(to - from) <= 1.0e-9) {
+        return;
+    }
+
+    const auto offset = SectionPoint2d{0.0, 0.18 * scale};
+    const auto a = from + offset;
+    const auto b = to + offset;
+    const auto arrowSize = std::max(0.45, 0.055 * scale);
+    drawSectionLine(worldDraw, origin, xAxis, yAxis, from, a);
+    drawSectionLine(worldDraw, origin, xAxis, yAxis, to, b);
+    drawSectionLine(worldDraw, origin, xAxis, yAxis, a, b);
+    drawDimensionArrow(worldDraw, origin, xAxis, yAxis, a, b, arrowSize);
+    drawDimensionArrow(worldDraw, origin, xAxis, yAxis, b, a, arrowSize);
+    drawText(
+        worldDraw,
+        origin,
+        xAxis,
+        yAxis,
+        (a.x + b.x) * 0.5 - 0.12 * scale,
+        (a.y + b.y) * 0.5 + 0.08 * scale,
+        text,
+        std::max(0.8, 0.075 * scale));
+}
+
+bool pointInPolygon(const SectionPoint2d& point, const std::vector<SectionPoint2d>& polygon)
+{
+    bool inside = false;
+    for (std::size_t i = 0, j = polygon.empty() ? 0 : polygon.size() - 1; i < polygon.size(); j = i++) {
+        const auto& current = polygon[i];
+        const auto& previous = polygon[j];
+        const bool crosses = (current.y > point.y) != (previous.y > point.y);
+        if (crosses) {
+            const auto x = (previous.x - current.x) * (point.y - current.y) / (previous.y - current.y) + current.x;
+            if (point.x < x) {
+                inside = !inside;
+            }
+        }
+    }
+    return inside;
+}
+
+void drawClippedHatchLine(
+    AcGiWorldDraw* worldDraw,
+    const AcGePoint3d& origin,
+    const AcGeVector3d& xAxis,
+    const AcGeVector3d& yAxis,
+    const std::vector<SectionPoint2d>& polygon,
+    const SectionPoint2d& direction,
+    const SectionPoint2d& normal,
+    double offset)
+{
+    std::vector<SectionPoint2d> intersections;
+    for (std::size_t i = 0; i < polygon.size(); ++i) {
+        const auto& first = polygon[i];
+        const auto& second = polygon[(i + 1) % polygon.size()];
+        const auto firstDistance = dot(first, normal) - offset;
+        const auto secondDistance = dot(second, normal) - offset;
+        if (std::fabs(firstDistance) <= 1.0e-9) {
+            intersections.push_back(first);
+        }
+        if (firstDistance * secondDistance < 0.0) {
+            const auto t = firstDistance / (firstDistance - secondDistance);
+            intersections.push_back(first + (second - first) * t);
+        }
+    }
+    if (intersections.size() < 2) {
+        return;
+    }
+
+    std::sort(intersections.begin(), intersections.end(), [&](const auto& first, const auto& second) {
+        return dot(first, direction) < dot(second, direction);
+    });
+    drawSectionLine(worldDraw, origin, xAxis, yAxis, intersections.front(), intersections.back());
+}
+
+void drawHatchFamily(
+    AcGiWorldDraw* worldDraw,
+    const AcGePoint3d& origin,
+    const AcGeVector3d& xAxis,
+    const AcGeVector3d& yAxis,
+    const std::vector<SectionPoint2d>& polygon,
+    SectionPoint2d direction,
+    double spacing)
+{
+    direction = normalized(direction);
+    const auto normal = perpendicular(direction);
+    auto minDistance = dot(polygon.front(), normal);
+    auto maxDistance = minDistance;
+    for (const auto& point : polygon) {
+        minDistance = std::min(minDistance, dot(point, normal));
+        maxDistance = std::max(maxDistance, dot(point, normal));
+    }
+    for (auto offset = minDistance - spacing; offset <= maxDistance + spacing; offset += spacing) {
+        drawClippedHatchLine(worldDraw, origin, xAxis, yAxis, polygon, direction, normal, offset);
+    }
+}
+
 void drawLayerPreviewFill(
     AcGiWorldDraw* worldDraw,
     const AcGePoint3d& origin,
     const AcGeVector3d& xAxis,
     const AcGeVector3d& yAxis,
     const PavementLayerSectionLayer& layer,
-    double scale)
+    double scale,
+    PavementLayerTemplateDisplayMode displayMode)
 {
+    if (displayMode == PavementLayerTemplateDisplayMode::Hatch) {
+        return;
+    }
+
     const auto color = pavementLayerFillColor(layer.color);
     worldDraw->subEntityTraits().setTrueColor(color);
     worldDraw->subEntityTraits().setTransparency(AcCmTransparency(kOpaqueTransparencyAlpha));
@@ -289,6 +513,76 @@ void drawLayerPreviewFill(
         sectionPoint(origin, xAxis, yAxis, layer.bottomInner.offset * scale, layer.bottomInner.elevation * scale)};
     worldDraw->geometry().polygon(4, fillPoints);
     worldDraw->subEntityTraits().setFillType(kAcGiFillNever);
+}
+
+void drawLayerHatchPattern(
+    AcGiWorldDraw* worldDraw,
+    const AcGePoint3d& origin,
+    const AcGeVector3d& xAxis,
+    const AcGeVector3d& yAxis,
+    const PavementLayerSectionLayer& sectionLayer,
+    const PavementLayerTemplateLayer& layer,
+    double scale,
+    PavementLayerTemplateDisplayMode displayMode)
+{
+    if (displayMode == PavementLayerTemplateDisplayMode::Color || layer.hatchPattern == L"SOLID") {
+        return;
+    }
+
+    const auto polygon = std::vector<SectionPoint2d>{
+        scaledSectionPoint(sectionLayer.topInner, scale),
+        scaledSectionPoint(sectionLayer.topOuter, scale),
+        scaledSectionPoint(sectionLayer.bottomOuter, scale),
+        scaledSectionPoint(sectionLayer.bottomInner, scale)};
+    const auto color = displayMode == PavementLayerTemplateDisplayMode::HatchAndColor
+        ? pavementLayerStrokeColor(sectionLayer.color)
+        : colorFromRgb(205, 213, 222);
+    worldDraw->subEntityTraits().setTrueColor(color);
+    worldDraw->subEntityTraits().setTransparency(AcCmTransparency(kOpaqueTransparencyAlpha));
+    worldDraw->subEntityTraits().setFillType(kAcGiFillNever);
+
+    const auto spacing = std::max(0.85, 0.12 * scale);
+    if (layer.hatchPattern == L"DOTS") {
+        auto minX = polygon.front().x;
+        auto maxX = polygon.front().x;
+        auto minY = polygon.front().y;
+        auto maxY = polygon.front().y;
+        for (const auto& point : polygon) {
+            minX = std::min(minX, point.x);
+            maxX = std::max(maxX, point.x);
+            minY = std::min(minY, point.y);
+            maxY = std::max(maxY, point.y);
+        }
+        const auto dotSize = std::max(0.08, 0.015 * scale);
+        for (auto x = minX; x <= maxX; x += spacing) {
+            for (auto y = minY; y <= maxY; y += spacing) {
+                const auto point = makeSectionPoint(x, y);
+                if (pointInPolygon(point, polygon)) {
+                    drawSectionLine(
+                        worldDraw,
+                        origin,
+                        xAxis,
+                        yAxis,
+                        makeSectionPoint(x - dotSize, y),
+                        makeSectionPoint(x + dotSize, y));
+                }
+            }
+        }
+        return;
+    }
+
+    drawHatchFamily(worldDraw, origin, xAxis, yAxis, polygon, makeSectionPoint(1.0, 1.0), spacing);
+    if (layer.hatchPattern == L"CROSS"
+        || layer.hatchPattern == L"ANSI32"
+        || layer.hatchPattern == L"ANSI37"
+        || layer.hatchPattern == L"ANSI38"
+        || layer.hatchPattern == L"GRAVEL"
+        || layer.hatchPattern == L"EARTH") {
+        drawHatchFamily(worldDraw, origin, xAxis, yAxis, polygon, makeSectionPoint(1.0, -1.0), spacing);
+    }
+    if (layer.hatchPattern == L"GRAVEL" || layer.hatchPattern == L"EARTH") {
+        drawHatchFamily(worldDraw, origin, xAxis, yAxis, polygon, makeSectionPoint(1.0, 0.0), spacing * 1.4);
+    }
 }
 
 void drawLayerEdge(AcGiWorldDraw* worldDraw, const AcGePoint3d& start, const AcGePoint3d& end)
@@ -340,53 +634,55 @@ void drawLayerLabels(
     const PavementLayerTemplateLayer& layer,
     double scale)
 {
-    const auto labelHeight = std::max(1.2, 0.12 * scale);
-    const auto detailHeight = std::max(1.0, 0.10 * scale);
+    const auto labelHeight = std::max(0.9, 0.085 * scale);
+    const auto detailHeight = std::max(0.8, 0.075 * scale);
     const auto midX = (sectionLayer.topInner.offset + sectionLayer.topOuter.offset
         + sectionLayer.bottomInner.offset + sectionLayer.bottomOuter.offset) * 0.25 * scale;
     const auto midY = (sectionLayer.topInner.elevation + sectionLayer.topOuter.elevation
         + sectionLayer.bottomInner.elevation + sectionLayer.bottomOuter.elevation) * 0.25 * scale;
-    const auto innerX = sectionLayer.bottomInner.offset * scale;
-    const auto innerY = sectionLayer.bottomInner.elevation * scale;
-    const auto outerX = sectionLayer.bottomOuter.offset * scale;
-    const auto outerY = sectionLayer.bottomOuter.elevation * scale;
+    const auto topInner = scaledSectionPoint(sectionLayer.topInner, scale);
+    const auto topOuter = scaledSectionPoint(sectionLayer.topOuter, scale);
+    const auto bottomInner = scaledSectionPoint(sectionLayer.bottomInner, scale);
+    const auto bottomOuter = scaledSectionPoint(sectionLayer.bottomOuter, scale);
 
     worldDraw->subEntityTraits().setFillType(kAcGiFillNever);
     worldDraw->subEntityTraits().setTransparency(AcCmTransparency(kOpaqueTransparencyAlpha));
     worldDraw->subEntityTraits().setTrueColor(colorFromRgb(255, 255, 255));
-    drawText(worldDraw, origin, xAxis, yAxis, midX - 3.8, midY + 0.8, sectionLayer.name, labelHeight);
-
-    const auto innerThickness = layer.uniformThickness ? layer.thickness : layer.innerThickness;
-    const auto outerThickness = layer.uniformThickness ? layer.thickness : layer.outerThickness;
-    drawText(
-        worldDraw,
-        origin,
-        xAxis,
-        yAxis,
-        midX - 3.8,
-        midY - 0.8,
-        L"\u539a " + formatPreviewNumber(innerThickness) + L"/" + formatPreviewNumber(outerThickness),
-        detailHeight);
+    drawText(worldDraw, origin, xAxis, yAxis, midX - 2.0 * scale, midY + 0.05 * scale, layerLabel(sectionLayer.name, layer), labelHeight);
 
     worldDraw->subEntityTraits().setTrueColor(colorFromRgb(135, 206, 250));
-    drawText(
-        worldDraw,
-        origin,
-        xAxis,
-        yAxis,
-        innerX - 1.8,
-        innerY - 1.4,
-        L"\u5185\u4fa7\u52a0\u5bbd " + formatPreviewNumber(layer.innerWidening),
-        detailHeight);
-    drawText(
-        worldDraw,
-        origin,
-        xAxis,
-        yAxis,
-        outerX + 1.0,
-        outerY - 1.4,
-        L"\u5916\u4fa7\u52a0\u5bbd " + formatPreviewNumber(layer.outerWidening),
-        detailHeight);
+    const auto topWidth = sectionLayer.topOuter.offset - sectionLayer.topInner.offset;
+    const auto topGrade = std::fabs(topWidth) <= 1.0e-9
+        ? 0.0
+        : (sectionLayer.topOuter.elevation - sectionLayer.topInner.elevation) / topWidth;
+    if (std::fabs(layer.innerWidening) > 1.0e-9) {
+        const auto inheritedInner = makeSectionPoint(
+            (sectionLayer.topInner.offset + layer.innerWidening) * scale,
+            (sectionLayer.topInner.elevation + layer.innerWidening * topGrade) * scale);
+        drawWideningDimension(
+            worldDraw,
+            origin,
+            xAxis,
+            yAxis,
+            inheritedInner,
+            topInner,
+            formatPreviewNumber(layer.innerWidening),
+            scale);
+    }
+    if (std::fabs(layer.outerWidening) > 1.0e-9) {
+        const auto inheritedOuter = makeSectionPoint(
+            (sectionLayer.topOuter.offset - layer.outerWidening) * scale,
+            (sectionLayer.topOuter.elevation - layer.outerWidening * topGrade) * scale);
+        drawWideningDimension(
+            worldDraw,
+            origin,
+            xAxis,
+            yAxis,
+            inheritedOuter,
+            topOuter,
+            formatPreviewNumber(layer.outerWidening),
+            scale);
+    }
 
     worldDraw->subEntityTraits().setTrueColor(colorFromRgb(240, 230, 140));
     if (std::fabs(layer.innerSlope) > 1.0e-9) {
@@ -395,9 +691,9 @@ void drawLayerLabels(
             origin,
             xAxis,
             yAxis,
-            innerX - 2.0,
-            innerY - 3.4,
-            L"\u5185\u4fa7\u5761\u5ea6 " + formatPreviewNumber(layer.innerSlope),
+            (topInner.x + bottomInner.x) * 0.5 - 0.5 * scale,
+            (topInner.y + bottomInner.y) * 0.5,
+            formatSlopeLabel(layer.innerSlope),
             detailHeight);
     }
     if (std::fabs(layer.outerSlope) > 1.0e-9) {
@@ -406,9 +702,9 @@ void drawLayerLabels(
             origin,
             xAxis,
             yAxis,
-            outerX + 1.0,
-            outerY - 3.4,
-            L"\u5916\u4fa7\u5761\u5ea6 " + formatPreviewNumber(layer.outerSlope),
+            (topOuter.x + bottomOuter.x) * 0.5 + 0.15 * scale,
+            (topOuter.y + bottomOuter.y) * 0.5,
+            formatSlopeLabel(layer.outerSlope),
             detailHeight);
     }
 }
@@ -521,6 +817,9 @@ Acad::ErrorStatus DnPavementLayerTemplateEntity::dwgInFields(AcDbDwgFiler* filer
     data.properties.name = readWideString(filer);
     filer->readDouble(&data.properties.displayScale);
     filer->readDouble(&data.properties.previewWidth);
+    if (version >= 3) {
+        data.properties.displayMode = PavementLayerTemplateRules::displayModeFromCode(readWideString(filer));
+    }
 
     Adesk::Int32 layerCount = 0;
     filer->readInt32(&layerCount);
@@ -565,6 +864,9 @@ Acad::ErrorStatus DnPavementLayerTemplateEntity::dwgInFields(AcDbDwgFiler* filer
                 static_cast<int>(colorR),
                 static_cast<int>(colorG),
                 static_cast<int>(colorB)};
+        }
+        if (version >= 3) {
+            layer.hatchPattern = readWideString(filer);
         }
         status = checkFilerStatus(filer);
         if (status != Acad::eOk) {
@@ -616,6 +918,7 @@ Acad::ErrorStatus DnPavementLayerTemplateEntity::dwgOutFields(AcDbDwgFiler* file
     writeWideString(filer, templateData_.properties.name);
     filer->writeDouble(templateData_.properties.displayScale);
     filer->writeDouble(templateData_.properties.previewWidth);
+    writeWideString(filer, PavementLayerTemplateRules::displayModeCode(templateData_.properties.displayMode));
     filer->writeInt32(static_cast<Adesk::Int32>(templateData_.layers.size()));
     for (const auto& layer : templateData_.layers) {
         filer->writeInt32(static_cast<Adesk::Int32>(layer.type));
@@ -631,6 +934,7 @@ Acad::ErrorStatus DnPavementLayerTemplateEntity::dwgOutFields(AcDbDwgFiler* file
         filer->writeInt32(static_cast<Adesk::Int32>(layer.color.r));
         filer->writeInt32(static_cast<Adesk::Int32>(layer.color.g));
         filer->writeInt32(static_cast<Adesk::Int32>(layer.color.b));
+        writeWideString(filer, layer.hatchPattern);
     }
     filer->writePoint3d(insertionPoint_);
     filer->writeVector3d(xAxis_);
@@ -656,8 +960,20 @@ Adesk::Boolean DnPavementLayerTemplateEntity::subWorldDraw(AcGiWorldDraw* worldD
     }
 
     const auto scale = drawingScale(templateData_);
+    const auto displayMode = templateData_.properties.displayMode;
     for (std::size_t layerIndex = 0; layerIndex < section.layers.size(); ++layerIndex) {
-        drawLayerPreviewFill(worldDraw, insertionPoint_, xAxis_, yAxis_, section.layers[layerIndex], scale);
+        drawLayerPreviewFill(worldDraw, insertionPoint_, xAxis_, yAxis_, section.layers[layerIndex], scale, displayMode);
+    }
+    for (std::size_t layerIndex = 0; layerIndex < section.layers.size() && layerIndex < templateData_.layers.size(); ++layerIndex) {
+        drawLayerHatchPattern(
+            worldDraw,
+            insertionPoint_,
+            xAxis_,
+            yAxis_,
+            section.layers[layerIndex],
+            templateData_.layers[layerIndex],
+            scale,
+            displayMode);
     }
     for (std::size_t layerIndex = 0; layerIndex < section.layers.size(); ++layerIndex) {
         const auto& layer = section.layers[layerIndex];

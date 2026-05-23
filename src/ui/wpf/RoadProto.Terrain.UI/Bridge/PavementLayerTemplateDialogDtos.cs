@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Linq;
 
 namespace RoadProto.Terrain.UI.Bridge;
 
@@ -10,6 +11,13 @@ public enum PavementLayerType
     Base,
     Subbase,
     Cushion,
+}
+
+public enum PavementLayerTemplateDisplayMode
+{
+    Color,
+    Hatch,
+    HatchAndColor,
 }
 
 public sealed class PavementLayerTemplateLayerDto
@@ -27,6 +35,7 @@ public sealed class PavementLayerTemplateLayerDto
     public int ColorR { get; set; } = -1;
     public int ColorG { get; set; } = -1;
     public int ColorB { get; set; } = -1;
+    public string HatchPattern { get; set; } = "SOLID";
 
     public string DisplayName => $"{PavementLayerTemplateLabels.LayerTypeLabel(Type)}  {Name}";
 
@@ -46,6 +55,7 @@ public sealed class PavementLayerTemplateLayerDto
             ColorR = ColorR,
             ColorG = ColorG,
             ColorB = ColorB,
+            HatchPattern = PavementLayerTemplateLabels.NormalizeHatchPattern(HatchPattern),
         };
 }
 
@@ -54,6 +64,7 @@ public class PavementLayerTemplateDto
     public string TemplateName { get; set; } = "路面结构层模板";
     public double DisplayScale { get; set; } = 10.0;
     public double PreviewWidth { get; set; } = 3.75;
+    public PavementLayerTemplateDisplayMode DisplayMode { get; set; } = PavementLayerTemplateDisplayMode.Color;
     public List<PavementLayerTemplateLayerDto> Layers { get; set; } = new();
 }
 
@@ -95,6 +106,7 @@ public static class PavementLayerTemplateLabels
             TemplateName = source.TemplateName,
             DisplayScale = source.DisplayScale,
             PreviewWidth = source.PreviewWidth,
+            DisplayMode = source.DisplayMode,
             Layers = source.Layers.ConvertAll(layer => layer.Clone()),
         };
 
@@ -129,8 +141,31 @@ public static class PavementLayerTemplateLabels
             ColorR = color.R,
             ColorG = color.G,
             ColorB = color.B,
+            HatchPattern = "SOLID",
         };
     }
+
+    public static IReadOnlyList<string> HatchPatternOptions { get; } = new[]
+    {
+        "SOLID",
+        "ANSI31",
+        "ANSI32",
+        "ANSI33",
+        "ANSI34",
+        "ANSI35",
+        "ANSI36",
+        "ANSI37",
+        "ANSI38",
+        "CROSS",
+        "DOTS",
+        "GRAVEL",
+        "EARTH",
+    };
+
+    public static string NormalizeHatchPattern(string? hatchPattern)
+        => HatchPatternOptions.Contains(hatchPattern ?? string.Empty)
+            ? hatchPattern!
+            : "SOLID";
 
     public static (int R, int G, int B) DefaultColorForLayerIndex(int index)
         => (((index % 6) + 6) % 6) switch

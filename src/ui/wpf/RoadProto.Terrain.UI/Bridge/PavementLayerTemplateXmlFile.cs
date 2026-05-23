@@ -26,6 +26,7 @@ public static class PavementLayerTemplateXmlFile
             TemplateName = ReadRequiredString(properties, "name"),
             DisplayScale = ReadRequiredPositiveDouble(properties, "displayScale"),
             PreviewWidth = ReadRequiredPositiveDouble(properties, "previewWidth"),
+            DisplayMode = ReadOptionalEnum(properties, "displayMode", PavementLayerTemplateDisplayMode.Color),
         };
 
         var layerIndex = 0;
@@ -49,6 +50,7 @@ public static class PavementLayerTemplateXmlFile
                 ColorR = ReadOptionalColorChannel(element, "colorR", defaultColor.R),
                 ColorG = ReadOptionalColorChannel(element, "colorG", defaultColor.G),
                 ColorB = ReadOptionalColorChannel(element, "colorB", defaultColor.B),
+                HatchPattern = PavementLayerTemplateLabels.NormalizeHatchPattern(ReadOptionalString(element, "hatchPattern", "SOLID")),
             });
             layerIndex++;
         }
@@ -72,7 +74,8 @@ public static class PavementLayerTemplateXmlFile
                     "Properties",
                     new XAttribute("name", template.TemplateName ?? string.Empty),
                     new XAttribute("displayScale", Format(template.DisplayScale)),
-                    new XAttribute("previewWidth", Format(template.PreviewWidth))),
+                    new XAttribute("previewWidth", Format(template.PreviewWidth)),
+                    new XAttribute("displayMode", template.DisplayMode.ToString())),
                 template.Layers.Select(layer => new XElement(
                     "Layer",
                     new XAttribute("type", layer.Type.ToString()),
@@ -87,7 +90,8 @@ public static class PavementLayerTemplateXmlFile
                     new XAttribute("outerSlope", Format(layer.OuterSlope)),
                     new XAttribute("colorR", ClampColor(layer.ColorR).ToString(CultureInfo.InvariantCulture)),
                     new XAttribute("colorG", ClampColor(layer.ColorG).ToString(CultureInfo.InvariantCulture)),
-                    new XAttribute("colorB", ClampColor(layer.ColorB).ToString(CultureInfo.InvariantCulture))))));
+                    new XAttribute("colorB", ClampColor(layer.ColorB).ToString(CultureInfo.InvariantCulture)),
+                    new XAttribute("hatchPattern", PavementLayerTemplateLabels.NormalizeHatchPattern(layer.HatchPattern))))));
 
         document.Save(path);
     }
@@ -109,6 +113,9 @@ public static class PavementLayerTemplateXmlFile
         }
         return value!;
     }
+
+    private static string ReadOptionalString(XElement element, string name, string fallback)
+        => (string?)element.Attribute(name) is { Length: > 0 } value ? value : fallback;
 
     private static double ReadRequiredDouble(XElement element, string name)
     {
@@ -171,6 +178,18 @@ public static class PavementLayerTemplateXmlFile
             throw new InvalidDataException($"Invalid pavement layer template XML enum attribute: {name}.");
         }
         return result;
+    }
+
+    private static T ReadOptionalEnum<T>(XElement element, string name, T fallback)
+        where T : struct
+    {
+        var value = (string?)element.Attribute(name);
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return fallback;
+        }
+
+        return Enum.TryParse<T>(value, ignoreCase: false, out var result) ? result : fallback;
     }
 
     private static string Format(double value)

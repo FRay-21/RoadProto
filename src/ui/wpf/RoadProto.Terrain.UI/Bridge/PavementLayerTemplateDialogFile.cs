@@ -21,6 +21,7 @@ public static class PavementLayerTemplateDialogFile
             TemplateName = Get(values, "templateName", "路面结构层模板"),
             DisplayScale = GetDouble(values, "displayScale", 10.0),
             PreviewWidth = GetDouble(values, "previewWidth", 3.75),
+            DisplayMode = ParseEnum(Get(values, "displayMode", "Color"), PavementLayerTemplateDisplayMode.Color),
         };
 
         var layerCount = Math.Max(0, GetInt(values, "layerCount"));
@@ -53,6 +54,7 @@ public static class PavementLayerTemplateDialogFile
             lines.Add(Write("templateName", response.TemplateName));
             lines.Add(Write("displayScale", response.DisplayScale));
             lines.Add(Write("previewWidth", response.PreviewWidth));
+            lines.Add(Write("displayMode", response.DisplayMode.ToString()));
             lines.Add(Write("layerCount", response.Layers.Count));
 
             for (var i = 0; i < response.Layers.Count; i++)
@@ -84,6 +86,7 @@ public static class PavementLayerTemplateDialogFile
             ColorR = GetInt(values, $"{prefix}.colorR", defaultColor.R),
             ColorG = GetInt(values, $"{prefix}.colorG", defaultColor.G),
             ColorB = GetInt(values, $"{prefix}.colorB", defaultColor.B),
+            HatchPattern = PavementLayerTemplateLabels.NormalizeHatchPattern(Get(values, $"{prefix}.hatchPattern", "SOLID")),
         };
     }
 
@@ -102,6 +105,7 @@ public static class PavementLayerTemplateDialogFile
         lines.Add(Write($"{prefix}.colorR", ClampColor(layer.ColorR)));
         lines.Add(Write($"{prefix}.colorG", ClampColor(layer.ColorG)));
         lines.Add(Write($"{prefix}.colorB", ClampColor(layer.ColorB)));
+        lines.Add(Write($"{prefix}.hatchPattern", PavementLayerTemplateLabels.NormalizeHatchPattern(layer.HatchPattern)));
     }
 
     private static Dictionary<string, string> ReadValues(string path)

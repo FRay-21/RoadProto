@@ -48,6 +48,7 @@
                     ClipToBounds="True"
                     SizeChanged="PreviewCanvas_SizeChanged"
                     MouseWheel="PreviewCanvas_MouseWheel"
+                    MouseLeftButtonDown="PreviewCanvas_MouseLeftButtonDown"
                     MouseDown="PreviewCanvas_MouseMiddleButtonDown"
                     MouseUp="PreviewCanvas_MouseMiddleButtonUp"
                     MouseMove="PreviewCanvas_MouseMove" />
@@ -67,11 +68,35 @@
                     <Grid.RowDefinitions>
                         <RowDefinition Height="34" />
                         <RowDefinition Height="34" />
+                        <RowDefinition Height="34" />
+                        <RowDefinition Height="34" />
                     </Grid.RowDefinitions>
                     <TextBlock Text="预览宽度" VerticalAlignment="Center" />
                     <TextBox x:Name="PreviewWidthBox" Grid.Column="1" Height="26" TextChanged="GlobalInput_Changed" />
                     <TextBlock Grid.Row="1" Text="结构层数量" VerticalAlignment="Center" />
                     <TextBox x:Name="LayerCountBox" Grid.Row="1" Grid.Column="1" Height="26" TextChanged="LayerCountBox_TextChanged" />
+                    <TextBlock Grid.Row="2" Text="显示方式" VerticalAlignment="Center" />
+                    <ComboBox x:Name="DisplayModeBox" Grid.Row="2" Grid.Column="1" Height="26" SelectionChanged="GlobalInput_Changed" />
+                    <TextBlock Grid.Row="3" Text="当前编辑层" VerticalAlignment="Center" />
+                    <DockPanel Grid.Row="3" Grid.Column="1" LastChildFill="True">
+                        <Button x:Name="PreviousLayerButton"
+                                DockPanel.Dock="Left"
+                                Content="▲"
+                                Width="30"
+                                Height="26"
+                                Margin="0,0,4,0"
+                                ToolTip="编辑上一层"
+                                Click="PreviousLayerButton_Click" />
+                        <Button x:Name="NextLayerButton"
+                                DockPanel.Dock="Right"
+                                Content="▼"
+                                Width="30"
+                                Height="26"
+                                Margin="4,0,0,0"
+                                ToolTip="编辑下一层"
+                                Click="NextLayerButton_Click" />
+                        <TextBox x:Name="CurrentLayerBox" Height="26" TextChanged="CurrentLayerBox_TextChanged" />
+                    </DockPanel>
                 </Grid>
                 <StackPanel x:Name="LayersPanel" />
             </StackPanel>

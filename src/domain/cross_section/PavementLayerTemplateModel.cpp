@@ -61,6 +61,7 @@ PavementLayerTemplateLayer makeLayer(
     layer.innerWidening = innerWidening;
     layer.outerWidening = outerWidening;
     layer.color = defaultLayerColorForIndex(colorIndex);
+    layer.hatchPattern = L"SOLID";
     return layer;
 }
 
@@ -126,9 +127,56 @@ bool PavementLayerTemplateRules::isSupportedPreviewWidth(double previewWidth)
     return isPositiveFinite(previewWidth);
 }
 
+bool PavementLayerTemplateRules::isSupportedHatchPattern(const std::wstring& hatchPattern)
+{
+    return hatchPattern == L"SOLID"
+        || hatchPattern == L"ANSI31"
+        || hatchPattern == L"ANSI32"
+        || hatchPattern == L"ANSI33"
+        || hatchPattern == L"ANSI34"
+        || hatchPattern == L"ANSI35"
+        || hatchPattern == L"ANSI36"
+        || hatchPattern == L"ANSI37"
+        || hatchPattern == L"ANSI38"
+        || hatchPattern == L"CROSS"
+        || hatchPattern == L"DOTS"
+        || hatchPattern == L"GRAVEL"
+        || hatchPattern == L"EARTH";
+}
+
 PavementLayerTemplateDisplayColor PavementLayerTemplateRules::displayColorForLayerIndex(std::size_t index)
 {
     return defaultLayerColorForIndex(index);
+}
+
+const wchar_t* PavementLayerTemplateRules::displayModeCode(PavementLayerTemplateDisplayMode mode)
+{
+    switch (mode) {
+    case PavementLayerTemplateDisplayMode::Color:
+        return L"Color";
+    case PavementLayerTemplateDisplayMode::Hatch:
+        return L"Hatch";
+    case PavementLayerTemplateDisplayMode::HatchAndColor:
+        return L"HatchAndColor";
+    default:
+        return L"Color";
+    }
+}
+
+PavementLayerTemplateDisplayMode PavementLayerTemplateRules::displayModeFromCode(
+    const std::wstring& code,
+    PavementLayerTemplateDisplayMode fallback)
+{
+    if (code == L"Color") {
+        return PavementLayerTemplateDisplayMode::Color;
+    }
+    if (code == L"Hatch") {
+        return PavementLayerTemplateDisplayMode::Hatch;
+    }
+    if (code == L"HatchAndColor") {
+        return PavementLayerTemplateDisplayMode::HatchAndColor;
+    }
+    return fallback;
 }
 
 bool PavementLayerTemplateRules::normalize(PavementLayerTemplateData& data, std::wstring& errorMessage)
@@ -180,6 +228,9 @@ bool PavementLayerTemplateRules::normalize(PavementLayerTemplateData& data, std:
             layer.color.r = normalizeColorChannel(layer.color.r);
             layer.color.g = normalizeColorChannel(layer.color.g);
             layer.color.b = normalizeColorChannel(layer.color.b);
+        }
+        if (!isSupportedHatchPattern(layer.hatchPattern)) {
+            layer.hatchPattern = L"SOLID";
         }
     }
 

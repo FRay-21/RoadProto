@@ -17,6 +17,12 @@ enum class PavementLayerType {
     Cushion
 };
 
+enum class PavementLayerTemplateDisplayMode {
+    Color,
+    Hatch,
+    HatchAndColor
+};
+
 struct PavementLayerTemplateDisplayColor {
     int r = -1;
     int g = -1;
@@ -35,12 +41,14 @@ struct PavementLayerTemplateLayer {
     double innerSlope = 0.0;
     double outerSlope = 0.0;
     PavementLayerTemplateDisplayColor color;
+    std::wstring hatchPattern = L"SOLID";
 };
 
 struct PavementLayerTemplateProperties {
     std::wstring name = L"\u8def\u9762\u7ed3\u6784\u5c42\u6a21\u677f";
     double displayScale = 10.0;
     double previewWidth = 3.75;
+    PavementLayerTemplateDisplayMode displayMode = PavementLayerTemplateDisplayMode::Color;
 };
 
 struct PavementLayerTemplateData {
@@ -81,7 +89,12 @@ class PavementLayerTemplateRules {
 public:
     static bool isSupportedDisplayScale(double displayScale);
     static bool isSupportedPreviewWidth(double previewWidth);
+    static bool isSupportedHatchPattern(const std::wstring& hatchPattern);
     static PavementLayerTemplateDisplayColor displayColorForLayerIndex(std::size_t index);
+    static const wchar_t* displayModeCode(PavementLayerTemplateDisplayMode mode);
+    static PavementLayerTemplateDisplayMode displayModeFromCode(
+        const std::wstring& code,
+        PavementLayerTemplateDisplayMode fallback = PavementLayerTemplateDisplayMode::Color);
     static bool normalize(PavementLayerTemplateData& data, std::wstring& errorMessage);
     static PavementLayerTemplateSection buildSection(
         const PavementLayerTemplateData& data,

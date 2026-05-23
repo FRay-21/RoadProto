@@ -1,5 +1,24 @@
 # 版本记录
 
+## v0.1.21 - 2026-05-23
+
+- 版本标识：`v0.1.21_20260523_PavementLayerTemplateAnnotation`。
+- ARX 文件：`RoadProto_v0.1.21_20260523_PavementLayerTemplateAnnotation.arx`。
+- 阶段：路面结构层模板标注、当前层编辑和填充显示优化。
+
+### 修改内容
+
+- 优化路面结构层模板 WPF 预览标注：层名与厚度合并为一行，整体标注缩小；加宽处改为 CAD 式尺寸标注；坡度在侧边中心以 `1:n` 显示。
+- 将 WPF 参数区改为当前层编辑：预览图点击选择结构层，右侧仅显示当前层参数和通用参数，并提供当前层输入框和上/下切换按钮。
+- 新增每层 `hatchPattern` 填充类型和通用 `displayMode` 显示方式，支持按颜色、按填充、按填充+颜色显示；WPF 预览和 `DnPavementLayerTemplateEntity` 按选择方式显示。
+- 新增颜色预览块点击选择索引颜色；请求/响应文件、`.rpavement.xml` 和 DWG 自定义实体持久化同步保存显示方式和填充类型。
+- 保持道路模型中的路面结构层模型显示策略不变：仍按层 RGB 颜色绘制弱化填充面和边线，不引入模板显示方式中的填充预览模式。
+
+### 验证状态
+
+- 自动化验证：核心测试 Debug/Release 构建与运行、托管 bridge 测试、WPF Release 构建和 `RoadProto.sln` Release 构建已通过；Release 产物已生成 `RoadProto_v0.1.21_20260523_PavementLayerTemplateAnnotation.arx` 和 `RoadProto.Terrain.UI.dll`。
+- 图形界面验证：仍建议在 AutoCAD 2021 中加载 Release ARX 和托管 DLL 后，点验模板创建、双击编辑、预览点击选层、索引颜色选择、填充显示方式和道路模型颜色显示。
+
 ## v0.1.20 - 2026-05-22
 
 - 版本标识：`v0.1.20_20260522_PavementLayerTemplateDisplay`。

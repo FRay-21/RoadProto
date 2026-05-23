@@ -113,9 +113,9 @@ void pavementLayerTemplateDocumentationAndVersionContracts()
     const auto root = findRepositoryRootForTests();
 
     const auto buildProps = readTextFileForTests(root / "build" / "RoadProto.Build.props");
-    CHECK(buildProps.find("<RoadProtoVersion>v0.1.22</RoadProtoVersion>") != std::string::npos);
+    CHECK(buildProps.find("<RoadProtoVersion>v0.1.23</RoadProtoVersion>") != std::string::npos);
     CHECK(buildProps.find("<RoadProtoBuildDate>20260523</RoadProtoBuildDate>") != std::string::npos);
-    CHECK(buildProps.find("<RoadProtoStage>PavementLayerTemplateHatchParams</RoadProtoStage>") != std::string::npos);
+    CHECK(buildProps.find("<RoadProtoStage>PavementLayerTemplateGeneralParams</RoadProtoStage>") != std::string::npos);
 
     CHECK(std::filesystem::exists(root / "docs" / "reuse" / "pavement_layer_template.md"));
     const auto reuseDoc = readTextFileForTests(root / "docs" / "reuse" / "pavement_layer_template.md");
@@ -123,16 +123,19 @@ void pavementLayerTemplateDocumentationAndVersionContracts()
     CHECK(reuseDoc.find(".rpavement.xml") != std::string::npos);
     CHECK(reuseDoc.find("hatchAngle") != std::string::npos);
     CHECK(reuseDoc.find("hatchScale") != std::string::npos);
+    CHECK(reuseDoc.find("structureCode") != std::string::npos);
+    CHECK(reuseDoc.find("subgradeMoistureTypes") != std::string::npos);
+    CHECK(reuseDoc.find("designDeflection") != std::string::npos);
     CHECK(reuseDoc.find("内侧 = closer to road centerline") != std::string::npos);
 
     const auto versionLog = readTextFileForTests(root / "docs" / "dev" / "version_log.md");
-    CHECK(versionLog.find("v0.1.22_20260523_PavementLayerTemplateHatchParams") != std::string::npos);
-    CHECK(versionLog.find("RoadProto_v0.1.22_20260523_PavementLayerTemplateHatchParams.arx") != std::string::npos);
+    CHECK(versionLog.find("v0.1.23_20260523_PavementLayerTemplateGeneralParams") != std::string::npos);
+    CHECK(versionLog.find("RoadProto_v0.1.23_20260523_PavementLayerTemplateGeneralParams.arx") != std::string::npos);
     CHECK(versionLog.find("是否可作为稳定测试版本：是。核心测试 Debug/Release、托管 bridge 测试、WPF Release 构建和 ARX Release 构建已验证") != std::string::npos);
-    CHECK(versionLog.find("已在 AutoCAD 2021 图形界面加载 Debug ARX") != std::string::npos);
+    CHECK(versionLog.find("新增通用设计字段当前仅作为模板数据保留") != std::string::npos);
 
     const auto readme = readTextFileForTests(root / "README.md");
-    CHECK(readme.find("RoadProto_v0.1.22_20260523_PavementLayerTemplateHatchParams.arx") != std::string::npos);
+    CHECK(readme.find("RoadProto_v0.1.23_20260523_PavementLayerTemplateGeneralParams.arx") != std::string::npos);
     CHECK(readme.find("RD_SECTION_PAVEMENT_LAYER_TEMPLATE_CREATE") != std::string::npos);
 
     const auto moduleIndex = readTextFileForTests(root / "docs" / "modules" / "module_index.md");
@@ -142,7 +145,7 @@ void pavementLayerTemplateDocumentationAndVersionContracts()
 
     const auto testsReadme = readTextFileForTests(root / "tests" / "README.md");
     CHECK(testsReadme.find("历史 V0.1.6 Core Console 验证记录") != std::string::npos);
-    CHECK(testsReadme.find("当前 v0.1.22 已完成 Task 10 自动化验证") != std::string::npos);
+    CHECK(testsReadme.find("当前 v0.1.23 已完成 Task 10 自动化验证") != std::string::npos);
 
     const auto startupSource = readTextFileForTests(root / "src" / "app" / "startup" / "Startup.cpp");
     CHECK(startupSource.find("version.arxFileName") != std::string::npos);
@@ -739,6 +742,58 @@ void pavementLayerTemplateDisplayModeAndHatchPatternsNormalize()
     CHECK(defaults.layers.back().hatchPattern == L"SOLID");
     CHECK(std::fabs(defaults.layers.back().hatchAngle) <= 1.0e-9);
     CHECK(std::fabs(defaults.layers.back().hatchScale - 1.0) <= 1.0e-9);
+}
+
+void pavementLayerTemplateGeneralParametersPersistAsDataOnly()
+{
+    using namespace roadproto::domain::cross_section;
+
+    CHECK(std::wstring(pavementSubgradeMoistureTypeCode(PavementSubgradeMoistureType::Dry)) == L"Dry");
+    CHECK(std::wstring(pavementSubgradeMoistureTypeDisplayName(PavementSubgradeMoistureType::Medium)) == L"中湿");
+    CHECK(pavementSubgradeMoistureTypeFromCode(L"OverWet") == PavementSubgradeMoistureType::OverWet);
+    CHECK(std::wstring(pavementSurfaceTypeCode(PavementSurfaceType::Asphalt)) == L"Asphalt");
+    CHECK(std::wstring(pavementSurfaceTypeDisplayName(PavementSurfaceType::Concrete)) == L"混凝土路面");
+    CHECK(pavementSurfaceTypeFromCode(L"Concrete") == PavementSurfaceType::Concrete);
+    CHECK(std::wstring(pavementSubgradeSoilGroupCode(PavementSubgradeSoilGroup::LowLiquidLimitClay)) == L"LowLiquidLimitClay");
+    CHECK(std::wstring(pavementSubgradeSoilGroupDisplayName(PavementSubgradeSoilGroup::Loess)) == L"黄土");
+    CHECK(pavementSubgradeSoilGroupFromCode(L"SoftSoil") == PavementSubgradeSoilGroup::SoftSoil);
+
+    auto defaults = PavementLayerTemplateDefaults::create();
+    CHECK(!defaults.properties.showAllGeneralParameters);
+    CHECK(defaults.properties.structureCode.empty());
+    CHECK(defaults.properties.subgradeMoistureTypes.empty());
+    CHECK(defaults.properties.pavementType == PavementSurfaceType::Asphalt);
+    CHECK(defaults.properties.subgradeSoilGroups.empty());
+    CHECK(defaults.properties.designDeflection.empty());
+    CHECK(defaults.properties.cumulativeAxleLoads.empty());
+
+    defaults.properties.showAllGeneralParameters = true;
+    defaults.properties.structureCode = L"I-1";
+    defaults.properties.subgradeMoistureTypes = {
+        PavementSubgradeMoistureType::Dry,
+        PavementSubgradeMoistureType::Dry,
+        PavementSubgradeMoistureType::Wet};
+    defaults.properties.pavementType = PavementSurfaceType::Concrete;
+    defaults.properties.subgradeSoilGroups = {
+        PavementSubgradeSoilGroup::Bedrock,
+        PavementSubgradeSoilGroup::SoftSoil,
+        PavementSubgradeSoilGroup::Bedrock};
+    defaults.properties.designDeflection = L"23.5";
+    defaults.properties.cumulativeAxleLoads = L"1200万次";
+
+    std::wstring errorMessage;
+    CHECK(PavementLayerTemplateRules::normalize(defaults, errorMessage));
+    CHECK(defaults.properties.showAllGeneralParameters);
+    CHECK(defaults.properties.structureCode == L"I-1");
+    CHECK(defaults.properties.subgradeMoistureTypes.size() == 2);
+    CHECK(defaults.properties.subgradeMoistureTypes[0] == PavementSubgradeMoistureType::Dry);
+    CHECK(defaults.properties.subgradeMoistureTypes[1] == PavementSubgradeMoistureType::Wet);
+    CHECK(defaults.properties.pavementType == PavementSurfaceType::Concrete);
+    CHECK(defaults.properties.subgradeSoilGroups.size() == 2);
+    CHECK(defaults.properties.subgradeSoilGroups[0] == PavementSubgradeSoilGroup::Bedrock);
+    CHECK(defaults.properties.subgradeSoilGroups[1] == PavementSubgradeSoilGroup::SoftSoil);
+    CHECK(defaults.properties.designDeflection == L"23.5");
+    CHECK(defaults.properties.cumulativeAxleLoads == L"1200万次");
 }
 
 void pavementLayerTemplateCarriesLayerRgbIntoBuiltSection()
@@ -3686,11 +3741,18 @@ void pavementLayerTemplateNativeSourcesContainRequiredContracts()
     CHECK(entitySource.find("DNPAVEMENTLAYERTEMPLATEENTITY") != std::string::npos);
     CHECK(entitySource.find("dwgOutFields") != std::string::npos);
     CHECK(entitySource.find("dwgInFields") != std::string::npos);
-    CHECK(entitySource.find("constexpr Adesk::Int16 kEntityVersion = 4") != std::string::npos);
+    CHECK(entitySource.find("constexpr Adesk::Int16 kEntityVersion = 5") != std::string::npos);
     CHECK(entitySource.find("properties.name") != std::string::npos);
     CHECK(entitySource.find("properties.displayScale") != std::string::npos);
     CHECK(entitySource.find("properties.previewWidth") != std::string::npos);
     CHECK(entitySource.find("properties.displayMode") != std::string::npos);
+    CHECK(entitySource.find("properties.showAllGeneralParameters") != std::string::npos);
+    CHECK(entitySource.find("properties.structureCode") != std::string::npos);
+    CHECK(entitySource.find("properties.subgradeMoistureTypes") != std::string::npos);
+    CHECK(entitySource.find("properties.pavementType") != std::string::npos);
+    CHECK(entitySource.find("properties.subgradeSoilGroups") != std::string::npos);
+    CHECK(entitySource.find("properties.designDeflection") != std::string::npos);
+    CHECK(entitySource.find("properties.cumulativeAxleLoads") != std::string::npos);
     CHECK(entitySource.find("PavementLayerTemplateRules::displayModeCode") != std::string::npos);
     CHECK(entitySource.find("PavementLayerTemplateRules::displayModeFromCode") != std::string::npos);
     CHECK(entitySource.find("layerCount") != std::string::npos);
@@ -6034,6 +6096,7 @@ int main()
     pavementLayerTemplateRulesNormalizeThicknessAndCodes();
     pavementLayerTemplateDisplayColorsMatchWpfPreviewPalette();
     pavementLayerTemplateDisplayModeAndHatchPatternsNormalize();
+    pavementLayerTemplateGeneralParametersPersistAsDataOnly();
     pavementLayerTemplateCarriesLayerRgbIntoBuiltSection();
     pavementLayerTemplateGeometryUsesWideningAsWidthDeltaAndAppliesEdgeSlopes();
     pavementLayerTemplateRulesAllowNegativeWideningAndSlope();

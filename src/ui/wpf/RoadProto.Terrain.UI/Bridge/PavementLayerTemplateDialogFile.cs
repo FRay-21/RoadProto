@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
+using System.Linq;
 using System.Text;
 
 namespace RoadProto.Terrain.UI.Bridge;
@@ -22,6 +23,13 @@ public static class PavementLayerTemplateDialogFile
             DisplayScale = GetDouble(values, "displayScale", 10.0),
             PreviewWidth = GetDouble(values, "previewWidth", 3.75),
             DisplayMode = ParseEnum(Get(values, "displayMode", "Color"), PavementLayerTemplateDisplayMode.Color),
+            ShowAllGeneralParameters = GetBool(values, "showAllGeneralParameters"),
+            StructureCode = Get(values, "structureCode"),
+            SubgradeMoistureTypes = ParseEnumList<PavementSubgradeMoistureType>(Get(values, "subgradeMoistureTypes")),
+            PavementType = ParseEnum(Get(values, "pavementType", "Asphalt"), PavementSurfaceType.Asphalt),
+            SubgradeSoilGroups = ParseEnumList<PavementSubgradeSoilGroup>(Get(values, "subgradeSoilGroups")),
+            DesignDeflection = Get(values, "designDeflection"),
+            CumulativeAxleLoads = Get(values, "cumulativeAxleLoads"),
         };
 
         var layerCount = Math.Max(0, GetInt(values, "layerCount"));
@@ -55,6 +63,13 @@ public static class PavementLayerTemplateDialogFile
             lines.Add(Write("displayScale", response.DisplayScale));
             lines.Add(Write("previewWidth", response.PreviewWidth));
             lines.Add(Write("displayMode", response.DisplayMode.ToString()));
+            lines.Add(Write("showAllGeneralParameters", response.ShowAllGeneralParameters));
+            lines.Add(Write("structureCode", response.StructureCode));
+            lines.Add(Write("subgradeMoistureTypes", JoinEnumList(response.SubgradeMoistureTypes)));
+            lines.Add(Write("pavementType", response.PavementType.ToString()));
+            lines.Add(Write("subgradeSoilGroups", JoinEnumList(response.SubgradeSoilGroups)));
+            lines.Add(Write("designDeflection", response.DesignDeflection));
+            lines.Add(Write("cumulativeAxleLoads", response.CumulativeAxleLoads));
             lines.Add(Write("layerCount", response.Layers.Count));
 
             for (var i = 0; i < response.Layers.Count; i++)
@@ -154,6 +169,26 @@ public static class PavementLayerTemplateDialogFile
     private static T ParseEnum<T>(string value, T fallback)
         where T : struct
         => Enum.TryParse<T>(value, true, out var result) ? result : fallback;
+
+    private static List<T> ParseEnumList<T>(string value)
+        where T : struct
+    {
+        var result = new List<T>();
+        foreach (var raw in value.Split(new[] { ';' }, StringSplitOptions.RemoveEmptyEntries))
+        {
+            if (Enum.TryParse<T>(raw, ignoreCase: true, out var parsed)
+                && Enum.IsDefined(typeof(T), parsed)
+                && !result.Contains(parsed))
+            {
+                result.Add(parsed);
+            }
+        }
+        return result;
+    }
+
+    private static string JoinEnumList<T>(IEnumerable<T> values)
+        where T : struct
+        => string.Join(";", values.Select(value => value.ToString()));
 
     private static string Write(string key, string value)
         => $"{key}={Escape(value)}";

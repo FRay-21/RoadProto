@@ -19,7 +19,15 @@ using roadproto::domain::cross_section::PavementLayerTemplateDisplayMode;
 using roadproto::domain::cross_section::PavementLayerTemplateLayer;
 using roadproto::domain::cross_section::PavementLayerTemplateRules;
 using roadproto::domain::cross_section::PavementLayerType;
+using roadproto::domain::cross_section::PavementSubgradeMoistureType;
+using roadproto::domain::cross_section::PavementSubgradeSoilGroup;
 using roadproto::domain::cross_section::SubgradeSide;
+using roadproto::domain::cross_section::pavementSubgradeMoistureTypeCode;
+using roadproto::domain::cross_section::pavementSubgradeMoistureTypeFromCode;
+using roadproto::domain::cross_section::pavementSubgradeSoilGroupCode;
+using roadproto::domain::cross_section::pavementSubgradeSoilGroupFromCode;
+using roadproto::domain::cross_section::pavementSurfaceTypeCode;
+using roadproto::domain::cross_section::pavementSurfaceTypeFromCode;
 
 ACRX_DXF_DEFINE_MEMBERS(
     DnPavementLayerTemplateEntity,
@@ -32,7 +40,7 @@ ACRX_DXF_DEFINE_MEMBERS(
 
 namespace {
 
-constexpr Adesk::Int16 kEntityVersion = 4;
+constexpr Adesk::Int16 kEntityVersion = 5;
 constexpr Adesk::Int32 kMaxLayers = 1000;
 constexpr double kMinAxisLength = 1.0e-9;
 constexpr double kMaxAxisLength = 1.0e9;
@@ -69,6 +77,64 @@ bool readBool(AcDbDwgFiler* filer)
 void writeBool(AcDbDwgFiler* filer, bool value)
 {
     filer->writeInt8(value ? 1 : 0);
+}
+
+void writeMoistureTypes(
+    AcDbDwgFiler* filer,
+    const std::vector<PavementSubgradeMoistureType>& values)
+{
+    filer->writeInt32(static_cast<Adesk::Int32>(values.size()));
+    for (const auto value : values) {
+        writeWideString(filer, pavementSubgradeMoistureTypeCode(value));
+    }
+}
+
+std::vector<PavementSubgradeMoistureType> readMoistureTypes(AcDbDwgFiler* filer)
+{
+    Adesk::Int32 count = 0;
+    filer->readInt32(&count);
+    std::vector<PavementSubgradeMoistureType> values;
+    if (count < 0 || count > kMaxLayers) {
+        return values;
+    }
+    values.reserve(static_cast<std::size_t>(count));
+    for (Adesk::Int32 i = 0; i < count; ++i) {
+        const auto code = readWideString(filer);
+        const auto parsed = pavementSubgradeMoistureTypeFromCode(code);
+        if (code == pavementSubgradeMoistureTypeCode(parsed)) {
+            values.push_back(parsed);
+        }
+    }
+    return values;
+}
+
+void writeSoilGroups(
+    AcDbDwgFiler* filer,
+    const std::vector<PavementSubgradeSoilGroup>& values)
+{
+    filer->writeInt32(static_cast<Adesk::Int32>(values.size()));
+    for (const auto value : values) {
+        writeWideString(filer, pavementSubgradeSoilGroupCode(value));
+    }
+}
+
+std::vector<PavementSubgradeSoilGroup> readSoilGroups(AcDbDwgFiler* filer)
+{
+    Adesk::Int32 count = 0;
+    filer->readInt32(&count);
+    std::vector<PavementSubgradeSoilGroup> values;
+    if (count < 0 || count > kMaxLayers) {
+        return values;
+    }
+    values.reserve(static_cast<std::size_t>(count));
+    for (Adesk::Int32 i = 0; i < count; ++i) {
+        const auto code = readWideString(filer);
+        const auto parsed = pavementSubgradeSoilGroupFromCode(code);
+        if (code == pavementSubgradeSoilGroupCode(parsed)) {
+            values.push_back(parsed);
+        }
+    }
+    return values;
 }
 
 bool isFinitePoint(const AcGePoint3d& point)
@@ -712,6 +778,15 @@ Acad::ErrorStatus DnPavementLayerTemplateEntity::dwgInFields(AcDbDwgFiler* filer
     if (version >= 3) {
         data.properties.displayMode = PavementLayerTemplateRules::displayModeFromCode(readWideString(filer));
     }
+    if (version >= 5) {
+        data.properties.showAllGeneralParameters = readBool(filer);
+        data.properties.structureCode = readWideString(filer);
+        data.properties.subgradeMoistureTypes = readMoistureTypes(filer);
+        data.properties.pavementType = pavementSurfaceTypeFromCode(readWideString(filer));
+        data.properties.subgradeSoilGroups = readSoilGroups(filer);
+        data.properties.designDeflection = readWideString(filer);
+        data.properties.cumulativeAxleLoads = readWideString(filer);
+    }
 
     Adesk::Int32 layerCount = 0;
     filer->readInt32(&layerCount);
@@ -815,6 +890,13 @@ Acad::ErrorStatus DnPavementLayerTemplateEntity::dwgOutFields(AcDbDwgFiler* file
     filer->writeDouble(templateData_.properties.displayScale);
     filer->writeDouble(templateData_.properties.previewWidth);
     writeWideString(filer, PavementLayerTemplateRules::displayModeCode(templateData_.properties.displayMode));
+    writeBool(filer, templateData_.properties.showAllGeneralParameters);
+    writeWideString(filer, templateData_.properties.structureCode);
+    writeMoistureTypes(filer, templateData_.properties.subgradeMoistureTypes);
+    writeWideString(filer, pavementSurfaceTypeCode(templateData_.properties.pavementType));
+    writeSoilGroups(filer, templateData_.properties.subgradeSoilGroups);
+    writeWideString(filer, templateData_.properties.designDeflection);
+    writeWideString(filer, templateData_.properties.cumulativeAxleLoads);
     filer->writeInt32(static_cast<Adesk::Int32>(templateData_.layers.size()));
     for (const auto& layer : templateData_.layers) {
         filer->writeInt32(static_cast<Adesk::Int32>(layer.type));

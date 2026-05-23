@@ -23,6 +23,7 @@
 - 结构层类型枚举和显示名称：上面层、中面层、下面层、基层、底基层、垫层。
 - 每层 RGB 显示色：默认按层号给出蓝、绿、黄、橙、紫、灰初始色，用户可独立修改；WPF 预览、DWG 模板实体、道路模型结构层填充面/边线和查看横断面预览都使用层数据中的 RGB。
 - 每层填充类型、角度和比例：`PavementLayerTemplateLayer::hatchPattern` 保存 CAD 常用填充名，`hatchAngle` 保存填充角度，`hatchScale` 保存填充比例；`PavementLayerTemplateProperties::displayMode` 支持按颜色、按填充、按填充+颜色显示。该显示策略用于 WPF 预览和 `DnPavementLayerTemplateEntity`，道路模型结构层保持颜色显示。
+- 通用设计数据：`PavementLayerTemplateProperties::showAllGeneralParameters` 控制 WPF 是否展开全部通用参数；`structureCode`、`subgradeMoistureTypes`、`pavementType`、`subgradeSoilGroups`、`designDeflection` 和 `cumulativeAxleLoads` 仅作为模板数据、Bridge 字段和 `.rpavement.xml` 属性保留，暂不参与结构层几何、预览标注、DWG 模板实体标题或道路模型结构层显示。
 - 当前层编辑交互：WPF 只展示当前选中结构层参数，预览图点击、当前层输入框和上/下按钮都可改变当前编辑层，减少多层模板参数滚动量。
 - 等厚/非等厚厚度模型：勾选“内外厚度是否一致”时使用单一厚度，未勾选时使用内侧厚度和外侧厚度。
 - 加宽和坡度编辑模型：WPF 默认勾选“内外加宽是否一致”和“内外坡度是否一致”，需要差异化时再分别填写内侧和外侧。
@@ -39,7 +40,7 @@
 ## 不可复用或临时内容
 
 - WPF 与 C++ 之间的请求/响应文件 Bridge 属于原型接入方式。
-- `.rpavement.xml` 当前保存几何参数、每层 RGB 显示色、填充类型、填充角度和填充比例，不保存正式材料库、造价、压实度或规范编号。
+- `.rpavement.xml` 当前保存几何参数、每层 RGB 显示色、填充类型、填充角度、填充比例，以及结构代号、路基干湿类型、路面类型、路基土组、设计弯沉和累计轴次等通用设计数据；这些通用设计数据先作为数据保留，不保存正式材料库、造价、压实度或规范编号。
 - 路基模板部件当前保存模板 handle 和名称；模板变更后不会自动通知已生成道路模型。
 - 当前道路模型结构层弱化填充面属于 `DnRoadModelEntity` 的显示表达，不是可单独选择、编辑、赋材质或算量的实体体积。
 

@@ -23,6 +23,33 @@ enum class PavementLayerTemplateDisplayMode {
     HatchAndColor
 };
 
+enum class PavementSubgradeMoistureType {
+    Dry,
+    Medium,
+    Wet,
+    OverWet
+};
+
+enum class PavementSurfaceType {
+    Asphalt,
+    Concrete
+};
+
+enum class PavementSubgradeSoilGroup {
+    Bedrock,
+    CrushedStoneSoil,
+    GravelSoil,
+    SandSoil,
+    SiltySoil,
+    LowLiquidLimitClay,
+    HighLiquidLimitClay,
+    OrganicSoil,
+    SoftSoil,
+    ExpansiveSoil,
+    Loess,
+    Other
+};
+
 struct PavementLayerTemplateDisplayColor {
     int r = -1;
     int g = -1;
@@ -51,6 +78,13 @@ struct PavementLayerTemplateProperties {
     double displayScale = 10.0;
     double previewWidth = 3.75;
     PavementLayerTemplateDisplayMode displayMode = PavementLayerTemplateDisplayMode::Color;
+    bool showAllGeneralParameters = false;
+    std::wstring structureCode;
+    std::vector<PavementSubgradeMoistureType> subgradeMoistureTypes;
+    PavementSurfaceType pavementType = PavementSurfaceType::Asphalt;
+    std::vector<PavementSubgradeSoilGroup> subgradeSoilGroups;
+    std::wstring designDeflection;
+    std::wstring cumulativeAxleLoads;
 };
 
 struct PavementLayerTemplateData {
@@ -111,5 +145,23 @@ const wchar_t* pavementLayerTypeDisplayName(PavementLayerType type);
 PavementLayerType pavementLayerTypeFromCode(
     const std::wstring& code,
     PavementLayerType fallback = PavementLayerType::UpperSurface);
+
+const wchar_t* pavementSubgradeMoistureTypeCode(PavementSubgradeMoistureType type);
+const wchar_t* pavementSubgradeMoistureTypeDisplayName(PavementSubgradeMoistureType type);
+PavementSubgradeMoistureType pavementSubgradeMoistureTypeFromCode(
+    const std::wstring& code,
+    PavementSubgradeMoistureType fallback = PavementSubgradeMoistureType::Dry);
+
+const wchar_t* pavementSurfaceTypeCode(PavementSurfaceType type);
+const wchar_t* pavementSurfaceTypeDisplayName(PavementSurfaceType type);
+PavementSurfaceType pavementSurfaceTypeFromCode(
+    const std::wstring& code,
+    PavementSurfaceType fallback = PavementSurfaceType::Asphalt);
+
+const wchar_t* pavementSubgradeSoilGroupCode(PavementSubgradeSoilGroup group);
+const wchar_t* pavementSubgradeSoilGroupDisplayName(PavementSubgradeSoilGroup group);
+PavementSubgradeSoilGroup pavementSubgradeSoilGroupFromCode(
+    const std::wstring& code,
+    PavementSubgradeSoilGroup fallback = PavementSubgradeSoilGroup::Other);
 
 } // namespace roadproto::domain::cross_section

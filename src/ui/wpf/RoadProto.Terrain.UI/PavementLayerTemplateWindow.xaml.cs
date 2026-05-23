@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Globalization;
 using System.Linq;
@@ -20,6 +21,9 @@ public partial class PavementLayerTemplateWindow : Window
     private readonly System.Collections.Generic.List<LayerControls> _layerControls = new();
     private readonly System.Collections.Generic.List<ComboOption<PavementLayerType>> _typeOptions;
     private readonly System.Collections.Generic.List<ComboOption<PavementLayerTemplateDisplayMode>> _displayModeOptions;
+    private readonly System.Collections.Generic.List<SelectableOption<PavementSubgradeMoistureType>> _moistureOptions;
+    private readonly System.Collections.Generic.List<ComboOption<PavementSurfaceType>> _pavementTypeOptions;
+    private readonly System.Collections.Generic.List<SelectableOption<PavementSubgradeSoilGroup>> _soilGroupOptions;
     private int _selectedLayerIndex;
     private bool _loading = true;
     private bool _applyingLayerInputs;
@@ -41,6 +45,18 @@ public partial class PavementLayerTemplateWindow : Window
             .Cast<PavementLayerTemplateDisplayMode>()
             .Select(value => new ComboOption<PavementLayerTemplateDisplayMode>(DisplayModeLabel(value), value))
             .ToList();
+        _moistureOptions = Enum.GetValues(typeof(PavementSubgradeMoistureType))
+            .Cast<PavementSubgradeMoistureType>()
+            .Select(value => new SelectableOption<PavementSubgradeMoistureType>(PavementLayerTemplateLabels.MoistureTypeLabel(value), value))
+            .ToList();
+        _pavementTypeOptions = Enum.GetValues(typeof(PavementSurfaceType))
+            .Cast<PavementSurfaceType>()
+            .Select(value => new ComboOption<PavementSurfaceType>(PavementLayerTemplateLabels.PavementTypeLabel(value), value))
+            .ToList();
+        _soilGroupOptions = Enum.GetValues(typeof(PavementSubgradeSoilGroup))
+            .Cast<PavementSubgradeSoilGroup>()
+            .Select(value => new SelectableOption<PavementSubgradeSoilGroup>(PavementLayerTemplateLabels.SoilGroupLabel(value), value))
+            .ToList();
         Response = null;
         LoadRequest();
     }
@@ -58,6 +74,7 @@ public partial class PavementLayerTemplateWindow : Window
         DisplayModeBox.ItemsSource = _displayModeOptions;
         DisplayModeBox.DisplayMemberPath = nameof(ComboOption<PavementLayerTemplateDisplayMode>.Label);
         SelectComboValue(DisplayModeBox, _request.DisplayMode);
+        LoadGeneralParameters(_request);
 
         _layers.Clear();
         var source = _request.Layers.Count > 0 ? _request.Layers : PavementLayerTemplateLabels.DefaultLayers();
@@ -90,6 +107,87 @@ public partial class PavementLayerTemplateWindow : Window
         {
             DrawPreview();
         }
+    }
+
+    private void ShowAllGeneralParametersBox_Changed(object sender, RoutedEventArgs e)
+    {
+        RefreshAdvancedGeneralParametersVisibility();
+        if (!_loading)
+        {
+            DrawPreview();
+        }
+    }
+
+    private void MultiSelectOption_Changed(object sender, RoutedEventArgs e)
+    {
+        if (sender is CheckBox { Tag: ISelectableOption option })
+        {
+            option.IsSelected = ((CheckBox)sender).IsChecked == true;
+        }
+        RefreshMultiSelectSummaries();
+    }
+
+    private void LoadGeneralParameters(PavementLayerTemplateDto template)
+    {
+        ShowAllGeneralParametersBox.IsChecked = template.ShowAllGeneralParameters;
+        StructureCodeBox.Text = template.StructureCode ?? string.Empty;
+        DesignDeflectionBox.Text = template.DesignDeflection ?? string.Empty;
+        CumulativeAxleLoadsBox.Text = template.CumulativeAxleLoads ?? string.Empty;
+
+        PavementTypeBox.ItemsSource = _pavementTypeOptions;
+        PavementTypeBox.DisplayMemberPath = nameof(ComboOption<PavementSurfaceType>.Label);
+        SelectComboValue(PavementTypeBox, template.PavementType);
+
+        BindMultiSelectBox(SubgradeMoistureTypesBox, _moistureOptions, template.SubgradeMoistureTypes);
+        BindMultiSelectBox(SubgradeSoilGroupsBox, _soilGroupOptions, template.SubgradeSoilGroups);
+        RefreshAdvancedGeneralParametersVisibility();
+    }
+
+    private void RefreshAdvancedGeneralParametersVisibility()
+    {
+        AdvancedGeneralParametersPanel.Visibility = ShowAllGeneralParametersBox.IsChecked == true
+            ? Visibility.Visible
+            : Visibility.Collapsed;
+    }
+
+    private void BindMultiSelectBox<T>(
+        ComboBox comboBox,
+        System.Collections.Generic.List<SelectableOption<T>> options,
+        System.Collections.Generic.IEnumerable<T>? selectedValues)
+    {
+        var selected = new HashSet<T>(selectedValues ?? Enumerable.Empty<T>());
+        comboBox.Items.Clear();
+        foreach (var option in options)
+        {
+            option.IsSelected = selected.Contains(option.Value);
+            var checkBox = new CheckBox
+            {
+                Content = option.Label,
+                IsChecked = option.IsSelected,
+                Tag = option,
+                MinWidth = 240,
+                Padding = new Thickness(4, 2, 4, 2),
+            };
+            checkBox.Checked += MultiSelectOption_Changed;
+            checkBox.Unchecked += MultiSelectOption_Changed;
+            comboBox.Items.Add(checkBox);
+        }
+        comboBox.SelectedIndex = -1;
+        RefreshMultiSelectSummary(comboBox, options);
+    }
+
+    private void RefreshMultiSelectSummaries()
+    {
+        RefreshMultiSelectSummary(SubgradeMoistureTypesBox, _moistureOptions);
+        RefreshMultiSelectSummary(SubgradeSoilGroupsBox, _soilGroupOptions);
+    }
+
+    private static void RefreshMultiSelectSummary<T>(
+        ComboBox comboBox,
+        System.Collections.Generic.IEnumerable<SelectableOption<T>> options)
+    {
+        var labels = options.Where(option => option.IsSelected).Select(option => option.Label).ToList();
+        comboBox.Text = labels.Count == 0 ? string.Empty : string.Join("、", labels);
     }
 
     private void LayerCountBox_TextChanged(object sender, TextChangedEventArgs e)
@@ -1147,6 +1245,7 @@ public partial class PavementLayerTemplateWindow : Window
         DisplayScaleBox.Text = Format(template.DisplayScale);
         PreviewWidthBox.Text = Format(template.PreviewWidth);
         SelectComboValue(DisplayModeBox, template.DisplayMode);
+        LoadGeneralParameters(template);
         _layers.Clear();
         foreach (var layer in template.Layers)
         {
@@ -1206,6 +1305,13 @@ public partial class PavementLayerTemplateWindow : Window
             DisplayScale = template.DisplayScale,
             PreviewWidth = template.PreviewWidth,
             DisplayMode = template.DisplayMode,
+            ShowAllGeneralParameters = template.ShowAllGeneralParameters,
+            StructureCode = template.StructureCode,
+            SubgradeMoistureTypes = template.SubgradeMoistureTypes,
+            PavementType = template.PavementType,
+            SubgradeSoilGroups = template.SubgradeSoilGroups,
+            DesignDeflection = template.DesignDeflection,
+            CumulativeAxleLoads = template.CumulativeAxleLoads,
             Layers = template.Layers,
         };
     }
@@ -1219,6 +1325,13 @@ public partial class PavementLayerTemplateWindow : Window
             DisplayScale = Math.Max(0.1, ReadDouble(DisplayScaleBox.Text, 10.0)),
             PreviewWidth = Math.Max(0.1, ReadDouble(PreviewWidthBox.Text, 3.75)),
             DisplayMode = CurrentDisplayMode(),
+            ShowAllGeneralParameters = ShowAllGeneralParametersBox.IsChecked == true,
+            StructureCode = StructureCodeBox.Text.Trim(),
+            SubgradeMoistureTypes = SelectedMultiValues(_moistureOptions),
+            PavementType = SelectedValue(PavementTypeBox, PavementSurfaceType.Asphalt),
+            SubgradeSoilGroups = SelectedMultiValues(_soilGroupOptions),
+            DesignDeflection = DesignDeflectionBox.Text.Trim(),
+            CumulativeAxleLoads = CumulativeAxleLoadsBox.Text.Trim(),
             Layers = _layers.Select(layer => layer.Clone()).ToList(),
         };
     }
@@ -1353,6 +1466,10 @@ public partial class PavementLayerTemplateWindow : Window
     private static T SelectedValue<T>(ComboBox comboBox, T fallback)
         => comboBox.SelectedItem is ComboOption<T> option ? option.Value : fallback;
 
+    private static System.Collections.Generic.List<T> SelectedMultiValues<T>(
+        System.Collections.Generic.IEnumerable<SelectableOption<T>> options)
+        => options.Where(option => option.IsSelected).Select(option => option.Value).ToList();
+
     private static Color LayerColor(PavementLayerTemplateLayerDto layer, int index)
     {
         if (layer.ColorR < 0 || layer.ColorG < 0 || layer.ColorB < 0)
@@ -1396,6 +1513,24 @@ public partial class PavementLayerTemplateWindow : Window
 
         public string Label { get; }
         public T Value { get; }
+    }
+
+    private interface ISelectableOption
+    {
+        bool IsSelected { get; set; }
+    }
+
+    private sealed class SelectableOption<T> : ISelectableOption
+    {
+        public SelectableOption(string label, T value)
+        {
+            Label = label;
+            Value = value;
+        }
+
+        public string Label { get; }
+        public T Value { get; }
+        public bool IsSelected { get; set; }
     }
 
     private static class ColorIndexDialog

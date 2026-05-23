@@ -1,5 +1,24 @@
 # 版本记录
 
+## v0.1.23 - 2026-05-23
+
+- 版本标识：`v0.1.23_20260523_PavementLayerTemplateGeneralParams`。
+- ARX 文件：`RoadProto_v0.1.23_20260523_PavementLayerTemplateGeneralParams.arx`。
+- 阶段：路面结构层模板高级通用参数数据保留与默认折叠显示。
+- 是否可作为稳定测试版本：是。核心测试 Debug/Release、托管 bridge 测试、WPF Release 构建和 ARX Release 构建已验证。
+
+### 修改内容
+
+- 路面结构层模板通用参数新增 `showAllGeneralParameters`、`structureCode`、`subgradeMoistureTypes`、`pavementType`、`subgradeSoilGroups`、`designDeflection` 和 `cumulativeAxleLoads`；领域模型、C++ Bridge、DWG 自定义实体、WPF 请求/响应文件和 `.rpavement.xml` 均同步读写。
+- WPF 通用参数区默认只显示预览宽度、结构层数量、显示方式和当前编辑层；勾选“显示全部通用参数”后才显示结构代号、路基干湿类型、路面类型、路基土组、设计弯沉和累计轴次。
+- 路基干湿类型和路基土组使用多选下拉保存稳定枚举编码；路面类型使用单选下拉，默认沥青路面。
+- 新增通用设计字段当前仅作为模板数据保留，不参与 WPF 预览标注、`DnPavementLayerTemplateEntity` 模板标题/尺寸文字或道路模型结构层图形显示。
+
+### 验证状态
+
+- 自动化验证：核心测试 Debug/Release 构建与运行、托管 bridge 测试、WPF Release 构建和 `RoadProto.sln` Release 构建通过；Release 产物生成 `RoadProto_v0.1.23_20260523_PavementLayerTemplateGeneralParams.arx` 和 `RoadProto.Terrain.UI.dll`。
+- 图形界面验证：本轮未新增 AutoCAD 2021 图形界面手工验证；建议加载 Release ARX 和托管 DLL 后点验高级通用参数折叠显示、XML 导入导出和旧模板回写兼容。
+
 ## v0.1.22 - 2026-05-23
 
 - 版本标识：`v0.1.22_20260523_PavementLayerTemplateHatchParams`。

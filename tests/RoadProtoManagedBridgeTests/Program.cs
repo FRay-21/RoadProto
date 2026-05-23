@@ -1,5 +1,6 @@
 using RoadProto.Terrain.UI.Bridge;
 using System.Globalization;
+using System.Linq;
 using System.Text;
 using System.Threading;
 
@@ -815,6 +816,13 @@ static void PavementLayerTemplateDialogFileReadsRequestUsingInvariantCultureAndE
             "displayScale=20.5",
             "previewWidth=3.75",
             "displayMode=HatchAndColor",
+            "showAllGeneralParameters=1",
+            "structureCode=I-1",
+            "subgradeMoistureTypes=Dry;Wet",
+            "pavementType=Concrete",
+            "subgradeSoilGroups=Bedrock;SoftSoil;Other",
+            "designDeflection=23.5%0A0.01mm",
+            "cumulativeAxleLoads=1200%25万次",
             "layerCount=2",
             "layer.0.type=UpperSurface",
             "layer.0.name=上面层%0AAC-13",
@@ -862,6 +870,13 @@ static void PavementLayerTemplateDialogFileReadsRequestUsingInvariantCultureAndE
             Check(Math.Abs(request.DisplayScale - 20.5) < 1.0e-9, "pavement display scale should parse invariant decimal");
             Check(Math.Abs(request.PreviewWidth - 3.75) < 1.0e-9, "pavement preview width should parse invariant decimal");
             Check(request.DisplayMode == PavementLayerTemplateDisplayMode.HatchAndColor, "pavement display mode should parse");
+            Check(request.ShowAllGeneralParameters, "pavement request should parse show-all-general-parameters flag");
+            Check(request.StructureCode == "I-1", "pavement request should parse structure code");
+            Check(request.SubgradeMoistureTypes.SequenceEqual(new[] { PavementSubgradeMoistureType.Dry, PavementSubgradeMoistureType.Wet }), "pavement request should parse subgrade moisture multi-select values");
+            Check(request.PavementType == PavementSurfaceType.Concrete, "pavement request should parse pavement type");
+            Check(request.SubgradeSoilGroups.SequenceEqual(new[] { PavementSubgradeSoilGroup.Bedrock, PavementSubgradeSoilGroup.SoftSoil, PavementSubgradeSoilGroup.Other }), "pavement request should parse subgrade soil group multi-select values");
+            Check(request.DesignDeflection == "23.5\n0.01mm", "pavement request should unescape design deflection");
+            Check(request.CumulativeAxleLoads == "1200%万次", "pavement request should unescape cumulative axle loads");
             Check(request.Layers.Count == 2, "pavement layerCount should control layers");
             Check(request.Layers[0].Type == PavementLayerType.UpperSurface, "pavement layer type should parse");
             Check(request.Layers[0].Name == "上面层\nAC-13", "pavement layer name should unescape newline");
@@ -909,7 +924,17 @@ static void PavementLayerTemplateDialogFileWritesAcceptedResponseUsingInvariantC
                 DisplayScale = 20.5,
                 PreviewWidth = 3.75,
                 DisplayMode = PavementLayerTemplateDisplayMode.HatchAndColor,
+                ShowAllGeneralParameters = true,
+                StructureCode = "I-1",
+                PavementType = PavementSurfaceType.Concrete,
+                DesignDeflection = "23.5\n0.01mm",
+                CumulativeAxleLoads = "1200%万次",
             };
+            response.SubgradeMoistureTypes.Add(PavementSubgradeMoistureType.Dry);
+            response.SubgradeMoistureTypes.Add(PavementSubgradeMoistureType.Wet);
+            response.SubgradeSoilGroups.Add(PavementSubgradeSoilGroup.Bedrock);
+            response.SubgradeSoilGroups.Add(PavementSubgradeSoilGroup.SoftSoil);
+            response.SubgradeSoilGroups.Add(PavementSubgradeSoilGroup.Other);
             response.Layers.Add(MakePavementLayer(PavementLayerType.UpperSurface, "上面层\nAC-13", true, 0.04, 0.04, 0.04));
             response.Layers.Add(MakePavementLayer(PavementLayerType.Base, "基层%水稳", false, 0.18, 0.16, 0.2));
 
@@ -926,6 +951,13 @@ static void PavementLayerTemplateDialogFileWritesAcceptedResponseUsingInvariantC
         Check(content.Contains("displayScale=20.5"), "pavement response should write display scale using invariant decimal");
         Check(content.Contains("previewWidth=3.75"), "pavement response should write preview width using invariant decimal");
         Check(content.Contains("displayMode=HatchAndColor"), "pavement response should write display mode");
+        Check(content.Contains("showAllGeneralParameters=1"), "pavement response should write show-all-general-parameters flag");
+        Check(content.Contains("structureCode=I-1"), "pavement response should write structure code");
+        Check(content.Contains("subgradeMoistureTypes=Dry;Wet"), "pavement response should write moisture type codes");
+        Check(content.Contains("pavementType=Concrete"), "pavement response should write pavement type code");
+        Check(content.Contains("subgradeSoilGroups=Bedrock;SoftSoil;Other"), "pavement response should write soil group codes");
+        Check(content.Contains("designDeflection=23.5%0A0.01mm"), "pavement response should escape design deflection");
+        Check(content.Contains("cumulativeAxleLoads=1200%25万次"), "pavement response should escape cumulative axle loads");
         Check(content.Contains("layerCount=2"), "pavement response should write layer count");
         Check(content.Contains("layer.0.type=UpperSurface"), "pavement response should write first layer type");
         Check(content.Contains("layer.0.name=上面层%0AAC-13"), "pavement response should escape newline in layer name");
@@ -974,7 +1006,16 @@ static void PavementLayerTemplateXmlFileRoundTripsPavementTemplate()
             DisplayScale = 25,
             PreviewWidth = 4.25,
             DisplayMode = PavementLayerTemplateDisplayMode.HatchAndColor,
+            ShowAllGeneralParameters = true,
+            StructureCode = "I-1",
+            PavementType = PavementSurfaceType.Concrete,
+            DesignDeflection = "23.5",
+            CumulativeAxleLoads = "1200万次",
         };
+        template.SubgradeMoistureTypes.Add(PavementSubgradeMoistureType.Dry);
+        template.SubgradeMoistureTypes.Add(PavementSubgradeMoistureType.Wet);
+        template.SubgradeSoilGroups.Add(PavementSubgradeSoilGroup.Bedrock);
+        template.SubgradeSoilGroups.Add(PavementSubgradeSoilGroup.SoftSoil);
         template.Layers.Add(MakePavementLayer(PavementLayerType.UpperSurface, "上面层", true, 0.04, 0.04, 0.04));
         template.Layers.Add(MakePavementLayer(PavementLayerType.Base, "基层", false, 0.18, 0.16, 0.2));
         template.Layers[1].InnerWidening = -0.15;
@@ -987,6 +1028,13 @@ static void PavementLayerTemplateXmlFileRoundTripsPavementTemplate()
         Check(content.Contains("uniformThickness=\"false\""), "pavement XML should write false uniform thickness");
         Check(content.Contains("colorR=\"228\"") && content.Contains("colorG=\"187\"") && content.Contains("colorB=\"236\""), "pavement XML should write layer RGB attributes");
         Check(content.Contains("displayMode=\"HatchAndColor\""), "pavement XML should write display mode");
+        Check(content.Contains("showAllGeneralParameters=\"true\""), "pavement XML should write show-all-general-parameters flag");
+        Check(content.Contains("structureCode=\"I-1\""), "pavement XML should write structure code");
+        Check(content.Contains("subgradeMoistureTypes=\"Dry;Wet\""), "pavement XML should write subgrade moisture type list");
+        Check(content.Contains("pavementType=\"Concrete\""), "pavement XML should write pavement type");
+        Check(content.Contains("subgradeSoilGroups=\"Bedrock;SoftSoil\""), "pavement XML should write subgrade soil group list");
+        Check(content.Contains("designDeflection=\"23.5\""), "pavement XML should write design deflection");
+        Check(content.Contains("cumulativeAxleLoads=\"1200万次\""), "pavement XML should write cumulative axle loads");
         Check(content.Contains("hatchPattern=\"ANSI31\""), "pavement XML should write first layer hatch pattern");
         Check(content.Contains("hatchAngle=\"30\""), "pavement XML should write first layer hatch angle");
         Check(content.Contains("hatchScale=\"1.25\""), "pavement XML should write first layer hatch scale");
@@ -996,6 +1044,13 @@ static void PavementLayerTemplateXmlFileRoundTripsPavementTemplate()
         Check(Math.Abs(roundTrip.DisplayScale - 25) < 1.0e-9, "pavement XML should round-trip display scale");
         Check(Math.Abs(roundTrip.PreviewWidth - 4.25) < 1.0e-9, "pavement XML should round-trip preview width");
         Check(roundTrip.DisplayMode == PavementLayerTemplateDisplayMode.HatchAndColor, "pavement XML should round-trip display mode");
+        Check(roundTrip.ShowAllGeneralParameters, "pavement XML should round-trip show-all-general-parameters flag");
+        Check(roundTrip.StructureCode == "I-1", "pavement XML should round-trip structure code");
+        Check(roundTrip.SubgradeMoistureTypes.SequenceEqual(new[] { PavementSubgradeMoistureType.Dry, PavementSubgradeMoistureType.Wet }), "pavement XML should round-trip moisture types");
+        Check(roundTrip.PavementType == PavementSurfaceType.Concrete, "pavement XML should round-trip pavement type");
+        Check(roundTrip.SubgradeSoilGroups.SequenceEqual(new[] { PavementSubgradeSoilGroup.Bedrock, PavementSubgradeSoilGroup.SoftSoil }), "pavement XML should round-trip soil groups");
+        Check(roundTrip.DesignDeflection == "23.5", "pavement XML should round-trip design deflection");
+        Check(roundTrip.CumulativeAxleLoads == "1200万次", "pavement XML should round-trip cumulative axle loads");
         Check(roundTrip.Layers.Count == 2, "pavement XML should round-trip layer count");
         Check(roundTrip.Layers[0].Type == PavementLayerType.UpperSurface, "pavement XML should round-trip layer type");
         Check(roundTrip.Layers[0].UniformThickness, "pavement XML should round-trip uniform thickness true");
@@ -1173,6 +1228,17 @@ static void PavementLayerTemplateWindowContainsRequiredEditorContracts()
     Check(combined.Contains("CurrentLayerBox"), "pavement editor should expose current layer input");
     Check(combined.Contains("PreviousLayerButton"), "pavement editor should expose previous layer icon button");
     Check(combined.Contains("NextLayerButton"), "pavement editor should expose next layer icon button");
+    Check(combined.Contains("ShowAllGeneralParametersBox"), "pavement editor should expose show-all-general-parameters checkbox");
+    Check(combined.Contains("AdvancedGeneralParametersPanel"), "pavement editor should keep advanced general parameters in a collapsible panel");
+    Check(combined.Contains("StructureCodeBox"), "pavement editor should expose structure code input");
+    Check(combined.Contains("SubgradeMoistureTypesBox"), "pavement editor should expose subgrade moisture multi-select dropdown");
+    Check(combined.Contains("PavementTypeBox"), "pavement editor should expose pavement type dropdown");
+    Check(combined.Contains("SubgradeSoilGroupsBox"), "pavement editor should expose subgrade soil group multi-select dropdown");
+    Check(combined.Contains("DesignDeflectionBox"), "pavement editor should expose design deflection input");
+    Check(combined.Contains("CumulativeAxleLoadsBox"), "pavement editor should expose cumulative axle loads input");
+    Check(combined.Contains("干燥") && combined.Contains("中湿") && combined.Contains("潮湿") && combined.Contains("过湿"), "pavement editor should expose all moisture labels");
+    Check(combined.Contains("沥青路面") && combined.Contains("混凝土路面"), "pavement editor should expose pavement type labels");
+    Check(combined.Contains("基岩") && combined.Contains("碎石土") && combined.Contains("低液限黏土") && combined.Contains("其他"), "pavement editor should expose soil group labels");
     Check(combined.Contains("DisplayModeBox"), "pavement editor should expose display mode dropdown");
     Check(combined.Contains("HatchPatternBox"), "pavement editor should expose hatch pattern dropdown");
     Check(combined.Contains("HatchAngleBox"), "pavement editor should expose hatch angle input");

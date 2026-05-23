@@ -5,7 +5,7 @@
 - 模块名称：横断面设计
 - 模块编码：`CROSS_SECTION`
 - 命令前缀：`RD_SECTION_`
-- 当前状态：已实现路基模板独立实体创建、边坡模板独立实体创建、路面结构层模板独立实体创建、每层 RGB 颜色、每层填充类型/角度/比例、当前层编辑、索引颜色选择、WPF 参数窗口、`.rpavement.xml` 导入导出、二维预览、双击编辑入口、桥接回写、路基部件点选绑定结构层模板和插入点夹点移动；已实现横断面戴帽道路模型创建、编辑、WPF 路基模板范围表、左右边坡模板组、模板组管理入口、生成进度反馈、`DnRoadModelEntity` 三维道路模型网格线框实体、路面结构层弱化填充面和层色边线、断面地面快照、按采样桩号查看横断面预览和 ObjectARX 回写流程。
+- 当前状态：已实现路基模板独立实体创建、边坡模板独立实体创建、路面结构层模板独立实体创建、每层 RGB 颜色、每层填充类型/角度/比例、当前层编辑、索引颜色选择、可折叠显示的路面结构层模板高级通用参数、WPF 参数窗口、`.rpavement.xml` 导入导出、二维预览、双击编辑入口、桥接回写、路基部件点选绑定结构层模板和插入点夹点移动；已实现横断面戴帽道路模型创建、编辑、WPF 路基模板范围表、左右边坡模板组、模板组管理入口、生成进度反馈、`DnRoadModelEntity` 三维道路模型网格线框实体、路面结构层弱化填充面和层色边线、断面地面快照、按采样桩号查看横断面预览和 ObjectARX 回写流程。
 
 ## 命令清单
 
@@ -38,7 +38,7 @@
 | --- | --- | --- |
 | domain | `src/domain/cross_section/SubgradeTemplateModel.*` | 路基模板枚举、数据模型、默认值、颜色、显示比例和基础规则 |
 | domain | `src/domain/cross_section/SlopeTemplateModel.*` | 边坡模板枚举、默认值、坡率/坡高/宽度约束、控制条件和重复最后一组规则 |
-| domain | `src/domain/cross_section/PavementLayerTemplateModel.*` | 路面结构层模板枚举、默认值、每层 RGB、每层填充类型/角度/比例、显示方式、等厚/非等厚、内外侧加宽/坡度规则和横断面预览几何构建 |
+| domain | `src/domain/cross_section/PavementLayerTemplateModel.*` | 路面结构层模板枚举、默认值、每层 RGB、每层填充类型/角度/比例、显示方式、结构代号、路基干湿类型、路面类型、路基土组、设计弯沉、累计轴次、等厚/非等厚、内外侧加宽/坡度规则和横断面预览几何构建 |
 | domain | `src/domain/cross_section/RoadModel.*` | 道路模型配置、模板范围、路面结构层模板来源、边坡模板组、采样、TIN 地面剖切、断面节点链、结构层边界线、三维网格线框和横断面预览领域模型 |
 | application | `src/application/cross_section/SubgradeTemplateCreateService.*` | 创建命令默认模板数据生成 |
 | application | `src/application/cross_section/SlopeTemplateCreateService.*` | 创建命令默认边坡模板数据生成 |
@@ -61,7 +61,7 @@
 | cad_adapter | `src/cad_adapter/objectarx/cross_section/RoadModelSectionViewerBridge.*` | 查看横断面 WPF 请求文件桥接 |
 | WPF | `src/ui/wpf/RoadProto.Terrain.UI/SubgradeTemplateWindow.xaml` | 参数窗口和二维预览 |
 | WPF | `src/ui/wpf/RoadProto.Terrain.UI/SlopeTemplateWindow.xaml` | 边坡模板参数窗口和二维线框预览 |
-| WPF | `src/ui/wpf/RoadProto.Terrain.UI/PavementLayerTemplateWindow.xaml` | 路面结构层模板参数窗口、当前层编辑、预览点击选层、索引颜色、填充显示方式、填充角度/比例、固定字号标注、二维预览和 `.rpavement.xml` 导入导出 |
+| WPF | `src/ui/wpf/RoadProto.Terrain.UI/PavementLayerTemplateWindow.xaml` | 路面结构层模板参数窗口、当前层编辑、预览点击选层、索引颜色、填充显示方式、填充角度/比例、显示全部通用参数折叠区、固定字号标注、二维预览和 `.rpavement.xml` 导入导出 |
 | WPF | `src/ui/wpf/RoadProto.Terrain.UI/StationValueTableWindow.xaml` | 变宽/变坡二级表格 |
 | WPF | `src/ui/wpf/RoadProto.Terrain.UI/RoadModelWindow.xaml` | 横断面戴帽窗口、路基模板范围表、左右边坡模板组、组内模板管理和生成入口 |
 | WPF | `src/ui/wpf/RoadProto.Terrain.UI/RoadModelSectionViewerWindow.xaml` | 查看横断面窗口、桩号列表、预览图和图例 |

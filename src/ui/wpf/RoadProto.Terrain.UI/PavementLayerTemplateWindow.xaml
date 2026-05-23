@@ -98,6 +98,55 @@
                         <TextBox x:Name="CurrentLayerBox" Height="26" TextChanged="CurrentLayerBox_TextChanged" />
                     </DockPanel>
                 </Grid>
+                <CheckBox x:Name="ShowAllGeneralParametersBox"
+                          Content="显示全部通用参数"
+                          Margin="0,0,0,8"
+                          Checked="ShowAllGeneralParametersBox_Changed"
+                          Unchecked="ShowAllGeneralParametersBox_Changed" />
+                <Grid x:Name="AdvancedGeneralParametersPanel"
+                      Margin="0,0,0,12"
+                      Visibility="Collapsed">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="116" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="34" />
+                        <RowDefinition Height="34" />
+                        <RowDefinition Height="34" />
+                        <RowDefinition Height="34" />
+                        <RowDefinition Height="34" />
+                        <RowDefinition Height="34" />
+                    </Grid.RowDefinitions>
+                    <TextBlock Text="结构代号" VerticalAlignment="Center" />
+                    <TextBox x:Name="StructureCodeBox" Grid.Column="1" Height="26" TextChanged="GlobalInput_Changed" />
+                    <TextBlock Grid.Row="1" Text="路基干湿类型" VerticalAlignment="Center" />
+                    <ComboBox x:Name="SubgradeMoistureTypesBox"
+                              Grid.Row="1"
+                              Grid.Column="1"
+                              Height="26"
+                              IsEditable="True"
+                              IsReadOnly="True"
+                              IsTextSearchEnabled="False" />
+                    <TextBlock Grid.Row="2" Text="路面类型" VerticalAlignment="Center" />
+                    <ComboBox x:Name="PavementTypeBox"
+                              Grid.Row="2"
+                              Grid.Column="1"
+                              Height="26"
+                              SelectionChanged="GlobalInput_Changed" />
+                    <TextBlock Grid.Row="3" Text="路基土组" VerticalAlignment="Center" />
+                    <ComboBox x:Name="SubgradeSoilGroupsBox"
+                              Grid.Row="3"
+                              Grid.Column="1"
+                              Height="26"
+                              IsEditable="True"
+                              IsReadOnly="True"
+                              IsTextSearchEnabled="False" />
+                    <TextBlock Grid.Row="4" Text="设计弯沉" VerticalAlignment="Center" />
+                    <TextBox x:Name="DesignDeflectionBox" Grid.Row="4" Grid.Column="1" Height="26" TextChanged="GlobalInput_Changed" />
+                    <TextBlock Grid.Row="5" Text="累计轴次" VerticalAlignment="Center" />
+                    <TextBox x:Name="CumulativeAxleLoadsBox" Grid.Row="5" Grid.Column="1" Height="26" TextChanged="GlobalInput_Changed" />
+                </Grid>
                 <StackPanel x:Name="LayersPanel" />
             </StackPanel>
         </ScrollViewer>

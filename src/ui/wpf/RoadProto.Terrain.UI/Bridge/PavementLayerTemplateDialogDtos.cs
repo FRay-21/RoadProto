@@ -20,6 +20,36 @@ public enum PavementLayerTemplateDisplayMode
     HatchAndColor,
 }
 
+public enum PavementSubgradeMoistureType
+{
+    Dry,
+    Medium,
+    Wet,
+    OverWet,
+}
+
+public enum PavementSurfaceType
+{
+    Asphalt,
+    Concrete,
+}
+
+public enum PavementSubgradeSoilGroup
+{
+    Bedrock,
+    CrushedStoneSoil,
+    GravelSoil,
+    SandSoil,
+    SiltySoil,
+    LowLiquidLimitClay,
+    HighLiquidLimitClay,
+    OrganicSoil,
+    SoftSoil,
+    ExpansiveSoil,
+    Loess,
+    Other,
+}
+
 public sealed class PavementLayerTemplateLayerDto
 {
     public PavementLayerType Type { get; set; } = PavementLayerType.UpperSurface;
@@ -69,6 +99,13 @@ public class PavementLayerTemplateDto
     public double DisplayScale { get; set; } = 10.0;
     public double PreviewWidth { get; set; } = 3.75;
     public PavementLayerTemplateDisplayMode DisplayMode { get; set; } = PavementLayerTemplateDisplayMode.Color;
+    public bool ShowAllGeneralParameters { get; set; }
+    public string StructureCode { get; set; } = string.Empty;
+    public List<PavementSubgradeMoistureType> SubgradeMoistureTypes { get; set; } = new();
+    public PavementSurfaceType PavementType { get; set; } = PavementSurfaceType.Asphalt;
+    public List<PavementSubgradeSoilGroup> SubgradeSoilGroups { get; set; } = new();
+    public string DesignDeflection { get; set; } = string.Empty;
+    public string CumulativeAxleLoads { get; set; } = string.Empty;
     public List<PavementLayerTemplateLayerDto> Layers { get; set; } = new();
 }
 
@@ -111,7 +148,48 @@ public static class PavementLayerTemplateLabels
             DisplayScale = source.DisplayScale,
             PreviewWidth = source.PreviewWidth,
             DisplayMode = source.DisplayMode,
+            ShowAllGeneralParameters = source.ShowAllGeneralParameters,
+            StructureCode = source.StructureCode,
+            SubgradeMoistureTypes = source.SubgradeMoistureTypes.ToList(),
+            PavementType = source.PavementType,
+            SubgradeSoilGroups = source.SubgradeSoilGroups.ToList(),
+            DesignDeflection = source.DesignDeflection,
+            CumulativeAxleLoads = source.CumulativeAxleLoads,
             Layers = source.Layers.ConvertAll(layer => layer.Clone()),
+        };
+
+    public static string MoistureTypeLabel(PavementSubgradeMoistureType type)
+        => type switch
+        {
+            PavementSubgradeMoistureType.Dry => "干燥",
+            PavementSubgradeMoistureType.Medium => "中湿",
+            PavementSubgradeMoistureType.Wet => "潮湿",
+            PavementSubgradeMoistureType.OverWet => "过湿",
+            _ => type.ToString(),
+        };
+
+    public static string PavementTypeLabel(PavementSurfaceType type)
+        => type switch
+        {
+            PavementSurfaceType.Concrete => "混凝土路面",
+            _ => "沥青路面",
+        };
+
+    public static string SoilGroupLabel(PavementSubgradeSoilGroup group)
+        => group switch
+        {
+            PavementSubgradeSoilGroup.Bedrock => "基岩",
+            PavementSubgradeSoilGroup.CrushedStoneSoil => "碎石土",
+            PavementSubgradeSoilGroup.GravelSoil => "砾类土",
+            PavementSubgradeSoilGroup.SandSoil => "砂类土",
+            PavementSubgradeSoilGroup.SiltySoil => "粉质土",
+            PavementSubgradeSoilGroup.LowLiquidLimitClay => "低液限黏土",
+            PavementSubgradeSoilGroup.HighLiquidLimitClay => "高液限黏土",
+            PavementSubgradeSoilGroup.OrganicSoil => "有机质土",
+            PavementSubgradeSoilGroup.SoftSoil => "软土",
+            PavementSubgradeSoilGroup.ExpansiveSoil => "膨胀土",
+            PavementSubgradeSoilGroup.Loess => "黄土",
+            _ => "其他",
         };
 
     public static List<PavementLayerTemplateLayerDto> DefaultLayers()

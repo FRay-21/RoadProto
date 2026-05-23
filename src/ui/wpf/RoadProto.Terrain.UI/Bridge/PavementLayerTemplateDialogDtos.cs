@@ -36,6 +36,8 @@ public sealed class PavementLayerTemplateLayerDto
     public int ColorG { get; set; } = -1;
     public int ColorB { get; set; } = -1;
     public string HatchPattern { get; set; } = "SOLID";
+    public double HatchAngle { get; set; }
+    public double HatchScale { get; set; } = 1.0;
 
     public string DisplayName => $"{PavementLayerTemplateLabels.LayerTypeLabel(Type)}  {Name}";
 
@@ -56,6 +58,8 @@ public sealed class PavementLayerTemplateLayerDto
             ColorG = ColorG,
             ColorB = ColorB,
             HatchPattern = PavementLayerTemplateLabels.NormalizeHatchPattern(HatchPattern),
+            HatchAngle = PavementLayerTemplateLabels.NormalizeHatchAngle(HatchAngle),
+            HatchScale = PavementLayerTemplateLabels.NormalizeHatchScale(HatchScale),
         };
 }
 
@@ -142,6 +146,8 @@ public static class PavementLayerTemplateLabels
             ColorG = color.G,
             ColorB = color.B,
             HatchPattern = "SOLID",
+            HatchAngle = 0.0,
+            HatchScale = 1.0,
         };
     }
 
@@ -156,16 +162,66 @@ public static class PavementLayerTemplateLabels
         "ANSI36",
         "ANSI37",
         "ANSI38",
+        "AR-B816",
+        "AR-B816C",
+        "AR-B88",
+        "AR-BRELM",
+        "AR-BRSTD",
+        "AR-CONC",
+        "AR-HBONE",
+        "AR-PARQ1",
+        "AR-RROOF",
+        "AR-RSHKE",
+        "AR-SAND",
+        "BOX",
+        "BRASS",
+        "BRICK",
+        "BRSTONE",
+        "CLAY",
+        "CORK",
         "CROSS",
+        "DASH",
+        "DOLMIT",
         "DOTS",
-        "GRAVEL",
         "EARTH",
+        "ESCHER",
+        "FLEX",
+        "GOST_GLASS",
+        "GOST_GROUND",
+        "GOST_WOOD",
+        "GRASS",
+        "GRATE",
+        "GRAVEL",
+        "HEX",
+        "HONEY",
+        "HOUND",
+        "INSUL",
+        "LINE",
+        "MUDST",
+        "NET",
+        "NET3",
+        "PLAST",
+        "PLASTI",
+        "SACNCR",
+        "SQUARE",
+        "STARS",
+        "STEEL",
+        "SWAMP",
+        "TRANS",
+        "TRIANG",
+        "ZIGZAG",
     };
 
     public static string NormalizeHatchPattern(string? hatchPattern)
         => HatchPatternOptions.Contains(hatchPattern ?? string.Empty)
             ? hatchPattern!
             : "SOLID";
+
+    public static double NormalizeHatchAngle(double hatchAngle)
+        => double.IsNaN(hatchAngle) || double.IsInfinity(hatchAngle) ? 0.0 : hatchAngle;
+
+    public static double NormalizeHatchScale(double hatchScale)
+        => double.IsNaN(hatchScale) || double.IsInfinity(hatchScale) || hatchScale <= 0.0 ? 1.0 : hatchScale;
 
     public static (int R, int G, int B) DefaultColorForLayerIndex(int index)
         => (((index % 6) + 6) % 6) switch

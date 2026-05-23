@@ -66,6 +66,8 @@ public partial class PavementLayerTemplateWindow : Window
             var copy = layer.Clone();
             EnsureLayerColor(copy, _layers.Count);
             copy.HatchPattern = PavementLayerTemplateLabels.NormalizeHatchPattern(copy.HatchPattern);
+            copy.HatchAngle = PavementLayerTemplateLabels.NormalizeHatchAngle(copy.HatchAngle);
+            copy.HatchScale = PavementLayerTemplateLabels.NormalizeHatchScale(copy.HatchScale);
             _layers.Add(copy);
         }
         _selectedLayerIndex = 0;
@@ -116,6 +118,8 @@ public partial class PavementLayerTemplateWindow : Window
                 ColorG = color.G,
                 ColorB = color.B,
                 HatchPattern = "SOLID",
+                HatchAngle = 0.0,
+                HatchScale = 1.0,
             });
         }
         while (_layers.Count > count)
@@ -265,6 +269,16 @@ public partial class PavementLayerTemplateWindow : Window
             IsEditable = false,
             SelectedItem = PavementLayerTemplateLabels.NormalizeHatchPattern(layer.HatchPattern),
         };
+        var hatchAngleBox = new TextBox
+        {
+            Height = 26,
+            Text = Format(PavementLayerTemplateLabels.NormalizeHatchAngle(layer.HatchAngle)),
+        };
+        var hatchScaleBox = new TextBox
+        {
+            Height = 26,
+            Text = Format(PavementLayerTemplateLabels.NormalizeHatchScale(layer.HatchScale)),
+        };
         var uniformBox = new CheckBox { Content = "内外厚度是否一致", IsChecked = layer.UniformThickness, Margin = new Thickness(0, 4, 0, 4) };
         var thicknessBox = new TextBox { Height = 26, Text = Format(layer.Thickness) };
         var innerThicknessBox = new TextBox { Height = 26, Text = Format(layer.InnerThickness) };
@@ -282,6 +296,8 @@ public partial class PavementLayerTemplateWindow : Window
         panel.Children.Add(FieldRow("名称", nameBox));
         panel.Children.Add(ColorRow("颜色 RGB", colorRBox, colorGBox, colorBBox, colorPreview));
         panel.Children.Add(FieldRow("填充类型", hatchPatternBox));
+        panel.Children.Add(FieldRow("填充角度", hatchAngleBox));
+        panel.Children.Add(FieldRow("填充比例", hatchScaleBox));
         panel.Children.Add(uniformBox);
         var thicknessRow = FieldRow("厚度", thicknessBox);
         var innerThicknessRow = FieldRow("内侧厚度", innerThicknessBox);
@@ -310,6 +326,8 @@ public partial class PavementLayerTemplateWindow : Window
         colorGBox.TextChanged += LayerInput_Changed;
         colorBBox.TextChanged += LayerInput_Changed;
         hatchPatternBox.SelectionChanged += LayerInput_Changed;
+        hatchAngleBox.TextChanged += LayerInput_Changed;
+        hatchScaleBox.TextChanged += LayerInput_Changed;
         uniformBox.Checked += LayerInput_Changed;
         uniformBox.Unchecked += LayerInput_Changed;
         thicknessBox.TextChanged += LayerInput_Changed;
@@ -335,6 +353,8 @@ public partial class PavementLayerTemplateWindow : Window
             colorBBox,
             colorPreview,
             hatchPatternBox,
+            hatchAngleBox,
+            hatchScaleBox,
             uniformBox,
             thicknessBox,
             innerThicknessBox,
@@ -446,6 +466,12 @@ public partial class PavementLayerTemplateWindow : Window
                 layer.HatchPattern = controls.HatchPatternBox.SelectedItem is string hatchPattern
                     ? PavementLayerTemplateLabels.NormalizeHatchPattern(hatchPattern)
                     : "SOLID";
+                layer.HatchAngle = PavementLayerTemplateLabels.NormalizeHatchAngle(
+                    ReadDouble(controls.HatchAngleBox.Text, layer.HatchAngle));
+                layer.HatchScale = PavementLayerTemplateLabels.NormalizeHatchScale(
+                    ReadDouble(controls.HatchScaleBox.Text, layer.HatchScale));
+                SetTextBoxValue(controls.HatchAngleBox, layer.HatchAngle);
+                SetTextBoxValue(controls.HatchScaleBox, layer.HatchScale);
                 layer.UniformThickness = controls.UniformBox.IsChecked == true;
                 layer.Thickness = Math.Max(0.001, ReadDouble(controls.ThicknessBox.Text, layer.Thickness));
                 layer.InnerThickness = Math.Max(0.001, ReadDouble(controls.InnerThicknessBox.Text, layer.InnerThickness));
@@ -686,7 +712,10 @@ public partial class PavementLayerTemplateWindow : Window
             ? LayerColor(geometry.Layer, index)
             : Color.FromRgb(205, 213, 222);
         var stroke = new SolidColorBrush(Color.FromArgb(170, color.R, color.G, color.B));
-        var spacing = pattern == "DOTS" ? 12.0 : 10.0;
+        var hatchScale = PavementLayerTemplateLabels.NormalizeHatchScale(geometry.Layer.HatchScale);
+        var spacing = Math.Max(3.0, (pattern == "DOTS" ? 12.0 : 10.0) * hatchScale);
+        var angleRadians = PavementLayerTemplateLabels.NormalizeHatchAngle(geometry.Layer.HatchAngle) * Math.PI / 180.0;
+        var primaryDirection = new Vector(Math.Cos(angleRadians), -Math.Sin(angleRadians));
         var hatchCanvas = new Canvas
         {
             Width = PreviewCanvas.ActualWidth,
@@ -718,21 +747,17 @@ public partial class PavementLayerTemplateWindow : Window
             return;
         }
 
-        for (var d = minX - (maxY - minY); d <= maxX; d += spacing)
-        {
-            var start = new Point(d, maxY);
-            var end = new Point(d + (maxY - minY), minY);
-            AddHatchLine(hatchCanvas, start, end, stroke);
-        }
+        AddHatchFamily(hatchCanvas, points, primaryDirection, spacing, stroke);
 
         if (pattern is "CROSS" or "ANSI32" or "ANSI37" or "ANSI38")
         {
-            for (var d = minX; d <= maxX + (maxY - minY); d += spacing)
-            {
-                var start = new Point(d, minY);
-                var end = new Point(d - (maxY - minY), maxY);
-                AddHatchLine(hatchCanvas, start, end, stroke);
-            }
+            AddHatchFamily(hatchCanvas, points, new Vector(-primaryDirection.Y, primaryDirection.X), spacing, stroke);
+        }
+
+        if (pattern is "GRAVEL" or "EARTH" or "AR-CONC")
+        {
+            var secondaryRadians = angleRadians + Math.PI / 4.0;
+            AddHatchFamily(hatchCanvas, points, new Vector(Math.Cos(secondaryRadians), -Math.Sin(secondaryRadians)), spacing * 1.35, stroke);
         }
     }
 
@@ -766,6 +791,41 @@ public partial class PavementLayerTemplateWindow : Window
         });
     }
 
+    private static void AddHatchFamily(
+        Canvas canvas,
+        System.Collections.Generic.IReadOnlyList<Point> points,
+        Vector direction,
+        double spacing,
+        Brush stroke)
+    {
+        if (points.Count == 0 || spacing <= 0.0)
+        {
+            return;
+        }
+
+        if (direction.Length <= 1.0e-9)
+        {
+            direction = new Vector(1.0, 0.0);
+        }
+        direction.Normalize();
+        var normal = new Vector(-direction.Y, direction.X);
+        var minProjection = points.Min(point => point.X * normal.X + point.Y * normal.Y);
+        var maxProjection = points.Max(point => point.X * normal.X + point.Y * normal.Y);
+        var minX = points.Min(point => point.X);
+        var maxX = points.Max(point => point.X);
+        var minY = points.Min(point => point.Y);
+        var maxY = points.Max(point => point.Y);
+        var diagonal = Math.Sqrt(Math.Pow(maxX - minX, 2.0) + Math.Pow(maxY - minY, 2.0)) + spacing * 2.0;
+
+        for (var projection = minProjection - spacing; projection <= maxProjection + spacing; projection += spacing)
+        {
+            var center = new Point(normal.X * projection, normal.Y * projection);
+            var start = center - direction * diagonal;
+            var end = center + direction * diagonal;
+            AddHatchLine(canvas, start, end, stroke);
+        }
+    }
+
     private void DrawLayerEdgesAndLabels(
         System.Collections.Generic.IReadOnlyList<LayerPreviewGeometry> geometry,
         int index,
@@ -794,8 +854,7 @@ public partial class PavementLayerTemplateWindow : Window
         var layer = current.Layer;
         var midX = (topInner.X + topOuter.X + bottomInner.X + bottomOuter.X) / 4.0;
         var midY = (topInner.Y + topOuter.Y + bottomInner.Y + bottomOuter.Y) / 4.0;
-        var layerHeight = Math.Max(1.0, Math.Abs(((topInner.Y + topOuter.Y) - (bottomInner.Y + bottomOuter.Y)) * 0.5));
-        var labelFontSize = Math.Max(7.0, layerHeight * 0.22);
+        const double labelFontSize = 9.0;
         AddLabel(LayerLabel(layer), new Point(midX - 42, midY - labelFontSize * 0.7), Brushes.White, labelFontSize);
         if (Math.Abs(layer.InnerWidening) > 1.0e-9)
         {
@@ -1430,6 +1489,8 @@ public partial class PavementLayerTemplateWindow : Window
             TextBox colorBBox,
             Border colorPreview,
             ComboBox hatchPatternBox,
+            TextBox hatchAngleBox,
+            TextBox hatchScaleBox,
             CheckBox uniformBox,
             TextBox thicknessBox,
             TextBox innerThicknessBox,
@@ -1460,6 +1521,8 @@ public partial class PavementLayerTemplateWindow : Window
             ColorBBox = colorBBox;
             ColorPreview = colorPreview;
             HatchPatternBox = hatchPatternBox;
+            HatchAngleBox = hatchAngleBox;
+            HatchScaleBox = hatchScaleBox;
             UniformBox = uniformBox;
             ThicknessBox = thicknessBox;
             InnerThicknessBox = innerThicknessBox;
@@ -1491,6 +1554,8 @@ public partial class PavementLayerTemplateWindow : Window
         public TextBox ColorBBox { get; }
         public Border ColorPreview { get; }
         public ComboBox HatchPatternBox { get; }
+        public TextBox HatchAngleBox { get; }
+        public TextBox HatchScaleBox { get; }
         public CheckBox UniformBox { get; }
         public TextBox ThicknessBox { get; }
         public TextBox InnerThicknessBox { get; }

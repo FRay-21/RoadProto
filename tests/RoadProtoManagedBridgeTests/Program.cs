@@ -795,6 +795,8 @@ static PavementLayerTemplateLayerDto MakePavementLayer(
         ColorG = type == PavementLayerType.UpperSurface ? 187 : 180,
         ColorB = type == PavementLayerType.UpperSurface ? 236 : 230,
         HatchPattern = type == PavementLayerType.UpperSurface ? "ANSI31" : "GRAVEL",
+        HatchAngle = type == PavementLayerType.UpperSurface ? 30.0 : 90.0,
+        HatchScale = type == PavementLayerType.UpperSurface ? 1.25 : 0.5,
     };
 
 static void PavementLayerTemplateDialogFileReadsRequestUsingInvariantCultureAndEscaping()
@@ -828,6 +830,8 @@ static void PavementLayerTemplateDialogFileReadsRequestUsingInvariantCultureAndE
             "layer.0.colorG=187",
             "layer.0.colorB=236",
             "layer.0.hatchPattern=ANSI31",
+            "layer.0.hatchAngle=30",
+            "layer.0.hatchScale=1.25",
             "layer.1.type=Base",
             "layer.1.name=基层%25水稳",
             "layer.1.uniformThickness=false",
@@ -842,6 +846,8 @@ static void PavementLayerTemplateDialogFileReadsRequestUsingInvariantCultureAndE
             "layer.1.colorG=180",
             "layer.1.colorB=230",
             "layer.1.hatchPattern=GRAVEL",
+            "layer.1.hatchAngle=90",
+            "layer.1.hatchScale=0.5",
         }, Encoding.UTF8);
 
         WithCulture("fr-FR", () =>
@@ -863,6 +869,8 @@ static void PavementLayerTemplateDialogFileReadsRequestUsingInvariantCultureAndE
             Check(Math.Abs(request.Layers[0].InnerWidening - 0.1) < 1.0e-9, "pavement inner widening should parse invariant decimal");
             Check(request.Layers[0].ColorR == 228 && request.Layers[0].ColorG == 187 && request.Layers[0].ColorB == 236, "pavement first layer RGB should parse");
             Check(request.Layers[0].HatchPattern == "ANSI31", "pavement first layer hatch pattern should parse");
+            Check(Math.Abs(request.Layers[0].HatchAngle - 30.0) < 1.0e-9, "pavement first layer hatch angle should parse");
+            Check(Math.Abs(request.Layers[0].HatchScale - 1.25) < 1.0e-9, "pavement first layer hatch scale should parse");
             Check(request.Layers[1].Type == PavementLayerType.Base, "second pavement layer type should parse");
             Check(request.Layers[1].Name == "基层%水稳", "pavement layer name should unescape percent");
             Check(!request.Layers[1].UniformThickness, "pavement layer uniform thickness should parse false");
@@ -870,6 +878,8 @@ static void PavementLayerTemplateDialogFileReadsRequestUsingInvariantCultureAndE
             Check(Math.Abs(request.Layers[1].OuterThickness - 0.2) < 1.0e-9, "pavement outer thickness should parse invariant decimal");
             Check(request.Layers[1].ColorR == 20 && request.Layers[1].ColorG == 180 && request.Layers[1].ColorB == 230, "pavement second layer RGB should parse");
             Check(request.Layers[1].HatchPattern == "GRAVEL", "pavement second layer hatch pattern should parse");
+            Check(Math.Abs(request.Layers[1].HatchAngle - 90.0) < 1.0e-9, "pavement second layer hatch angle should parse");
+            Check(Math.Abs(request.Layers[1].HatchScale - 0.5) < 1.0e-9, "pavement second layer hatch scale should parse");
         });
     }
     finally
@@ -931,6 +941,8 @@ static void PavementLayerTemplateDialogFileWritesAcceptedResponseUsingInvariantC
         Check(content.Contains("layer.0.colorG=187"), "pavement response should write color G");
         Check(content.Contains("layer.0.colorB=236"), "pavement response should write color B");
         Check(content.Contains("layer.0.hatchPattern=ANSI31"), "pavement response should write first layer hatch pattern");
+        Check(content.Contains("layer.0.hatchAngle=30"), "pavement response should write first layer hatch angle");
+        Check(content.Contains("layer.0.hatchScale=1.25"), "pavement response should write first layer hatch scale");
         Check(content.Contains("layer.1.type=Base"), "pavement response should write second layer type");
         Check(content.Contains("layer.1.name=基层%25水稳"), "pavement response should escape percent in layer name");
         Check(content.Contains("layer.1.uniformThickness=0"), "pavement response should write non-uniform thickness bool");
@@ -938,6 +950,8 @@ static void PavementLayerTemplateDialogFileWritesAcceptedResponseUsingInvariantC
         Check(content.Contains("layer.1.outerThickness=0.2"), "pavement response should write non-uniform outer thickness");
         Check(content.Contains("layer.1.colorR=20"), "pavement response should write second layer color R");
         Check(content.Contains("layer.1.hatchPattern=GRAVEL"), "pavement response should write second layer hatch pattern");
+        Check(content.Contains("layer.1.hatchAngle=90"), "pavement response should write second layer hatch angle");
+        Check(content.Contains("layer.1.hatchScale=0.5"), "pavement response should write second layer hatch scale");
         Check(!content.Contains("displayScale=20,5"), "pavement response should not use current culture decimal separator");
     }
     finally
@@ -974,6 +988,8 @@ static void PavementLayerTemplateXmlFileRoundTripsPavementTemplate()
         Check(content.Contains("colorR=\"228\"") && content.Contains("colorG=\"187\"") && content.Contains("colorB=\"236\""), "pavement XML should write layer RGB attributes");
         Check(content.Contains("displayMode=\"HatchAndColor\""), "pavement XML should write display mode");
         Check(content.Contains("hatchPattern=\"ANSI31\""), "pavement XML should write first layer hatch pattern");
+        Check(content.Contains("hatchAngle=\"30\""), "pavement XML should write first layer hatch angle");
+        Check(content.Contains("hatchScale=\"1.25\""), "pavement XML should write first layer hatch scale");
 
         var roundTrip = PavementLayerTemplateXmlFile.Read(path);
         Check(roundTrip.TemplateName == "主线路面结构层", "pavement XML should round-trip template name");
@@ -986,6 +1002,8 @@ static void PavementLayerTemplateXmlFileRoundTripsPavementTemplate()
         Check(Math.Abs(roundTrip.Layers[0].Thickness - 0.04) < 1.0e-9, "pavement XML should round-trip uniform thickness value");
         Check(roundTrip.Layers[0].ColorR == 228 && roundTrip.Layers[0].ColorG == 187 && roundTrip.Layers[0].ColorB == 236, "pavement XML should round-trip first layer RGB");
         Check(roundTrip.Layers[0].HatchPattern == "ANSI31", "pavement XML should round-trip first layer hatch pattern");
+        Check(Math.Abs(roundTrip.Layers[0].HatchAngle - 30.0) < 1.0e-9, "pavement XML should round-trip first layer hatch angle");
+        Check(Math.Abs(roundTrip.Layers[0].HatchScale - 1.25) < 1.0e-9, "pavement XML should round-trip first layer hatch scale");
         Check(roundTrip.Layers[1].Type == PavementLayerType.Base, "pavement XML should round-trip second layer type");
         Check(!roundTrip.Layers[1].UniformThickness, "pavement XML should round-trip uniform thickness false");
         Check(Math.Abs(roundTrip.Layers[1].InnerThickness - 0.16) < 1.0e-9, "pavement XML should round-trip inner thickness");
@@ -994,6 +1012,8 @@ static void PavementLayerTemplateXmlFileRoundTripsPavementTemplate()
         Check(Math.Abs(roundTrip.Layers[1].OuterSlope - 0.03) < 1.0e-9, "pavement XML should round-trip outer slope");
         Check(roundTrip.Layers[1].ColorR == 20 && roundTrip.Layers[1].ColorG == 180 && roundTrip.Layers[1].ColorB == 230, "pavement XML should round-trip second layer RGB");
         Check(roundTrip.Layers[1].HatchPattern == "GRAVEL", "pavement XML should round-trip second layer hatch pattern");
+        Check(Math.Abs(roundTrip.Layers[1].HatchAngle - 90.0) < 1.0e-9, "pavement XML should round-trip second layer hatch angle");
+        Check(Math.Abs(roundTrip.Layers[1].HatchScale - 0.5) < 1.0e-9, "pavement XML should round-trip second layer hatch scale");
     }
     finally
     {
@@ -1145,7 +1165,8 @@ static void PavementLayerTemplateWindowContainsRequiredEditorContracts()
     var root = FindRepoRoot();
     var xaml = File.ReadAllText(Path.Combine(root, "src", "ui", "wpf", "RoadProto.Terrain.UI", "PavementLayerTemplateWindow.xaml"), Encoding.UTF8);
     var source = File.ReadAllText(Path.Combine(root, "src", "ui", "wpf", "RoadProto.Terrain.UI", "PavementLayerTemplateWindow.xaml.cs"), Encoding.UTF8);
-    var combined = xaml + "\n" + source;
+    var dtoSource = File.ReadAllText(Path.Combine(root, "src", "ui", "wpf", "RoadProto.Terrain.UI", "Bridge", "PavementLayerTemplateDialogDtos.cs"), Encoding.UTF8);
+    var combined = xaml + "\n" + source + "\n" + dtoSource;
 
     Check(combined.Contains("PreviewCanvas"), "pavement window should contain PreviewCanvas");
     Check(combined.Contains("LayerCountBox"), "pavement window should contain LayerCountBox");
@@ -1154,6 +1175,9 @@ static void PavementLayerTemplateWindowContainsRequiredEditorContracts()
     Check(combined.Contains("NextLayerButton"), "pavement editor should expose next layer icon button");
     Check(combined.Contains("DisplayModeBox"), "pavement editor should expose display mode dropdown");
     Check(combined.Contains("HatchPatternBox"), "pavement editor should expose hatch pattern dropdown");
+    Check(combined.Contains("HatchAngleBox"), "pavement editor should expose hatch angle input");
+    Check(combined.Contains("HatchScaleBox"), "pavement editor should expose hatch scale input");
+    Check(combined.Contains("AR-CONC") && combined.Contains("STEEL") && combined.Contains("BRICK"), "pavement editor should expose a richer CAD hatch pattern list");
     Check(combined.Contains("SaveXml"), "pavement window should expose SaveXml action");
     Check(combined.Contains("ImportXml"), "pavement window should expose ImportXml action");
     Check(combined.Contains("MouseWheel"), "pavement preview should handle mouse wheel zoom");
@@ -1179,6 +1203,10 @@ static void PavementLayerTemplateWindowContainsRequiredEditorContracts()
     Check(source.Contains("bottomOuterX = currentTopOuter.X - outerInset"), "pavement preview should inset the bottom outer edge from the widened top edge");
     Check(source.Contains("topInner, topOuter, bottomOuter, bottomInner"), "pavement preview polygon should always stay a quadrilateral");
     Check(source.Contains("DrawHatchPattern"), "pavement preview should draw hatch pattern overlays");
+    Check(source.Contains("geometry.Layer.HatchAngle"), "pavement preview hatch pattern should use per-layer hatch angle");
+    Check(source.Contains("geometry.Layer.HatchScale"), "pavement preview hatch pattern should use per-layer hatch scale");
+    Check(source.Contains("const double labelFontSize = 9.0"), "pavement preview layer labels should use a fixed font size");
+    Check(!source.Contains("layerHeight * 0.22"), "pavement preview layer labels should not scale with layer thickness");
     Check(source.Contains("DrawWideningDimension"), "pavement preview should use CAD-style widening dimensions");
     Check(source.Contains("FormatSlopeLabel"), "pavement preview should format slope labels as 1:n");
     Check(source.Contains("ColorIndexDialog"), "pavement editor should expose an index color dialog");

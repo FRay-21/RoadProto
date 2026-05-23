@@ -51,6 +51,8 @@ public static class PavementLayerTemplateXmlFile
                 ColorG = ReadOptionalColorChannel(element, "colorG", defaultColor.G),
                 ColorB = ReadOptionalColorChannel(element, "colorB", defaultColor.B),
                 HatchPattern = PavementLayerTemplateLabels.NormalizeHatchPattern(ReadOptionalString(element, "hatchPattern", "SOLID")),
+                HatchAngle = PavementLayerTemplateLabels.NormalizeHatchAngle(ReadOptionalDouble(element, "hatchAngle", 0.0)),
+                HatchScale = PavementLayerTemplateLabels.NormalizeHatchScale(ReadOptionalDouble(element, "hatchScale", 1.0)),
             });
             layerIndex++;
         }
@@ -91,7 +93,9 @@ public static class PavementLayerTemplateXmlFile
                     new XAttribute("colorR", ClampColor(layer.ColorR).ToString(CultureInfo.InvariantCulture)),
                     new XAttribute("colorG", ClampColor(layer.ColorG).ToString(CultureInfo.InvariantCulture)),
                     new XAttribute("colorB", ClampColor(layer.ColorB).ToString(CultureInfo.InvariantCulture)),
-                    new XAttribute("hatchPattern", PavementLayerTemplateLabels.NormalizeHatchPattern(layer.HatchPattern))))));
+                    new XAttribute("hatchPattern", PavementLayerTemplateLabels.NormalizeHatchPattern(layer.HatchPattern)),
+                    new XAttribute("hatchAngle", Format(PavementLayerTemplateLabels.NormalizeHatchAngle(layer.HatchAngle))),
+                    new XAttribute("hatchScale", Format(PavementLayerTemplateLabels.NormalizeHatchScale(layer.HatchScale)))))));
 
         document.Save(path);
     }
@@ -125,6 +129,22 @@ public static class PavementLayerTemplateXmlFile
             || double.IsInfinity(value))
         {
             throw new InvalidDataException($"Invalid pavement layer template XML numeric attribute: {name}.");
+        }
+        return value;
+    }
+
+    private static double ReadOptionalDouble(XElement element, string name, double fallback)
+    {
+        var raw = (string?)element.Attribute(name);
+        if (string.IsNullOrWhiteSpace(raw))
+        {
+            return fallback;
+        }
+        if (!double.TryParse(raw, NumberStyles.Float, CultureInfo.InvariantCulture, out var value)
+            || double.IsNaN(value)
+            || double.IsInfinity(value))
+        {
+            return fallback;
         }
         return value;
     }

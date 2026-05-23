@@ -26,13 +26,13 @@ artifacts\x64\Debug\RoadProtoCoreTests.exe
 - 横断面边坡模板领域规则：填方/挖方默认预设、坡率/坡高/宽度三选二约束、重复最后一组识别、编码转换和模板组优先级解析。
 - 横断面路面结构层模板规则：上面层/中面层/下面层/基层/底基层/垫层编码、等厚/内外侧非等厚、内外侧正/负加宽、顶边沿上一层底边所在直线延长或收回、四边形/梯形轮廓定义、`1:n` 正/负坡度驱动当前层顶边到底边的侧边水平移动、`.rpavement.xml` 流转、路基部件点选绑定和模板实体源码契约。
 - 横断面道路模型边坡和线框规则：从路基模板最外侧生成边坡线、读取部件绑定的路面结构层模板并生成结构层边界线和弱化填充面、TIN 地面剖切交地、断面地面快照、边坡模板戴帽结果、生成进度回调、采样桩号保存、断面节点链、三维网格线框和查看横断面预览。
-- 文档和版本 source-contract：检查 `build/RoadProto.Build.props`、README、版本记录和 `docs/reuse/pavement_layer_template.md` 的 v0.1.21 路面结构层模板标注与填充显示优化发布信息。
+- 文档和版本 source-contract：检查 `build/RoadProto.Build.props`、README、版本记录和 `docs/reuse/pavement_layer_template.md` 的 v0.1.22 路面结构层模板填充角度、填充比例和 DWG 标题显示发布信息。
 
 V0.1.6 继续保留 `TerrainMeshFile` 领域层测试，用于保证 `DN_TERRAIN_TIN_EXPORT` / `DN_TERRAIN_TIN_IMPORT` 依赖的跨 DWG 数模文件数据不会在读写中丢失。
 
-历史 V0.1.6 Core Console 验证记录：当时已用 Core Console 验证 `DN_TERRAIN_TIN_CREATE` 的样例对象选择、同图层同类型提取、源对象隐藏、TIN 生成、`DN_TERRAIN_TIN_EDIT` 非 UI 编辑路径、`DN_TERRAIN_TIN_EDIT_HANDLE` 按 handle 编辑路径、`DN_TERRAIN_TIN_IMPORT` 的 `.rmesh` 导入、DWG 保存后重新打开和 `REGEN`；托管 Ribbon 插件当时已验证 Release 构建。该段是历史记录，不代表当前 v0.1.21 的完整 AutoCAD 验证。
+历史 V0.1.6 Core Console 验证记录：当时已用 Core Console 验证 `DN_TERRAIN_TIN_CREATE` 的样例对象选择、同图层同类型提取、源对象隐藏、TIN 生成、`DN_TERRAIN_TIN_EDIT` 非 UI 编辑路径、`DN_TERRAIN_TIN_EDIT_HANDLE` 按 handle 编辑路径、`DN_TERRAIN_TIN_IMPORT` 的 `.rmesh` 导入、DWG 保存后重新打开和 `REGEN`；托管 Ribbon 插件当时已验证 Release 构建。该段是历史记录，不代表当前 v0.1.22 的完整 AutoCAD 验证。
 
-当前 v0.1.21 已完成 Task 9 自动化验证：核心测试 Debug/Release、托管 bridge 测试、WPF Release 构建和 ARX Release 构建均通过。AutoCAD 图形界面的完整 Ribbon 点击、`.rpavement.xml` 文件对话框、路面结构层模板双击编辑、预览图点击选层、索引颜色弹窗、填充显示方式、路基模板绑定、道路模型结构层颜色显示和查看横断面结构层显示仍建议加载 Release 产物后人工点验。
+当前 v0.1.22 已完成 Task 10 自动化验证：核心测试 Debug/Release、托管 bridge 测试、WPF Release 构建和 ARX Release 构建均通过。AutoCAD 图形界面的完整 Ribbon 点击、`.rpavement.xml` 文件对话框、路面结构层模板双击编辑、预览图点击选层、索引颜色弹窗、填充角度/比例、DWG 模板名称居中显示、路基模板绑定、道路模型结构层颜色显示和查看横断面结构层显示仍建议加载 Release 产物后人工点验。
 
 ## V0.1.8 平面布线验证范围
 
@@ -139,7 +139,7 @@ AutoCAD 图形界面需要手工验证 `RD_SECTION_ROAD_MODEL_CREATE`、`RD_SECT
 - 保存 DWG 后重开并 `REGEN`，道路模型实体、三维网格线框和结构层弱化填充面保持正常。
 - 选择路基模板实体时应出现插入点夹点，拖动后模板整体位置随夹点移动。
 
-## V0.1.21 路面结构层模板验证范围
+## V0.1.22 路面结构层模板验证范围
 
 核心测试覆盖 `PavementLayerTemplateDefaults`、`PavementLayerTemplateRules` 和 `PavementLayerTemplateCreateService`，包括结构层类型编码、中文显示名、每层 RGB 默认色和自定义色、等厚/非等厚厚度归一化、内外侧正/负加宽、当前层顶边沿上一层底边所在直线延长或收回、内外侧 `1:n` 正/负坡度驱动顶边到底边的侧边水平移动、显示比例校验、四边形/梯形横断面预览几何，以及 DWG 模板实体四点 `polygon` 填充、预混合弱化填充色、层 RGB 边线和中文文字样式源码契约。
 
@@ -147,15 +147,15 @@ AutoCAD 图形界面需要手工验证 `RD_SECTION_ROAD_MODEL_CREATE`、`RD_SECT
 
 核心测试覆盖 `CROSS_SECTION` 模块中 `RD_SECTION_PAVEMENT_LAYER_TEMPLATE_CREATE`、`RD_SECTION_PAVEMENT_LAYER_TEMPLATE_EDIT_HANDLE` 和 `RD_SECTION_PAVEMENT_LAYER_TEMPLATE_APPLY_DIALOG_FILE` 的命令元数据和业务文档路径，并通过源码契约检查 `DnPavementLayerTemplateEntity`、`PavementLayerTemplateDialogBridge` 和 `ObjectArxPavementLayerTemplateCommand`。
 
-托管 bridge 测试覆盖路面结构层模板 WPF 请求/响应文件、每层 RGB 字段、每层填充类型、显示方式、`.rpavement.xml` 导入导出、非法 XML 拒绝、窗口 `SaveXml` / `ImportXml` 动作、预览鼠标缩放锚定源码契约、预览点击选层、当前层输入和上下切换按钮、索引颜色弹窗、加宽/坡度一致复选框、四边形/梯形预览契约和 AutoCAD Ribbon/命令注册源码契约。
+托管 bridge 测试覆盖路面结构层模板 WPF 请求/响应文件、每层 RGB 字段、每层填充类型、填充角度、填充比例、显示方式、`.rpavement.xml` 导入导出、非法 XML 拒绝、窗口 `SaveXml` / `ImportXml` 动作、预览鼠标缩放锚定源码契约、预览点击选层、当前层输入和上下切换按钮、索引颜色弹窗、加宽/坡度一致复选框、四边形/梯形预览契约和 AutoCAD Ribbon/命令注册源码契约。
 
 AutoCAD 图形界面需要手工验证 `RD_SECTION_PAVEMENT_LAYER_TEMPLATE_CREATE`、`RD_SECTION_PAVEMENT_LAYER_TEMPLATE_EDIT_HANDLE`、`RD_SECTION_PAVEMENT_LAYER_TEMPLATE_APPLY_DIALOG_FILE`、`RD_SECTION_SUBGRADE_TEMPLATE_CREATE`、`RD_SECTION_ROAD_MODEL_CREATE`、`RD_SECTION_ROAD_MODEL_VIEW_SECTION` 和相关实体：
 
 - 点击 `RoadProto / 横断面设计 / 创建路面结构层模板` 后，命令要求点取插入点并打开 WPF 路面结构层模板窗口。
 - WPF 窗口可选择上面层、中面层、下面层、基层、底基层、垫层，可编辑每层 RGB 颜色，并可切换“内外厚度是否一致”“内外加宽是否一致”“内外坡度是否一致”。
 - WPF 预览图初始居中，滚轮缩放以鼠标位置为基点；修改内外侧坡度后，当前层侧边和底边内收应立即变化。
-- 内外侧厚度不一致时，相邻层共用的斜向边界不应被重复描边成两条交叉线；DWG 模板实体显示应与 WPF 预览的四边形/梯形形状、弱化填充、边线、层名、厚度、加宽和坡度标注策略一致，不应显示为旧代理图形、横向线填充或过亮实体面样式。
-- 导出 `.rpavement.xml` 后再次导入，模板名称、显示比例、预览宽度、层类型、等厚/非等厚厚度、内外侧加宽和坡度保持一致。
+- 内外侧厚度不一致时，相邻层共用的斜向边界不应被重复描边成两条交叉线；DWG 模板实体显示应与 WPF 预览的四边形/梯形形状、弱化填充和边线一致，但 DWG 自定义实体不显示尺寸标注，只在模板上方居中显示模板名称，不应显示为旧代理图形、横向线填充或过亮实体面样式。
+- 导出 `.rpavement.xml` 后再次导入，模板名称、显示比例、预览宽度、层类型、等厚/非等厚厚度、内外侧加宽、坡度、填充类型、填充角度和填充比例保持一致。
 - 双击 `DnPavementLayerTemplateEntity` 可重新打开同一窗口编辑并回写原实体。
 - 在路基模板窗口中，任意部件类型均可点选该路面结构层模板实体并保存 handle 与名称。
 - 横断面戴帽生成道路模型后，`DnRoadModelEntity` 中应显示结构层弱化填充面和三维线框；形状、颜色和加宽位置应与路面结构层模板预览一致，加宽应显示在设置加宽的当前层，不应表现为下一层加宽或底部多出一层面。

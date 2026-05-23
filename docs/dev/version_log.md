@@ -1,5 +1,25 @@
 # 版本记录
 
+## v0.1.22 - 2026-05-23
+
+- 版本标识：`v0.1.22_20260523_PavementLayerTemplateHatchParams`。
+- ARX 文件：`RoadProto_v0.1.22_20260523_PavementLayerTemplateHatchParams.arx`。
+- 阶段：路面结构层模板填充角度/比例、DWG 标题显示和预览固定标注优化。
+- 是否可作为稳定测试版本：是。核心测试 Debug/Release、托管 bridge 测试、WPF Release 构建和 ARX Release 构建已验证。
+
+### 修改内容
+
+- 路面结构层模板每层新增 `hatchAngle` 和 `hatchScale`，请求/响应文件、`.rpavement.xml`、C++ Bridge、领域归一化和 DWG 自定义实体持久化同步读写。
+- 扩充填充类型列表，覆盖 AutoCAD 常用 ANSI、AR、BRICK、STEEL、GRAVEL、EARTH 等内置填充名；非法填充仍归一化为 `SOLID`，非法角度归零，非法比例归一。
+- WPF 预览中的层名+厚度标注改为固定字号，不再随结构层厚度变化；填充预览按当前层填充角度和填充比例绘制。
+- `DnPavementLayerTemplateEntity` 不再显示层名、厚度、加宽和坡度尺寸标注，只在模板上方显示模板名称；标题绘制前估算文字总长度，再按文字中点与模板内容中心对齐。
+- 道路模型结构层显示策略保持不变，仍只按层 RGB 颜色显示弱化填充面和边线，不引入模板填充模式。
+
+### 验证状态
+
+- 自动化验证：核心测试 Debug/Release 构建与运行、托管 bridge 测试、WPF Release 构建和 `RoadProto.sln` Release 构建已通过；Release 产物已生成 `RoadProto_v0.1.22_20260523_PavementLayerTemplateHatchParams.arx` 和 `RoadProto.Terrain.UI.dll`。
+- 图形界面验证：本轮仍建议在 AutoCAD 2021 中加载 Release ARX 和托管 DLL 后，点验 DWG 模板标题居中、WPF 固定字号标注、填充角度/比例和道路模型颜色显示；历史回归记录中已在 AutoCAD 2021 图形界面加载 Debug ARX 完成模板实体显示验证。
+
 ## v0.1.21 - 2026-05-23
 
 - 版本标识：`v0.1.21_20260523_PavementLayerTemplateAnnotation`。

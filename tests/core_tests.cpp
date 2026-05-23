@@ -113,24 +113,26 @@ void pavementLayerTemplateDocumentationAndVersionContracts()
     const auto root = findRepositoryRootForTests();
 
     const auto buildProps = readTextFileForTests(root / "build" / "RoadProto.Build.props");
-    CHECK(buildProps.find("<RoadProtoVersion>v0.1.21</RoadProtoVersion>") != std::string::npos);
+    CHECK(buildProps.find("<RoadProtoVersion>v0.1.22</RoadProtoVersion>") != std::string::npos);
     CHECK(buildProps.find("<RoadProtoBuildDate>20260523</RoadProtoBuildDate>") != std::string::npos);
-    CHECK(buildProps.find("<RoadProtoStage>PavementLayerTemplateAnnotation</RoadProtoStage>") != std::string::npos);
+    CHECK(buildProps.find("<RoadProtoStage>PavementLayerTemplateHatchParams</RoadProtoStage>") != std::string::npos);
 
     CHECK(std::filesystem::exists(root / "docs" / "reuse" / "pavement_layer_template.md"));
     const auto reuseDoc = readTextFileForTests(root / "docs" / "reuse" / "pavement_layer_template.md");
     CHECK(reuseDoc.find("PavementLayerTemplateModel") != std::string::npos);
     CHECK(reuseDoc.find(".rpavement.xml") != std::string::npos);
+    CHECK(reuseDoc.find("hatchAngle") != std::string::npos);
+    CHECK(reuseDoc.find("hatchScale") != std::string::npos);
     CHECK(reuseDoc.find("内侧 = closer to road centerline") != std::string::npos);
 
     const auto versionLog = readTextFileForTests(root / "docs" / "dev" / "version_log.md");
-    CHECK(versionLog.find("v0.1.21_20260523_PavementLayerTemplateAnnotation") != std::string::npos);
-    CHECK(versionLog.find("RoadProto_v0.1.21_20260523_PavementLayerTemplateAnnotation.arx") != std::string::npos);
+    CHECK(versionLog.find("v0.1.22_20260523_PavementLayerTemplateHatchParams") != std::string::npos);
+    CHECK(versionLog.find("RoadProto_v0.1.22_20260523_PavementLayerTemplateHatchParams.arx") != std::string::npos);
     CHECK(versionLog.find("是否可作为稳定测试版本：是。核心测试 Debug/Release、托管 bridge 测试、WPF Release 构建和 ARX Release 构建已验证") != std::string::npos);
     CHECK(versionLog.find("已在 AutoCAD 2021 图形界面加载 Debug ARX") != std::string::npos);
 
     const auto readme = readTextFileForTests(root / "README.md");
-    CHECK(readme.find("RoadProto_v0.1.21_20260523_PavementLayerTemplateAnnotation.arx") != std::string::npos);
+    CHECK(readme.find("RoadProto_v0.1.22_20260523_PavementLayerTemplateHatchParams.arx") != std::string::npos);
     CHECK(readme.find("RD_SECTION_PAVEMENT_LAYER_TEMPLATE_CREATE") != std::string::npos);
 
     const auto moduleIndex = readTextFileForTests(root / "docs" / "modules" / "module_index.md");
@@ -140,7 +142,7 @@ void pavementLayerTemplateDocumentationAndVersionContracts()
 
     const auto testsReadme = readTextFileForTests(root / "tests" / "README.md");
     CHECK(testsReadme.find("历史 V0.1.6 Core Console 验证记录") != std::string::npos);
-    CHECK(testsReadme.find("当前 v0.1.21 已完成 Task 9 自动化验证") != std::string::npos);
+    CHECK(testsReadme.find("当前 v0.1.22 已完成 Task 10 自动化验证") != std::string::npos);
 
     const auto startupSource = readTextFileForTests(root / "src" / "app" / "startup" / "Startup.cpp");
     CHECK(startupSource.find("version.arxFileName") != std::string::npos);
@@ -706,6 +708,9 @@ void pavementLayerTemplateDisplayModeAndHatchPatternsNormalize()
     CHECK(PavementLayerTemplateRules::displayModeFromCode(L"bad", PavementLayerTemplateDisplayMode::Hatch) == PavementLayerTemplateDisplayMode::Hatch);
     CHECK(PavementLayerTemplateRules::isSupportedHatchPattern(L"SOLID"));
     CHECK(PavementLayerTemplateRules::isSupportedHatchPattern(L"ANSI31"));
+    CHECK(PavementLayerTemplateRules::isSupportedHatchPattern(L"AR-CONC"));
+    CHECK(PavementLayerTemplateRules::isSupportedHatchPattern(L"BRICK"));
+    CHECK(PavementLayerTemplateRules::isSupportedHatchPattern(L"STEEL"));
     CHECK(PavementLayerTemplateRules::isSupportedHatchPattern(L"EARTH"));
     CHECK(!PavementLayerTemplateRules::isSupportedHatchPattern(L"NOT_A_PATTERN"));
 
@@ -714,16 +719,26 @@ void pavementLayerTemplateDisplayModeAndHatchPatternsNormalize()
     CHECK(!defaults.layers.empty());
     if (!defaults.layers.empty()) {
         CHECK(defaults.layers.front().hatchPattern == L"SOLID");
+        CHECK(std::fabs(defaults.layers.front().hatchAngle) <= 1.0e-9);
+        CHECK(std::fabs(defaults.layers.front().hatchScale - 1.0) <= 1.0e-9);
     }
 
     defaults.properties.displayMode = PavementLayerTemplateDisplayMode::HatchAndColor;
     defaults.layers.front().hatchPattern = L"ANSI31";
+    defaults.layers.front().hatchAngle = 45.0;
+    defaults.layers.front().hatchScale = 2.5;
     defaults.layers.back().hatchPattern = L"NOT_A_PATTERN";
+    defaults.layers.back().hatchAngle = std::numeric_limits<double>::infinity();
+    defaults.layers.back().hatchScale = -0.5;
     std::wstring errorMessage;
     CHECK(PavementLayerTemplateRules::normalize(defaults, errorMessage));
     CHECK(defaults.properties.displayMode == PavementLayerTemplateDisplayMode::HatchAndColor);
     CHECK(defaults.layers.front().hatchPattern == L"ANSI31");
+    CHECK(std::fabs(defaults.layers.front().hatchAngle - 45.0) <= 1.0e-9);
+    CHECK(std::fabs(defaults.layers.front().hatchScale - 2.5) <= 1.0e-9);
     CHECK(defaults.layers.back().hatchPattern == L"SOLID");
+    CHECK(std::fabs(defaults.layers.back().hatchAngle) <= 1.0e-9);
+    CHECK(std::fabs(defaults.layers.back().hatchScale - 1.0) <= 1.0e-9);
 }
 
 void pavementLayerTemplateCarriesLayerRgbIntoBuiltSection()
@@ -3671,7 +3686,7 @@ void pavementLayerTemplateNativeSourcesContainRequiredContracts()
     CHECK(entitySource.find("DNPAVEMENTLAYERTEMPLATEENTITY") != std::string::npos);
     CHECK(entitySource.find("dwgOutFields") != std::string::npos);
     CHECK(entitySource.find("dwgInFields") != std::string::npos);
-    CHECK(entitySource.find("constexpr Adesk::Int16 kEntityVersion = 3") != std::string::npos);
+    CHECK(entitySource.find("constexpr Adesk::Int16 kEntityVersion = 4") != std::string::npos);
     CHECK(entitySource.find("properties.name") != std::string::npos);
     CHECK(entitySource.find("properties.displayScale") != std::string::npos);
     CHECK(entitySource.find("properties.previewWidth") != std::string::npos);
@@ -3690,6 +3705,8 @@ void pavementLayerTemplateNativeSourcesContainRequiredContracts()
     CHECK(entitySource.find("layer.color.g") != std::string::npos);
     CHECK(entitySource.find("layer.color.b") != std::string::npos);
     CHECK(entitySource.find("layer.hatchPattern") != std::string::npos);
+    CHECK(entitySource.find("layer.hatchAngle") != std::string::npos);
+    CHECK(entitySource.find("layer.hatchScale") != std::string::npos);
     CHECK(entitySource.find("layer.type") != std::string::npos);
     CHECK(entitySource.find("layer.name") != std::string::npos);
     CHECK(entitySource.find("PavementLayerTemplateRules::buildSection") != std::string::npos);
@@ -3723,6 +3740,8 @@ void pavementLayerTemplateNativeSourcesContainRequiredContracts()
     }
     CHECK(entitySource.find("drawLayerEdges") != std::string::npos);
     CHECK(entitySource.find("drawLayerHatchPattern") != std::string::npos);
+    CHECK(entitySource.find("hatchDirectionFromAngle") != std::string::npos);
+    CHECK(entitySource.find("safeHatchScale") != std::string::npos);
     CHECK(entitySource.find("PavementLayerTemplateDisplayMode::Hatch") != std::string::npos);
     CHECK(entitySource.find("PavementLayerTemplateDisplayMode::HatchAndColor") != std::string::npos);
     CHECK(entitySource.find("layerIndex == 0") != std::string::npos);
@@ -3730,19 +3749,21 @@ void pavementLayerTemplateNativeSourcesContainRequiredContracts()
     CHECK(entitySource.find("AcCmEntityColor pavementLayerStrokeColor") != std::string::npos);
     CHECK(entitySource.find("AcCmEntityColor pavementLayerFillColor") != std::string::npos);
     CHECK(entitySource.find("blendPreviewFillChannel") != std::string::npos);
-    CHECK(entitySource.find("void drawLayerLabels") != std::string::npos);
+    CHECK(entitySource.find("void drawTemplateName") != std::string::npos);
+    CHECK(entitySource.find("double estimateTextWidth") != std::string::npos);
+    CHECK(entitySource.find("templateNameTextWidth") != std::string::npos);
+    CHECK(entitySource.find("templateNameX") != std::string::npos);
     CHECK(entitySource.find("drawText(worldDraw") != std::string::npos);
     CHECK(entitySource.find("void makePreviewTextStyle") != std::string::npos);
     CHECK(entitySource.find("setFont(L\"SimSun\"") != std::string::npos);
     CHECK(entitySource.find("kChineseSimpCharset") != std::string::npos);
     CHECK(entitySource.find("static_cast<Adesk::Int32>(text.size())") != std::string::npos);
     CHECK(entitySource.find("layer.name") != std::string::npos);
-    CHECK(entitySource.find("std::wstring layerLabel") != std::string::npos);
-    CHECK(entitySource.find("L\"  \\u539a\"") != std::string::npos);
-    CHECK(entitySource.find("drawWideningDimension") != std::string::npos);
-    CHECK(entitySource.find("drawDimensionArrow") != std::string::npos);
-    CHECK(entitySource.find("std::wstring formatSlopeLabel") != std::string::npos);
-    CHECK(entitySource.find("L\"1:\" + formatPreviewNumber") != std::string::npos);
+    CHECK(entitySource.find("void drawLayerLabels") == std::string::npos);
+    CHECK(entitySource.find("std::wstring layerLabel") == std::string::npos);
+    CHECK(entitySource.find("drawWideningDimension") == std::string::npos);
+    CHECK(entitySource.find("drawDimensionArrow") == std::string::npos);
+    CHECK(entitySource.find("std::wstring formatSlopeLabel") == std::string::npos);
     CHECK(entitySource.find("L\"\\u5185\\u4fa7\\u52a0\\u5bbd \"") == std::string::npos);
     CHECK(entitySource.find("L\"\\u5916\\u4fa7\\u52a0\\u5bbd \"") == std::string::npos);
     CHECK(entitySource.find("L\"\\u5185\\u4fa7\\u5761\\u5ea6 \"") == std::string::npos);
@@ -3777,6 +3798,7 @@ void pavementLayerTemplateNativeSourcesContainRequiredContracts()
         CHECK(assignment < markGraphics);
     }
     CHECK(entitySource.find("if (version < 1 || version > kEntityVersion)") != std::string::npos);
+    CHECK(entitySource.find("if (version >= 4)") != std::string::npos);
     CHECK(entitySource.find("version == 0") == std::string::npos);
     CHECK(entitySource.find("Acad::ErrorStatus checkFilerStatus") != std::string::npos);
     CHECK(entitySource.find("return checkFilerStatus(filer);") != std::string::npos);
@@ -3811,6 +3833,8 @@ void pavementLayerTemplateNativeSourcesContainRequiredContracts()
     CHECK(bridgeSource.find(".colorB") != std::string::npos);
     CHECK(bridgeSource.find("displayMode") != std::string::npos);
     CHECK(bridgeSource.find(".hatchPattern") != std::string::npos);
+    CHECK(bridgeSource.find(".hatchAngle") != std::string::npos);
+    CHECK(bridgeSource.find(".hatchScale") != std::string::npos);
     CHECK(bridgeSource.find("displayModeFromCode") != std::string::npos);
     CHECK(bridgeSource.find("stream.imbue(std::locale::classic())") != std::string::npos);
     CHECK(bridgeSource.find("parsed.imbue(std::locale::classic())") != std::string::npos);

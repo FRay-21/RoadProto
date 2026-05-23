@@ -87,6 +87,8 @@ public static class PavementLayerTemplateDialogFile
             ColorG = GetInt(values, $"{prefix}.colorG", defaultColor.G),
             ColorB = GetInt(values, $"{prefix}.colorB", defaultColor.B),
             HatchPattern = PavementLayerTemplateLabels.NormalizeHatchPattern(Get(values, $"{prefix}.hatchPattern", "SOLID")),
+            HatchAngle = PavementLayerTemplateLabels.NormalizeHatchAngle(GetDouble(values, $"{prefix}.hatchAngle", 0.0)),
+            HatchScale = PavementLayerTemplateLabels.NormalizeHatchScale(GetDouble(values, $"{prefix}.hatchScale", 1.0)),
         };
     }
 
@@ -106,6 +108,8 @@ public static class PavementLayerTemplateDialogFile
         lines.Add(Write($"{prefix}.colorG", ClampColor(layer.ColorG)));
         lines.Add(Write($"{prefix}.colorB", ClampColor(layer.ColorB)));
         lines.Add(Write($"{prefix}.hatchPattern", PavementLayerTemplateLabels.NormalizeHatchPattern(layer.HatchPattern)));
+        lines.Add(Write($"{prefix}.hatchAngle", PavementLayerTemplateLabels.NormalizeHatchAngle(layer.HatchAngle)));
+        lines.Add(Write($"{prefix}.hatchScale", PavementLayerTemplateLabels.NormalizeHatchScale(layer.HatchScale)));
     }
 
     private static Dictionary<string, string> ReadValues(string path)

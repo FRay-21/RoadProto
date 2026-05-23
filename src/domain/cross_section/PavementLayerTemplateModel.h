@@ -42,6 +42,8 @@ struct PavementLayerTemplateLayer {
     double outerSlope = 0.0;
     PavementLayerTemplateDisplayColor color;
     std::wstring hatchPattern = L"SOLID";
+    double hatchAngle = 0.0;
+    double hatchScale = 1.0;
 };
 
 struct PavementLayerTemplateProperties {

@@ -1,6 +1,7 @@
 #include "domain/cross_section/PavementLayerTemplateModel.h"
 
 #include <algorithm>
+#include <array>
 #include <cmath>
 
 namespace roadproto::domain::cross_section {
@@ -62,6 +63,8 @@ PavementLayerTemplateLayer makeLayer(
     layer.outerWidening = outerWidening;
     layer.color = defaultLayerColorForIndex(colorIndex);
     layer.hatchPattern = L"SOLID";
+    layer.hatchAngle = 0.0;
+    layer.hatchScale = 1.0;
     return layer;
 }
 
@@ -129,19 +132,18 @@ bool PavementLayerTemplateRules::isSupportedPreviewWidth(double previewWidth)
 
 bool PavementLayerTemplateRules::isSupportedHatchPattern(const std::wstring& hatchPattern)
 {
-    return hatchPattern == L"SOLID"
-        || hatchPattern == L"ANSI31"
-        || hatchPattern == L"ANSI32"
-        || hatchPattern == L"ANSI33"
-        || hatchPattern == L"ANSI34"
-        || hatchPattern == L"ANSI35"
-        || hatchPattern == L"ANSI36"
-        || hatchPattern == L"ANSI37"
-        || hatchPattern == L"ANSI38"
-        || hatchPattern == L"CROSS"
-        || hatchPattern == L"DOTS"
-        || hatchPattern == L"GRAVEL"
-        || hatchPattern == L"EARTH";
+    static constexpr std::array<const wchar_t*, 57> kSupportedPatterns = {
+        L"SOLID",
+        L"ANSI31", L"ANSI32", L"ANSI33", L"ANSI34", L"ANSI35", L"ANSI36", L"ANSI37", L"ANSI38",
+        L"AR-B816", L"AR-B816C", L"AR-B88", L"AR-BRELM", L"AR-BRSTD", L"AR-CONC",
+        L"AR-HBONE", L"AR-PARQ1", L"AR-RROOF", L"AR-RSHKE", L"AR-SAND",
+        L"BOX", L"BRASS", L"BRICK", L"BRSTONE", L"CLAY", L"CORK", L"CROSS", L"DASH",
+        L"DOLMIT", L"DOTS", L"EARTH", L"ESCHER", L"FLEX", L"GOST_GLASS", L"GOST_GROUND",
+        L"GOST_WOOD", L"GRASS", L"GRATE", L"GRAVEL", L"HEX", L"HONEY", L"HOUND",
+        L"INSUL", L"LINE", L"MUDST", L"NET", L"NET3", L"PLAST", L"PLASTI",
+        L"SACNCR", L"SQUARE", L"STARS", L"STEEL", L"SWAMP", L"TRANS", L"TRIANG",
+        L"ZIGZAG"};
+    return std::find(kSupportedPatterns.begin(), kSupportedPatterns.end(), hatchPattern) != kSupportedPatterns.end();
 }
 
 PavementLayerTemplateDisplayColor PavementLayerTemplateRules::displayColorForLayerIndex(std::size_t index)
@@ -231,6 +233,12 @@ bool PavementLayerTemplateRules::normalize(PavementLayerTemplateData& data, std:
         }
         if (!isSupportedHatchPattern(layer.hatchPattern)) {
             layer.hatchPattern = L"SOLID";
+        }
+        if (!isFinite(layer.hatchAngle)) {
+            layer.hatchAngle = 0.0;
+        }
+        if (!isPositiveFinite(layer.hatchScale)) {
+            layer.hatchScale = 1.0;
         }
     }
 

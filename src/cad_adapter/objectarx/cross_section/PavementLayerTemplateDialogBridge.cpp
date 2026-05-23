@@ -188,6 +188,8 @@ bool writeRequestFile(
         writeKeyValue(stream, prefix + L".colorG", layer.color.g);
         writeKeyValue(stream, prefix + L".colorB", layer.color.b);
         writeKeyValue(stream, prefix + L".hatchPattern", layer.hatchPattern);
+        writeKeyValue(stream, prefix + L".hatchAngle", layer.hatchAngle);
+        writeKeyValue(stream, prefix + L".hatchScale", layer.hatchScale);
     }
     return true;
 }
@@ -484,7 +486,9 @@ bool readPavementLayerTemplateDialogResponse(
             || !requiredDoubleValue(values, prefix + L".outerSlope", layer.outerSlope, errorMessage)
             || !requiredIntValue(values, prefix + L".colorR", layer.color.r, errorMessage)
             || !requiredIntValue(values, prefix + L".colorG", layer.color.g, errorMessage)
-            || !requiredIntValue(values, prefix + L".colorB", layer.color.b, errorMessage)) {
+            || !requiredIntValue(values, prefix + L".colorB", layer.color.b, errorMessage)
+            || !requiredDoubleValue(values, prefix + L".hatchAngle", layer.hatchAngle, errorMessage)
+            || !requiredDoubleValue(values, prefix + L".hatchScale", layer.hatchScale, errorMessage)) {
             return false;
         }
         layer.hatchPattern = valueOrDefault(values, prefix + L".hatchPattern", L"SOLID");

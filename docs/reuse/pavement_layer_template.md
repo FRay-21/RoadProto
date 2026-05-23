@@ -22,7 +22,7 @@
 
 - 结构层类型枚举和显示名称：上面层、中面层、下面层、基层、底基层、垫层。
 - 每层 RGB 显示色：默认按层号给出蓝、绿、黄、橙、紫、灰初始色，用户可独立修改；WPF 预览、DWG 模板实体、道路模型结构层填充面/边线和查看横断面预览都使用层数据中的 RGB。
-- 每层填充类型和模板显示方式：`PavementLayerTemplateLayer::hatchPattern` 保存 CAD 常用填充名，`PavementLayerTemplateProperties::displayMode` 支持按颜色、按填充、按填充+颜色显示；该显示策略用于 WPF 预览和 `DnPavementLayerTemplateEntity`，道路模型结构层保持颜色显示。
+- 每层填充类型、角度和比例：`PavementLayerTemplateLayer::hatchPattern` 保存 CAD 常用填充名，`hatchAngle` 保存填充角度，`hatchScale` 保存填充比例；`PavementLayerTemplateProperties::displayMode` 支持按颜色、按填充、按填充+颜色显示。该显示策略用于 WPF 预览和 `DnPavementLayerTemplateEntity`，道路模型结构层保持颜色显示。
 - 当前层编辑交互：WPF 只展示当前选中结构层参数，预览图点击、当前层输入框和上/下按钮都可改变当前编辑层，减少多层模板参数滚动量。
 - 等厚/非等厚厚度模型：勾选“内外厚度是否一致”时使用单一厚度，未勾选时使用内侧厚度和外侧厚度。
 - 加宽和坡度编辑模型：WPF 默认勾选“内外加宽是否一致”和“内外坡度是否一致”，需要差异化时再分别填写内侧和外侧。
@@ -30,7 +30,7 @@
 - 结构层横断面预览几何构建：每一层只保留顶边、底边、内侧边和外侧边四条边。除第一层外，当前层顶边以上一层底边所在直线为基准；加宽沿该直线平行/共线延长或收回，正加宽让当前层顶边更宽，负加宽让顶边缩短。任何情况下都不生成“接触边 + 外轮廓”的六点台阶形。
 - 坡度输入支持 `1:n` 或数字 `n`，`n` 表示每 1 个竖向厚度对应的水平位移量，侧边水平位移量 = `厚度 * n`。正坡度表示从顶边向下到底边时侧边向外放，负坡度表示向内收。`1:1` 时侧边与底边约为 45°，`1:2` 时约为 30°，`1:0.5` 时约为 60°；坡度允许为负，`1:-0.5` 时侧边向内收且与底边约为 120°。加宽只改变顶边端点，不参与坡度计算，不改变坡率。
 - 结构层默认显示配色由 `PavementLayerTemplateRules::displayColorForLayerIndex` 统一提供；归一化后颜色存入 `PavementLayerTemplateLayer::color`，后续绘制和模型生成只读取层保存色。
-- WPF 预览和 `DnPavementLayerTemplateEntity` 可按颜色、填充、填充+颜色三种方式显示，并使用更小的层名+厚度单行标注、CAD 式加宽尺寸线和侧边中心 `1:n` 坡度标注。`DnRoadModelEntity` 不跟随模板显示方式切换，仍按层 RGB 颜色绘制结构层弱化填充面和边线。
+- WPF 预览可按颜色、填充、填充+颜色三种方式显示，并使用固定字号的层名+厚度单行标注、CAD 式加宽尺寸线和侧边中心 `1:n` 坡度标注；填充预览读取每层 `hatchAngle` 和 `hatchScale`。`DnPavementLayerTemplateEntity` 使用同一轮廓和显示方式，但不显示尺寸标注，只在模板上方按文字总长度居中绘制模板名称。`DnRoadModelEntity` 不跟随模板显示方式切换，仍按层 RGB 颜色绘制结构层弱化填充面和边线。
 - WPF 预览图提供居中初始视图、鼠标位置基点滚轮缩放和中键平移。
 - 独立 DWG 模板实体 `DnPavementLayerTemplateEntity`，支持图面显示、DWG 持久化、几何范围和变换。
 - `.rpavement.xml` 导入导出格式，可在 WPF 侧保存和读取模板参数，用于跨图纸流转。
@@ -39,7 +39,7 @@
 ## 不可复用或临时内容
 
 - WPF 与 C++ 之间的请求/响应文件 Bridge 属于原型接入方式。
-- `.rpavement.xml` 当前保存几何参数和每层 RGB 显示色，不保存正式材料库、造价、压实度或规范编号。
+- `.rpavement.xml` 当前保存几何参数、每层 RGB 显示色、填充类型、填充角度和填充比例，不保存正式材料库、造价、压实度或规范编号。
 - 路基模板部件当前保存模板 handle 和名称；模板变更后不会自动通知已生成道路模型。
 - 当前道路模型结构层弱化填充面属于 `DnRoadModelEntity` 的显示表达，不是可单独选择、编辑、赋材质或算量的实体体积。
 

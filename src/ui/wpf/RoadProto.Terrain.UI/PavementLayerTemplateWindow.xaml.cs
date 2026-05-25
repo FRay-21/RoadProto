@@ -1,9 +1,11 @@
 using System;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Globalization;
 using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Controls.Primitives;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Shapes;
@@ -18,8 +20,14 @@ public partial class PavementLayerTemplateWindow : Window
     private readonly ObservableCollection<PavementLayerTemplateLayerDto> _layers = new();
     private readonly System.Collections.Generic.List<LayerControls> _layerControls = new();
     private readonly System.Collections.Generic.List<ComboOption<PavementLayerType>> _typeOptions;
+    private readonly System.Collections.Generic.List<ComboOption<PavementLayerTemplateDisplayMode>> _displayModeOptions;
+    private readonly System.Collections.Generic.List<SelectableOption<PavementSubgradeMoistureType>> _moistureOptions;
+    private readonly System.Collections.Generic.List<ComboOption<PavementSurfaceType>> _pavementTypeOptions;
+    private readonly System.Collections.Generic.List<SelectableOption<PavementSubgradeSoilGroup>> _soilGroupOptions;
+    private int _selectedLayerIndex;
     private bool _loading = true;
     private bool _applyingLayerInputs;
+    private bool _updatingCurrentLayerBox;
     private bool _panning;
     private Point _lastPanPoint;
     private double _previewZoom = 1.0;
@@ -29,9 +37,26 @@ public partial class PavementLayerTemplateWindow : Window
     {
         InitializeComponent();
         _request = request;
+        ApplyButton.IsEnabled = !string.IsNullOrWhiteSpace(request.Handle);
         _typeOptions = Enum.GetValues(typeof(PavementLayerType))
             .Cast<PavementLayerType>()
             .Select(value => new ComboOption<PavementLayerType>(PavementLayerTemplateLabels.LayerTypeLabel(value), value))
+            .ToList();
+        _displayModeOptions = Enum.GetValues(typeof(PavementLayerTemplateDisplayMode))
+            .Cast<PavementLayerTemplateDisplayMode>()
+            .Select(value => new ComboOption<PavementLayerTemplateDisplayMode>(DisplayModeLabel(value), value))
+            .ToList();
+        _moistureOptions = Enum.GetValues(typeof(PavementSubgradeMoistureType))
+            .Cast<PavementSubgradeMoistureType>()
+            .Select(value => new SelectableOption<PavementSubgradeMoistureType>(PavementLayerTemplateLabels.MoistureTypeLabel(value), value))
+            .ToList();
+        _pavementTypeOptions = Enum.GetValues(typeof(PavementSurfaceType))
+            .Cast<PavementSurfaceType>()
+            .Select(value => new ComboOption<PavementSurfaceType>(PavementLayerTemplateLabels.PavementTypeLabel(value), value))
+            .ToList();
+        _soilGroupOptions = Enum.GetValues(typeof(PavementSubgradeSoilGroup))
+            .Cast<PavementSubgradeSoilGroup>()
+            .Select(value => new SelectableOption<PavementSubgradeSoilGroup>(PavementLayerTemplateLabels.SoilGroupLabel(value), value))
             .ToList();
         Response = null;
         LoadRequest();
@@ -47,6 +72,10 @@ public partial class PavementLayerTemplateWindow : Window
         TemplateNameBox.Text = string.IsNullOrWhiteSpace(_request.TemplateName) ? "路面结构层模板" : _request.TemplateName;
         DisplayScaleBox.Text = Format(_request.DisplayScale <= 0 ? 10.0 : _request.DisplayScale);
         PreviewWidthBox.Text = Format(_request.PreviewWidth <= 0 ? 3.75 : _request.PreviewWidth);
+        DisplayModeBox.ItemsSource = _displayModeOptions;
+        DisplayModeBox.DisplayMemberPath = nameof(ComboOption<PavementLayerTemplateDisplayMode>.Label);
+        SelectComboValue(DisplayModeBox, _request.DisplayMode);
+        LoadGeneralParameters(_request);
 
         _layers.Clear();
         var source = _request.Layers.Count > 0 ? _request.Layers : PavementLayerTemplateLabels.DefaultLayers();
@@ -54,9 +83,14 @@ public partial class PavementLayerTemplateWindow : Window
         {
             var copy = layer.Clone();
             EnsureLayerColor(copy, _layers.Count);
+            copy.HatchPattern = PavementLayerTemplateLabels.NormalizeHatchPattern(copy.HatchPattern);
+            copy.HatchAngle = PavementLayerTemplateLabels.NormalizeHatchAngle(copy.HatchAngle);
+            copy.HatchScale = PavementLayerTemplateLabels.NormalizeHatchScale(copy.HatchScale);
             _layers.Add(copy);
         }
+        _selectedLayerIndex = 0;
         LayerCountBox.Text = _layers.Count.ToString(CultureInfo.InvariantCulture);
+        UpdateCurrentLayerBox();
         RefreshLayerGroups();
         _loading = false;
         DrawPreview();
@@ -76,6 +110,87 @@ public partial class PavementLayerTemplateWindow : Window
         }
     }
 
+    private void ShowAllGeneralParametersBox_Changed(object sender, RoutedEventArgs e)
+    {
+        RefreshAdvancedGeneralParametersVisibility();
+        if (!_loading)
+        {
+            DrawPreview();
+        }
+    }
+
+    private void MultiSelectOption_Changed(object sender, RoutedEventArgs e)
+    {
+        if (sender is CheckBox { Tag: ISelectableOption option })
+        {
+            option.IsSelected = ((CheckBox)sender).IsChecked == true;
+        }
+        RefreshMultiSelectSummaries();
+    }
+
+    private void LoadGeneralParameters(PavementLayerTemplateDto template)
+    {
+        ShowAllGeneralParametersBox.IsChecked = template.ShowAllGeneralParameters;
+        StructureCodeBox.Text = template.StructureCode ?? string.Empty;
+        DesignDeflectionBox.Text = template.DesignDeflection ?? string.Empty;
+        CumulativeAxleLoadsBox.Text = template.CumulativeAxleLoads ?? string.Empty;
+
+        PavementTypeBox.ItemsSource = _pavementTypeOptions;
+        PavementTypeBox.DisplayMemberPath = nameof(ComboOption<PavementSurfaceType>.Label);
+        SelectComboValue(PavementTypeBox, template.PavementType);
+
+        BindMultiSelectBox(SubgradeMoistureTypesBox, _moistureOptions, template.SubgradeMoistureTypes);
+        BindMultiSelectBox(SubgradeSoilGroupsBox, _soilGroupOptions, template.SubgradeSoilGroups);
+        RefreshAdvancedGeneralParametersVisibility();
+    }
+
+    private void RefreshAdvancedGeneralParametersVisibility()
+    {
+        AdvancedGeneralParametersPanel.Visibility = ShowAllGeneralParametersBox.IsChecked == true
+            ? Visibility.Visible
+            : Visibility.Collapsed;
+    }
+
+    private void BindMultiSelectBox<T>(
+        ComboBox comboBox,
+        System.Collections.Generic.List<SelectableOption<T>> options,
+        System.Collections.Generic.IEnumerable<T>? selectedValues)
+    {
+        var selected = new HashSet<T>(selectedValues ?? Enumerable.Empty<T>());
+        comboBox.Items.Clear();
+        foreach (var option in options)
+        {
+            option.IsSelected = selected.Contains(option.Value);
+            var checkBox = new CheckBox
+            {
+                Content = option.Label,
+                IsChecked = option.IsSelected,
+                Tag = option,
+                MinWidth = 240,
+                Padding = new Thickness(4, 2, 4, 2),
+            };
+            checkBox.Checked += MultiSelectOption_Changed;
+            checkBox.Unchecked += MultiSelectOption_Changed;
+            comboBox.Items.Add(checkBox);
+        }
+        comboBox.SelectedIndex = -1;
+        RefreshMultiSelectSummary(comboBox, options);
+    }
+
+    private void RefreshMultiSelectSummaries()
+    {
+        RefreshMultiSelectSummary(SubgradeMoistureTypesBox, _moistureOptions);
+        RefreshMultiSelectSummary(SubgradeSoilGroupsBox, _soilGroupOptions);
+    }
+
+    private static void RefreshMultiSelectSummary<T>(
+        ComboBox comboBox,
+        System.Collections.Generic.IEnumerable<SelectableOption<T>> options)
+    {
+        var labels = options.Where(option => option.IsSelected).Select(option => option.Label).ToList();
+        comboBox.Text = labels.Count == 0 ? string.Empty : string.Join("、", labels);
+    }
+
     private void LayerCountBox_TextChanged(object sender, TextChangedEventArgs e)
     {
         if (_loading)
@@ -88,6 +203,7 @@ public partial class PavementLayerTemplateWindow : Window
             return;
         }
 
+        ApplyLayerInputs();
         count = Math.Max(1, Math.Min(100, count));
         while (_layers.Count < count)
         {
@@ -100,6 +216,9 @@ public partial class PavementLayerTemplateWindow : Window
                 ColorR = color.R,
                 ColorG = color.G,
                 ColorB = color.B,
+                HatchPattern = "SOLID",
+                HatchAngle = 0.0,
+                HatchScale = 1.0,
             });
         }
         while (_layers.Count > count)
@@ -107,8 +226,68 @@ public partial class PavementLayerTemplateWindow : Window
             _layers.RemoveAt(_layers.Count - 1);
         }
 
+        _selectedLayerIndex = Math.Max(0, Math.Min(_selectedLayerIndex, _layers.Count - 1));
+        UpdateCurrentLayerBox();
         RefreshLayerGroups();
         DrawPreview();
+    }
+
+    private void CurrentLayerBox_TextChanged(object sender, TextChangedEventArgs e)
+    {
+        if (_loading || _updatingCurrentLayerBox)
+        {
+            return;
+        }
+
+        if (!int.TryParse(CurrentLayerBox.Text, NumberStyles.Integer, CultureInfo.InvariantCulture, out var layerNumber))
+        {
+            return;
+        }
+
+        SelectLayer(layerNumber - 1);
+    }
+
+    private void PreviousLayerButton_Click(object sender, RoutedEventArgs e)
+        => SelectLayer(_selectedLayerIndex - 1);
+
+    private void NextLayerButton_Click(object sender, RoutedEventArgs e)
+        => SelectLayer(_selectedLayerIndex + 1);
+
+    private void SelectLayer(int index)
+    {
+        if (_layers.Count == 0)
+        {
+            _selectedLayerIndex = 0;
+            return;
+        }
+
+        ApplyLayerInputs();
+        var clamped = Math.Max(0, Math.Min(index, _layers.Count - 1));
+        if (clamped == _selectedLayerIndex && _layerControls.Count > 0)
+        {
+            UpdateCurrentLayerBox();
+            return;
+        }
+
+        _selectedLayerIndex = clamped;
+        UpdateCurrentLayerBox();
+        RefreshLayerGroups();
+        DrawPreview();
+    }
+
+    private void UpdateCurrentLayerBox()
+    {
+        _updatingCurrentLayerBox = true;
+        try
+        {
+            CurrentLayerBox.Text = _layers.Count == 0
+                ? "0"
+                : (_selectedLayerIndex + 1).ToString(CultureInfo.InvariantCulture);
+        }
+        finally
+        {
+            _updatingCurrentLayerBox = false;
+        }
     }
 
     private void LayerInput_Changed(object sender, EventArgs e)
@@ -128,9 +307,10 @@ public partial class PavementLayerTemplateWindow : Window
         _loading = true;
         _layerControls.Clear();
         LayersPanel.Children.Clear();
-        for (var i = 0; i < _layers.Count; i++)
+        _selectedLayerIndex = Math.Max(0, Math.Min(_selectedLayerIndex, Math.Max(0, _layers.Count - 1)));
+        if (_layers.Count > 0)
         {
-            LayersPanel.Children.Add(CreateLayerGroup(i, _layers[i]));
+            LayersPanel.Children.Add(CreateLayerGroup(_selectedLayerIndex, _layers[_selectedLayerIndex]));
         }
         _loading = false;
         RefreshLayerFieldVisibility();
@@ -177,6 +357,26 @@ public partial class PavementLayerTemplateWindow : Window
             BorderBrush = new SolidColorBrush(Color.FromRgb(145, 154, 168)),
             BorderThickness = new Thickness(1),
             Background = new SolidColorBrush(LayerColor(layer, index)),
+            Cursor = Cursors.Hand,
+            ToolTip = "选择索引颜色",
+        };
+        colorPreview.MouseLeftButtonDown += ColorPreview_MouseLeftButtonDown;
+        var hatchPatternBox = new ComboBox
+        {
+            Height = 26,
+            ItemsSource = PavementLayerTemplateLabels.HatchPatternOptions,
+            IsEditable = false,
+            SelectedItem = PavementLayerTemplateLabels.NormalizeHatchPattern(layer.HatchPattern),
+        };
+        var hatchAngleBox = new TextBox
+        {
+            Height = 26,
+            Text = Format(PavementLayerTemplateLabels.NormalizeHatchAngle(layer.HatchAngle)),
+        };
+        var hatchScaleBox = new TextBox
+        {
+            Height = 26,
+            Text = Format(PavementLayerTemplateLabels.NormalizeHatchScale(layer.HatchScale)),
         };
         var uniformBox = new CheckBox { Content = "内外厚度是否一致", IsChecked = layer.UniformThickness, Margin = new Thickness(0, 4, 0, 4) };
         var thicknessBox = new TextBox { Height = 26, Text = Format(layer.Thickness) };
@@ -194,6 +394,9 @@ public partial class PavementLayerTemplateWindow : Window
         panel.Children.Add(FieldRow("类型", typeBox));
         panel.Children.Add(FieldRow("名称", nameBox));
         panel.Children.Add(ColorRow("颜色 RGB", colorRBox, colorGBox, colorBBox, colorPreview));
+        panel.Children.Add(FieldRow("填充类型", hatchPatternBox));
+        panel.Children.Add(FieldRow("填充角度", hatchAngleBox));
+        panel.Children.Add(FieldRow("填充比例", hatchScaleBox));
         panel.Children.Add(uniformBox);
         var thicknessRow = FieldRow("厚度", thicknessBox);
         var innerThicknessRow = FieldRow("内侧厚度", innerThicknessBox);
@@ -221,6 +424,9 @@ public partial class PavementLayerTemplateWindow : Window
         colorRBox.TextChanged += LayerInput_Changed;
         colorGBox.TextChanged += LayerInput_Changed;
         colorBBox.TextChanged += LayerInput_Changed;
+        hatchPatternBox.SelectionChanged += LayerInput_Changed;
+        hatchAngleBox.TextChanged += LayerInput_Changed;
+        hatchScaleBox.TextChanged += LayerInput_Changed;
         uniformBox.Checked += LayerInput_Changed;
         uniformBox.Unchecked += LayerInput_Changed;
         thicknessBox.TextChanged += LayerInput_Changed;
@@ -238,12 +444,16 @@ public partial class PavementLayerTemplateWindow : Window
         outerSlopeBox.TextChanged += LayerInput_Changed;
 
         _layerControls.Add(new LayerControls(
+            index,
             typeBox,
             nameBox,
             colorRBox,
             colorGBox,
             colorBBox,
             colorPreview,
+            hatchPatternBox,
+            hatchAngleBox,
+            hatchScaleBox,
             uniformBox,
             thicknessBox,
             innerThicknessBox,
@@ -302,7 +512,7 @@ public partial class PavementLayerTemplateWindow : Window
 
     private void RefreshLayerFieldVisibility()
     {
-        for (var i = 0; i < _layerControls.Count && i < _layers.Count; i++)
+        for (var i = 0; i < _layerControls.Count; i++)
         {
             var controls = _layerControls[i];
             var uniformThickness = controls.UniformBox.IsChecked == true;
@@ -332,10 +542,15 @@ public partial class PavementLayerTemplateWindow : Window
         _applyingLayerInputs = true;
         try
         {
-            for (var i = 0; i < _layerControls.Count && i < _layers.Count; i++)
+            for (var i = 0; i < _layerControls.Count; i++)
             {
                 var controls = _layerControls[i];
-                var layer = _layers[i];
+                if (controls.LayerIndex < 0 || controls.LayerIndex >= _layers.Count)
+                {
+                    continue;
+                }
+
+                var layer = _layers[controls.LayerIndex];
                 layer.Type = SelectedValue(controls.TypeBox, layer.Type);
                 layer.Name = string.IsNullOrWhiteSpace(controls.NameBox.Text)
                     ? PavementLayerTemplateLabels.LayerTypeLabel(layer.Type)
@@ -346,7 +561,16 @@ public partial class PavementLayerTemplateWindow : Window
                 SetTextBoxValue(controls.ColorRBox, layer.ColorR);
                 SetTextBoxValue(controls.ColorGBox, layer.ColorG);
                 SetTextBoxValue(controls.ColorBBox, layer.ColorB);
-                controls.ColorPreview.Background = new SolidColorBrush(LayerColor(layer, i));
+                controls.ColorPreview.Background = new SolidColorBrush(LayerColor(layer, controls.LayerIndex));
+                layer.HatchPattern = controls.HatchPatternBox.SelectedItem is string hatchPattern
+                    ? PavementLayerTemplateLabels.NormalizeHatchPattern(hatchPattern)
+                    : "SOLID";
+                layer.HatchAngle = PavementLayerTemplateLabels.NormalizeHatchAngle(
+                    ReadDouble(controls.HatchAngleBox.Text, layer.HatchAngle));
+                layer.HatchScale = PavementLayerTemplateLabels.NormalizeHatchScale(
+                    ReadDouble(controls.HatchScaleBox.Text, layer.HatchScale));
+                SetTextBoxValue(controls.HatchAngleBox, layer.HatchAngle);
+                SetTextBoxValue(controls.HatchScaleBox, layer.HatchScale);
                 layer.UniformThickness = controls.UniformBox.IsChecked == true;
                 layer.Thickness = Math.Max(0.001, ReadDouble(controls.ThicknessBox.Text, layer.Thickness));
                 layer.InnerThickness = Math.Max(0.001, ReadDouble(controls.InnerThicknessBox.Text, layer.InnerThickness));
@@ -424,9 +648,14 @@ public partial class PavementLayerTemplateWindow : Window
         }
 
         DrawGrid();
+        var displayMode = CurrentDisplayMode();
         for (var i = 0; i < geometry.Count; i++)
         {
-            DrawLayerFill(geometry[i], i, transform.WorldToScreen);
+            DrawLayerFill(geometry[i], i, displayMode, transform.WorldToScreen);
+        }
+        for (var i = 0; i < geometry.Count; i++)
+        {
+            DrawHatchPattern(geometry[i], i, displayMode, transform.WorldToScreen);
         }
         for (var i = 0; i < geometry.Count; i++)
         {
@@ -531,8 +760,17 @@ public partial class PavementLayerTemplateWindow : Window
         }
     }
 
-    private void DrawLayerFill(LayerPreviewGeometry geometry, int index, Func<Point, Point> map)
+    private void DrawLayerFill(
+        LayerPreviewGeometry geometry,
+        int index,
+        PavementLayerTemplateDisplayMode displayMode,
+        Func<Point, Point> map)
     {
+        if (displayMode == PavementLayerTemplateDisplayMode.Hatch)
+        {
+            return;
+        }
+
         var color = LayerColor(geometry.Layer, index);
         var topInner = map(geometry.TopInner);
         var topOuter = map(geometry.TopOuter);
@@ -545,6 +783,146 @@ public partial class PavementLayerTemplateWindow : Window
             Fill = fill,
         };
         PreviewCanvas.Children.Add(polygon);
+    }
+
+    private void DrawHatchPattern(
+        LayerPreviewGeometry geometry,
+        int index,
+        PavementLayerTemplateDisplayMode displayMode,
+        Func<Point, Point> map)
+    {
+        if (displayMode == PavementLayerTemplateDisplayMode.Color)
+        {
+            return;
+        }
+
+        var pattern = PavementLayerTemplateLabels.NormalizeHatchPattern(geometry.Layer.HatchPattern);
+        if (pattern == "SOLID")
+        {
+            return;
+        }
+
+        var points = new[] { map(geometry.TopInner), map(geometry.TopOuter), map(geometry.BottomOuter), map(geometry.BottomInner) };
+        var minX = points.Min(point => point.X);
+        var maxX = points.Max(point => point.X);
+        var minY = points.Min(point => point.Y);
+        var maxY = points.Max(point => point.Y);
+        var color = displayMode == PavementLayerTemplateDisplayMode.HatchAndColor
+            ? LayerColor(geometry.Layer, index)
+            : Color.FromRgb(205, 213, 222);
+        var stroke = new SolidColorBrush(Color.FromArgb(170, color.R, color.G, color.B));
+        var hatchScale = PavementLayerTemplateLabels.NormalizeHatchScale(geometry.Layer.HatchScale);
+        var spacing = Math.Max(3.0, (pattern == "DOTS" ? 12.0 : 10.0) * hatchScale);
+        var angleRadians = PavementLayerTemplateLabels.NormalizeHatchAngle(geometry.Layer.HatchAngle) * Math.PI / 180.0;
+        var primaryDirection = new Vector(Math.Cos(angleRadians), -Math.Sin(angleRadians));
+        var hatchCanvas = new Canvas
+        {
+            Width = PreviewCanvas.ActualWidth,
+            Height = PreviewCanvas.ActualHeight,
+            Clip = CreatePolygonClip(points),
+        };
+        PreviewCanvas.Children.Add(hatchCanvas);
+
+        if (pattern == "DOTS")
+        {
+            for (var x = minX; x <= maxX; x += spacing)
+            {
+                for (var y = minY; y <= maxY; y += spacing)
+                {
+                    if (PointInPolygon(new Point(x, y), points))
+                    {
+                        var dot = new Ellipse
+                        {
+                            Width = 2.0,
+                            Height = 2.0,
+                            Fill = stroke,
+                        };
+                        Canvas.SetLeft(dot, x - 1.0);
+                        Canvas.SetTop(dot, y - 1.0);
+                        hatchCanvas.Children.Add(dot);
+                    }
+                }
+            }
+            return;
+        }
+
+        AddHatchFamily(hatchCanvas, points, primaryDirection, spacing, stroke);
+
+        if (pattern is "CROSS" or "ANSI32" or "ANSI37" or "ANSI38")
+        {
+            AddHatchFamily(hatchCanvas, points, new Vector(-primaryDirection.Y, primaryDirection.X), spacing, stroke);
+        }
+
+        if (pattern is "GRAVEL" or "EARTH" or "AR-CONC")
+        {
+            var secondaryRadians = angleRadians + Math.PI / 4.0;
+            AddHatchFamily(hatchCanvas, points, new Vector(Math.Cos(secondaryRadians), -Math.Sin(secondaryRadians)), spacing * 1.35, stroke);
+        }
+    }
+
+    private static Geometry CreatePolygonClip(System.Collections.Generic.IReadOnlyList<Point> points)
+    {
+        var figure = new PathFigure
+        {
+            StartPoint = points[0],
+            IsClosed = true,
+            IsFilled = true,
+        };
+        for (var i = 1; i < points.Count; i++)
+        {
+            figure.Segments.Add(new LineSegment(points[i], true));
+        }
+        return new PathGeometry(new[] { figure });
+    }
+
+    private static void AddHatchLine(Canvas canvas, Point start, Point end, Brush stroke)
+    {
+        canvas.Children.Add(new Line
+        {
+            X1 = start.X,
+            Y1 = start.Y,
+            X2 = end.X,
+            Y2 = end.Y,
+            Stroke = stroke,
+            StrokeThickness = 0.8,
+            StrokeStartLineCap = PenLineCap.Flat,
+            StrokeEndLineCap = PenLineCap.Flat,
+        });
+    }
+
+    private static void AddHatchFamily(
+        Canvas canvas,
+        System.Collections.Generic.IReadOnlyList<Point> points,
+        Vector direction,
+        double spacing,
+        Brush stroke)
+    {
+        if (points.Count == 0 || spacing <= 0.0)
+        {
+            return;
+        }
+
+        if (direction.Length <= 1.0e-9)
+        {
+            direction = new Vector(1.0, 0.0);
+        }
+        direction.Normalize();
+        var normal = new Vector(-direction.Y, direction.X);
+        var minProjection = points.Min(point => point.X * normal.X + point.Y * normal.Y);
+        var maxProjection = points.Max(point => point.X * normal.X + point.Y * normal.Y);
+        var minX = points.Min(point => point.X);
+        var maxX = points.Max(point => point.X);
+        var minY = points.Min(point => point.Y);
+        var maxY = points.Max(point => point.Y);
+        var diagonal = Math.Sqrt(Math.Pow(maxX - minX, 2.0) + Math.Pow(maxY - minY, 2.0)) + spacing * 2.0;
+
+        for (var projection = minProjection - spacing; projection <= maxProjection + spacing; projection += spacing)
+        {
+            var center = new Point(normal.X * projection, normal.Y * projection);
+            var start = center - direction * diagonal;
+            var end = center + direction * diagonal;
+            AddHatchLine(canvas, start, end, stroke);
+        }
     }
 
     private void DrawLayerEdgesAndLabels(
@@ -567,26 +945,112 @@ public partial class PavementLayerTemplateWindow : Window
         {
             AddEdge(topInner, topOuter, stroke, 2.2);
         }
-        AddEdge(topOuter, bottomOuter, stroke, 1.6);
-        AddEdge(bottomOuter, bottomInner, stroke, 2.0);
-        AddEdge(bottomInner, topInner, stroke, 1.6);
+        var edgeThickness = index == _selectedLayerIndex ? 2.8 : 1.6;
+        AddEdge(topOuter, bottomOuter, stroke, edgeThickness);
+        AddEdge(bottomOuter, bottomInner, stroke, index == _selectedLayerIndex ? 3.0 : 2.0);
+        AddEdge(bottomInner, topInner, stroke, edgeThickness);
 
         var layer = current.Layer;
         var midX = (topInner.X + topOuter.X + bottomInner.X + bottomOuter.X) / 4.0;
         var midY = (topInner.Y + topOuter.Y + bottomInner.Y + bottomOuter.Y) / 4.0;
-        AddLabel(layer.Name, new Point(midX - 38, midY - 10), Brushes.White);
-        AddLabel($"厚 {Format(layer.UniformThickness ? layer.Thickness : layer.InnerThickness)}/{Format(layer.UniformThickness ? layer.Thickness : layer.OuterThickness)}", new Point(midX - 38, midY + 10), Brushes.White);
-        AddLabel($"内侧加宽 {Format(layer.InnerWidening)}", new Point(bottomInner.X - 18, bottomInner.Y + 14), Brushes.LightSkyBlue);
-        AddLabel($"外侧加宽 {Format(layer.OuterWidening)}", new Point(bottomOuter.X + 10, bottomOuter.Y + 14), Brushes.LightSkyBlue);
+        const double labelFontSize = 9.0;
+        AddLabel(LayerLabel(layer), new Point(midX - 42, midY - labelFontSize * 0.7), Brushes.White, labelFontSize);
+        if (Math.Abs(layer.InnerWidening) > 1.0e-9)
+        {
+            var inheritedInner = index == 0
+                ? map(InheritedInnerTop(current))
+                : map(geometry[index - 1].BottomInner);
+            DrawWideningDimension(inheritedInner, topInner, Format(layer.InnerWidening), Brushes.LightSkyBlue);
+        }
+        if (Math.Abs(layer.OuterWidening) > 1.0e-9)
+        {
+            var inheritedOuter = index == 0
+                ? map(InheritedOuterTop(current))
+                : map(geometry[index - 1].BottomOuter);
+            DrawWideningDimension(inheritedOuter, topOuter, Format(layer.OuterWidening), Brushes.LightSkyBlue);
+        }
         if (Math.Abs(layer.InnerSlope) > 1.0e-9)
         {
-            AddLabel($"内侧坡度 {Format(layer.InnerSlope)}", new Point(bottomInner.X - 20, bottomInner.Y + 34), Brushes.Khaki);
+            AddLabel(FormatSlopeLabel(layer.InnerSlope), Midpoint(topInner, bottomInner, -28.0), Brushes.Khaki, labelFontSize * 0.9);
         }
         if (Math.Abs(layer.OuterSlope) > 1.0e-9)
         {
-            AddLabel($"外侧坡度 {Format(layer.OuterSlope)}", new Point(bottomOuter.X + 10, bottomOuter.Y + 34), Brushes.Khaki);
+            AddLabel(FormatSlopeLabel(layer.OuterSlope), Midpoint(topOuter, bottomOuter, 10.0), Brushes.Khaki, labelFontSize * 0.9);
         }
     }
+
+    private static string LayerLabel(PavementLayerTemplateLayerDto layer)
+    {
+        var inner = layer.UniformThickness ? layer.Thickness : layer.InnerThickness;
+        var outer = layer.UniformThickness ? layer.Thickness : layer.OuterThickness;
+        var thickness = NearlyEqual(inner, outer) ? Format(inner) : $"{Format(inner)}/{Format(outer)}";
+        return $"{layer.Name}  厚 {thickness}";
+    }
+
+    private static Point InheritedInnerTop(LayerPreviewGeometry geometry)
+    {
+        var grade = TopGrade(geometry);
+        return new Point(
+            geometry.TopInner.X + geometry.Layer.InnerWidening,
+            geometry.TopInner.Y + geometry.Layer.InnerWidening * grade);
+    }
+
+    private static Point InheritedOuterTop(LayerPreviewGeometry geometry)
+    {
+        var grade = TopGrade(geometry);
+        return new Point(
+            geometry.TopOuter.X - geometry.Layer.OuterWidening,
+            geometry.TopOuter.Y - geometry.Layer.OuterWidening * grade);
+    }
+
+    private static double TopGrade(LayerPreviewGeometry geometry)
+    {
+        var width = geometry.TopOuter.X - geometry.TopInner.X;
+        return Math.Abs(width) <= 1.0e-9 ? 0.0 : (geometry.TopOuter.Y - geometry.TopInner.Y) / width;
+    }
+
+    private static Point Midpoint(Point a, Point b, double offsetX)
+        => new((a.X + b.X) * 0.5 + offsetX, (a.Y + b.Y) * 0.5 - 8.0);
+
+    private void DrawWideningDimension(Point from, Point to, string text, Brush stroke)
+    {
+        if (SamePoint(from, to))
+        {
+            return;
+        }
+
+        var offset = new Vector(0.0, -18.0);
+        var a = from + offset;
+        var b = to + offset;
+        AddEdge(from, a, stroke, 0.9);
+        AddEdge(to, b, stroke, 0.9);
+        AddEdge(a, b, stroke, 1.0);
+        DrawArrow(a, b, stroke);
+        DrawArrow(b, a, stroke);
+        AddLabel(text, new Point((a.X + b.X) * 0.5 - 10.0, (a.Y + b.Y) * 0.5 - 18.0), stroke, 9.0);
+    }
+
+    private void DrawArrow(Point tip, Point tail, Brush stroke)
+    {
+        var direction = tail - tip;
+        if (direction.Length <= 1.0e-9)
+        {
+            return;
+        }
+
+        direction.Normalize();
+        var normal = new Vector(-direction.Y, direction.X);
+        var p1 = tip + direction * 8.0 + normal * 3.5;
+        var p2 = tip + direction * 8.0 - normal * 3.5;
+        PreviewCanvas.Children.Add(new Polygon
+        {
+            Points = new PointCollection { tip, p1, p2 },
+            Fill = stroke,
+        });
+    }
+
+    private static string FormatSlopeLabel(double slope)
+        => $"1:{Format(slope)}";
 
     private void AddEdge(Point start, Point end, Brush stroke, double thickness)
     {
@@ -609,14 +1073,18 @@ public partial class PavementLayerTemplateWindow : Window
     }
 
     private void AddLabel(string text, Point position, Brush foreground)
+        => AddLabel(text, position, foreground, 10.0);
+
+    private void AddLabel(string text, Point position, Brush foreground, double fontSize)
     {
         var label = new TextBlock
         {
             Text = text,
             Foreground = foreground,
-            FontSize = 12,
-            Background = new SolidColorBrush(Color.FromArgb(150, 21, 26, 32)),
-            Padding = new Thickness(3, 1, 3, 1),
+            FontSize = fontSize,
+            FontWeight = FontWeights.SemiBold,
+            FontFamily = new FontFamily("Consolas"),
+            Padding = new Thickness(1, 0, 1, 0),
         };
         Canvas.SetLeft(label, position.X);
         Canvas.SetTop(label, position.Y);
@@ -643,6 +1111,55 @@ public partial class PavementLayerTemplateWindow : Window
 
         _previewZoom = newZoom;
         DrawPreview();
+        e.Handled = true;
+    }
+
+    private void PreviewCanvas_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+    {
+        ApplyLayerInputs();
+        var previewWidth = Math.Max(0.1, ReadDouble(PreviewWidthBox.Text, 3.75));
+        var geometry = BuildPreviewGeometry(previewWidth);
+        var transform = CreatePreviewTransform(geometry, _previewZoom, _previewPan);
+        if (transform == null)
+        {
+            return;
+        }
+
+        var mouse = e.GetPosition(PreviewCanvas);
+        for (var i = geometry.Count - 1; i >= 0; --i)
+        {
+            var points = geometry[i].Points.Select(transform.WorldToScreen).ToArray();
+            if (PointInPolygon(mouse, points))
+            {
+                SelectLayer(i);
+                e.Handled = true;
+                return;
+            }
+        }
+    }
+
+    private void ColorPreview_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+    {
+        if (_layerControls.Count == 0)
+        {
+            return;
+        }
+
+        ApplyLayerInputs();
+        var controls = _layerControls[0];
+        if (controls.LayerIndex < 0 || controls.LayerIndex >= _layers.Count)
+        {
+            return;
+        }
+
+        var initial = LayerColor(_layers[controls.LayerIndex], controls.LayerIndex);
+        if (ColorIndexDialog.ShowDialog(this, initial) is { } selected)
+        {
+            SetTextBoxValue(controls.ColorRBox, selected.R);
+            SetTextBoxValue(controls.ColorGBox, selected.G);
+            SetTextBoxValue(controls.ColorBBox, selected.B);
+            LayerInput_Changed(sender, EventArgs.Empty);
+        }
         e.Handled = true;
     }
 
@@ -728,11 +1245,14 @@ public partial class PavementLayerTemplateWindow : Window
         TemplateNameBox.Text = template.TemplateName;
         DisplayScaleBox.Text = Format(template.DisplayScale);
         PreviewWidthBox.Text = Format(template.PreviewWidth);
+        SelectComboValue(DisplayModeBox, template.DisplayMode);
+        LoadGeneralParameters(template);
         _layers.Clear();
         foreach (var layer in template.Layers)
         {
             var copy = layer.Clone();
             EnsureLayerColor(copy, _layers.Count);
+            copy.HatchPattern = PavementLayerTemplateLabels.NormalizeHatchPattern(copy.HatchPattern);
             _layers.Add(copy);
         }
         if (_layers.Count == 0)
@@ -742,7 +1262,9 @@ public partial class PavementLayerTemplateWindow : Window
                 _layers.Add(layer);
             }
         }
+        _selectedLayerIndex = 0;
         LayerCountBox.Text = _layers.Count.ToString(CultureInfo.InvariantCulture);
+        UpdateCurrentLayerBox();
         RefreshLayerGroups();
         _loading = false;
         DrawPreview();
@@ -783,6 +1305,14 @@ public partial class PavementLayerTemplateWindow : Window
             TemplateName = template.TemplateName,
             DisplayScale = template.DisplayScale,
             PreviewWidth = template.PreviewWidth,
+            DisplayMode = template.DisplayMode,
+            ShowAllGeneralParameters = template.ShowAllGeneralParameters,
+            StructureCode = template.StructureCode,
+            SubgradeMoistureTypes = template.SubgradeMoistureTypes,
+            PavementType = template.PavementType,
+            SubgradeSoilGroups = template.SubgradeSoilGroups,
+            DesignDeflection = template.DesignDeflection,
+            CumulativeAxleLoads = template.CumulativeAxleLoads,
             Layers = template.Layers,
         };
     }
@@ -795,6 +1325,14 @@ public partial class PavementLayerTemplateWindow : Window
             TemplateName = string.IsNullOrWhiteSpace(TemplateNameBox.Text) ? "路面结构层模板" : TemplateNameBox.Text.Trim(),
             DisplayScale = Math.Max(0.1, ReadDouble(DisplayScaleBox.Text, 10.0)),
             PreviewWidth = Math.Max(0.1, ReadDouble(PreviewWidthBox.Text, 3.75)),
+            DisplayMode = CurrentDisplayMode(),
+            ShowAllGeneralParameters = ShowAllGeneralParametersBox.IsChecked == true,
+            StructureCode = StructureCodeBox.Text.Trim(),
+            SubgradeMoistureTypes = SelectedMultiValues(_moistureOptions),
+            PavementType = SelectedValue(PavementTypeBox, PavementSurfaceType.Asphalt),
+            SubgradeSoilGroups = SelectedMultiValues(_soilGroupOptions),
+            DesignDeflection = DesignDeflectionBox.Text.Trim(),
+            CumulativeAxleLoads = CumulativeAxleLoadsBox.Text.Trim(),
             Layers = _layers.Select(layer => layer.Clone()).ToList(),
         };
     }
@@ -864,6 +1402,37 @@ public partial class PavementLayerTemplateWindow : Window
     private static bool SamePoint(Point first, Point second)
         => NearlyEqual(first.X, second.X) && NearlyEqual(first.Y, second.Y);
 
+    private PavementLayerTemplateDisplayMode CurrentDisplayMode()
+        => SelectedValue(DisplayModeBox, PavementLayerTemplateDisplayMode.Color);
+
+    private static string DisplayModeLabel(PavementLayerTemplateDisplayMode mode)
+        => mode switch
+        {
+            PavementLayerTemplateDisplayMode.Hatch => "\u6309\u586b\u5145",
+            PavementLayerTemplateDisplayMode.HatchAndColor => "\u6309\u586b\u5145+\u989c\u8272\u663e\u793a",
+            _ => "\u6309\u989c\u8272",
+        };
+
+    private static bool PointInPolygon(Point point, System.Collections.Generic.IReadOnlyList<Point> polygon)
+    {
+        var inside = false;
+        for (int i = 0, j = polygon.Count - 1; i < polygon.Count; j = i++)
+        {
+            var current = polygon[i];
+            var previous = polygon[j];
+            var crosses = current.Y > point.Y != previous.Y > point.Y;
+            if (crosses)
+            {
+                var x = (previous.X - current.X) * (point.Y - current.Y) / (previous.Y - current.Y) + current.X;
+                if (point.X < x)
+                {
+                    inside = !inside;
+                }
+            }
+        }
+        return inside;
+    }
+
     private static void SetTextBoxValue(TextBox box, double value)
     {
         var text = Format(value);
@@ -897,6 +1466,10 @@ public partial class PavementLayerTemplateWindow : Window
 
     private static T SelectedValue<T>(ComboBox comboBox, T fallback)
         => comboBox.SelectedItem is ComboOption<T> option ? option.Value : fallback;
+
+    private static System.Collections.Generic.List<T> SelectedMultiValues<T>(
+        System.Collections.Generic.IEnumerable<SelectableOption<T>> options)
+        => options.Where(option => option.IsSelected).Select(option => option.Value).ToList();
 
     private static Color LayerColor(PavementLayerTemplateLayerDto layer, int index)
     {
@@ -943,15 +1516,117 @@ public partial class PavementLayerTemplateWindow : Window
         public T Value { get; }
     }
 
+    private interface ISelectableOption
+    {
+        bool IsSelected { get; set; }
+    }
+
+    private sealed class SelectableOption<T> : ISelectableOption
+    {
+        public SelectableOption(string label, T value)
+        {
+            Label = label;
+            Value = value;
+        }
+
+        public string Label { get; }
+        public T Value { get; }
+        public bool IsSelected { get; set; }
+    }
+
+    private static class ColorIndexDialog
+    {
+        private static readonly (int Index, Color Color)[] Colors =
+        {
+            (1, Color.FromRgb(255, 0, 0)),
+            (2, Color.FromRgb(255, 255, 0)),
+            (3, Color.FromRgb(0, 255, 0)),
+            (4, Color.FromRgb(0, 255, 255)),
+            (5, Color.FromRgb(0, 0, 255)),
+            (6, Color.FromRgb(255, 0, 255)),
+            (7, Color.FromRgb(255, 255, 255)),
+            (8, Color.FromRgb(128, 128, 128)),
+            (9, Color.FromRgb(192, 192, 192)),
+            (10, Color.FromRgb(255, 127, 127)),
+            (30, Color.FromRgb(255, 127, 0)),
+            (50, Color.FromRgb(255, 255, 127)),
+            (70, Color.FromRgb(127, 255, 0)),
+            (90, Color.FromRgb(127, 255, 127)),
+            (110, Color.FromRgb(0, 255, 127)),
+            (130, Color.FromRgb(127, 255, 255)),
+            (150, Color.FromRgb(0, 127, 255)),
+            (170, Color.FromRgb(127, 127, 255)),
+            (190, Color.FromRgb(127, 0, 255)),
+            (210, Color.FromRgb(255, 127, 255)),
+            (230, Color.FromRgb(255, 0, 127)),
+            (250, Color.FromRgb(51, 51, 51)),
+            (251, Color.FromRgb(91, 91, 91)),
+            (252, Color.FromRgb(132, 132, 132)),
+            (253, Color.FromRgb(173, 173, 173)),
+            (254, Color.FromRgb(214, 214, 214)),
+            (255, Color.FromRgb(255, 255, 255)),
+        };
+
+        public static Color? ShowDialog(Window owner, Color initial)
+        {
+            Color? selected = null;
+            var grid = new UniformGrid
+            {
+                Columns = 9,
+                Margin = new Thickness(12),
+            };
+
+            foreach (var (index, color) in Colors)
+            {
+                var button = new Button
+                {
+                    Width = 32,
+                    Height = 32,
+                    Margin = new Thickness(3),
+                    Background = new SolidColorBrush(color),
+                    BorderBrush = SameColor(color, initial) ? Brushes.White : Brushes.DimGray,
+                    BorderThickness = SameColor(color, initial) ? new Thickness(3) : new Thickness(1),
+                    ToolTip = $"ACI {index}",
+                    Tag = color,
+                };
+                button.Click += (sender, _) =>
+                {
+                    selected = (Color)((Button)sender!).Tag;
+                    Window.GetWindow(button)!.DialogResult = true;
+                };
+                grid.Children.Add(button);
+            }
+
+            var dialog = new Window
+            {
+                Title = "\u9009\u62e9\u7d22\u5f15\u989c\u8272",
+                Owner = owner,
+                WindowStartupLocation = WindowStartupLocation.CenterOwner,
+                ResizeMode = ResizeMode.NoResize,
+                SizeToContent = SizeToContent.WidthAndHeight,
+                Content = grid,
+            };
+
+            return dialog.ShowDialog() == true ? selected : null;
+        }
+
+        private static bool SameColor(Color first, Color second)
+            => first.R == second.R && first.G == second.G && first.B == second.B;
+    }
+
     private sealed class LayerControls
     {
         public LayerControls(
+            int layerIndex,
             ComboBox typeBox,
             TextBox nameBox,
             TextBox colorRBox,
             TextBox colorGBox,
             TextBox colorBBox,
             Border colorPreview,
+            ComboBox hatchPatternBox,
+            TextBox hatchAngleBox,
+            TextBox hatchScaleBox,
             CheckBox uniformBox,
             TextBox thicknessBox,
             TextBox innerThicknessBox,
@@ -974,12 +1649,16 @@ public partial class PavementLayerTemplateWindow : Window
             FrameworkElement innerSlopeRow,
             FrameworkElement outerSlopeRow)
         {
+            LayerIndex = layerIndex;
             TypeBox = typeBox;
             NameBox = nameBox;
             ColorRBox = colorRBox;
             ColorGBox = colorGBox;
             ColorBBox = colorBBox;
             ColorPreview = colorPreview;
+            HatchPatternBox = hatchPatternBox;
+            HatchAngleBox = hatchAngleBox;
+            HatchScaleBox = hatchScaleBox;
             UniformBox = uniformBox;
             ThicknessBox = thicknessBox;
             InnerThicknessBox = innerThicknessBox;
@@ -1003,12 +1682,16 @@ public partial class PavementLayerTemplateWindow : Window
             OuterSlopeRow = outerSlopeRow;
         }
 
+        public int LayerIndex { get; }
         public ComboBox TypeBox { get; }
         public TextBox NameBox { get; }
         public TextBox ColorRBox { get; }
         public TextBox ColorGBox { get; }
         public TextBox ColorBBox { get; }
         public Border ColorPreview { get; }
+        public ComboBox HatchPatternBox { get; }
+        public TextBox HatchAngleBox { get; }
+        public TextBox HatchScaleBox { get; }
         public CheckBox UniformBox { get; }
         public TextBox ThicknessBox { get; }
         public TextBox InnerThicknessBox { get; }

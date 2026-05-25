@@ -2,9 +2,9 @@
 <Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <PropertyGroup>
     <RoadProtoRoot>$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)..\'))</RoadProtoRoot>
-    <RoadProtoVersion>v0.1.20</RoadProtoVersion>
-    <RoadProtoBuildDate>20260522</RoadProtoBuildDate>
-    <RoadProtoStage>PavementLayerTemplateDisplay</RoadProtoStage>
+    <RoadProtoVersion>v0.1.24</RoadProtoVersion>
+    <RoadProtoBuildDate>20260525</RoadProtoBuildDate>
+    <RoadProtoStage>PavementLayerTemplateWizard</RoadProtoStage>
     <RoadProtoArxBaseName>RoadProto_$(RoadProtoVersion)_$(RoadProtoBuildDate)_$(RoadProtoStage)</RoadProtoArxBaseName>
     <RoadProtoArtifactsDir>$(RoadProtoRoot)artifacts\x64\$(Configuration)\</RoadProtoArtifactsDir>
   </PropertyGroup>

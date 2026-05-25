@@ -1,0 +1,80 @@
+<Window x:Class="RoadProto.Terrain.UI.PavementLayerTemplateCreateWizardWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="路面结构层创建向导"
+        Width="1080"
+        Height="620"
+        MinWidth="900"
+        MinHeight="520"
+        WindowStartupLocation="CenterOwner">
+    <Grid Margin="12">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <Grid Margin="0,0,0,12">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="92" />
+                <ColumnDefinition Width="180" />
+                <ColumnDefinition Width="28" />
+                <ColumnDefinition Width="118" />
+                <ColumnDefinition Width="200" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+            <TextBlock Text="路面类型：" VerticalAlignment="Center" />
+            <ComboBox x:Name="PavementTypeBox"
+                      Grid.Column="1"
+                      Height="28"
+                      SelectionChanged="PavementTypeBox_SelectionChanged" />
+            <TextBlock Grid.Column="3" Text="适应路段类型：" VerticalAlignment="Center" />
+            <ComboBox x:Name="RoadSegmentTypeBox"
+                      Grid.Column="4"
+                      Height="28"
+                      SelectionChanged="RoadSegmentTypeBox_SelectionChanged" />
+        </Grid>
+
+        <GroupBox Grid.Row="1" Header="路面参数">
+            <ScrollViewer VerticalScrollBarVisibility="Auto">
+                <StackPanel Margin="12">
+                    <Grid Margin="0,0,0,8">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="86" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="66" />
+                            <ColumnDefinition Width="88" />
+                            <ColumnDefinition Width="66" />
+                            <ColumnDefinition Width="88" />
+                            <ColumnDefinition Width="66" />
+                            <ColumnDefinition Width="88" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Text="层位" FontWeight="SemiBold" />
+                        <TextBlock Grid.Column="1" Text="材料名称" FontWeight="SemiBold" />
+                        <TextBlock Grid.Column="2" Text="厚度" FontWeight="SemiBold" />
+                        <TextBlock Grid.Column="4" Text="加宽" FontWeight="SemiBold" />
+                        <TextBlock Grid.Column="6" Text="坡度" FontWeight="SemiBold" />
+                    </Grid>
+                    <StackPanel x:Name="WizardLayersPanel" />
+                </StackPanel>
+            </ScrollViewer>
+        </GroupBox>
+
+        <StackPanel Grid.Row="2"
+                    Orientation="Horizontal"
+                    HorizontalAlignment="Right"
+                    Margin="0,12,0,0">
+            <Button Content="确定"
+                    Width="90"
+                    Height="32"
+                    Margin="0,0,8,0"
+                    IsDefault="True"
+                    Click="Ok_Click" />
+            <Button Content="取消"
+                    Width="90"
+                    Height="32"
+                    IsCancel="True"
+                    Click="Cancel_Click" />
+        </StackPanel>
+    </Grid>
+</Window>

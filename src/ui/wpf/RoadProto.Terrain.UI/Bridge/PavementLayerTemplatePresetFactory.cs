@@ -1,0 +1,278 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
+
+namespace RoadProto.Terrain.UI.Bridge;
+
+public enum PavementLayerTemplateRoadSegmentType
+{
+    MainlineLane,
+    MainlineShoulder,
+    MainlineEdgeStrip,
+    Ramp,
+    BridgeTransition,
+    BridgeDeck,
+    InterchangeCrossroad,
+    Tunnel,
+    TollPlaza,
+    PassageConnection,
+}
+
+public sealed class PavementLayerTemplatePresetOption<T>
+{
+    public PavementLayerTemplatePresetOption(string label, T value)
+    {
+        Label = label;
+        Value = value;
+    }
+
+    public string Label { get; }
+    public T Value { get; }
+}
+
+public static class PavementLayerTemplatePresetFactory
+{
+    private static readonly IReadOnlyList<PavementLayerTemplatePresetOption<PavementSurfaceType>> PavementTypes =
+        new[]
+        {
+            new PavementLayerTemplatePresetOption<PavementSurfaceType>("沥青路面", PavementSurfaceType.Asphalt),
+            new PavementLayerTemplatePresetOption<PavementSurfaceType>("混凝土路面", PavementSurfaceType.Concrete),
+        };
+
+    private static readonly IReadOnlyList<PavementLayerTemplatePresetOption<PavementLayerTemplateRoadSegmentType>> AsphaltSegments =
+        new[]
+        {
+            Option("主线行车道", PavementLayerTemplateRoadSegmentType.MainlineLane),
+            Option("主线硬路肩", PavementLayerTemplateRoadSegmentType.MainlineShoulder),
+            Option("主线路缘带", PavementLayerTemplateRoadSegmentType.MainlineEdgeStrip),
+            Option("互通匝道", PavementLayerTemplateRoadSegmentType.Ramp),
+            Option("桥头过渡段", PavementLayerTemplateRoadSegmentType.BridgeTransition),
+            Option("桥面铺装", PavementLayerTemplateRoadSegmentType.BridgeDeck),
+            Option("互通被交路", PavementLayerTemplateRoadSegmentType.InterchangeCrossroad),
+            Option("隧道", PavementLayerTemplateRoadSegmentType.Tunnel),
+        };
+
+    private static readonly IReadOnlyList<PavementLayerTemplatePresetOption<PavementLayerTemplateRoadSegmentType>> ConcreteSegments =
+        new[]
+        {
+            Option("收费站广场", PavementLayerTemplateRoadSegmentType.TollPlaza),
+            Option("通道连接线", PavementLayerTemplateRoadSegmentType.PassageConnection),
+        };
+
+    public static IReadOnlyList<PavementLayerTemplatePresetOption<PavementSurfaceType>> PavementTypeOptions => PavementTypes;
+
+    public static IReadOnlyList<PavementLayerTemplatePresetOption<PavementLayerTemplateRoadSegmentType>> RoadSegmentOptions(
+        PavementSurfaceType pavementType)
+        => pavementType == PavementSurfaceType.Concrete ? ConcreteSegments : AsphaltSegments;
+
+    public static string RoadSegmentTypeLabel(PavementLayerTemplateRoadSegmentType type)
+        => AsphaltSegments.Concat(ConcreteSegments).First(option => option.Value == type).Label;
+
+    public static PavementLayerTemplateDto Create(
+        PavementSurfaceType pavementType,
+        PavementLayerTemplateRoadSegmentType roadSegmentType)
+    {
+        var preset = Presets.FirstOrDefault(item => item.PavementType == pavementType && item.RoadSegmentType == roadSegmentType)
+            ?? Presets.First(item => item.PavementType == pavementType);
+
+        return new PavementLayerTemplateDto
+        {
+            TemplateName = $"{PavementLayerTemplateLabels.PavementTypeLabel(preset.PavementType)}-{RoadSegmentTypeLabel(preset.RoadSegmentType)}",
+            DisplayScale = 10.0,
+            PreviewWidth = preset.PreviewWidth,
+            DisplayMode = PavementLayerTemplateDisplayMode.HatchAndColor,
+            ShowAllGeneralParameters = true,
+            StructureCode = preset.StructureCode,
+            PavementType = preset.PavementType,
+            Layers = preset.Layers.Select(layer => layer.Clone()).ToList(),
+        };
+    }
+
+    private static PavementLayerTemplatePresetOption<PavementLayerTemplateRoadSegmentType> Option(
+        string label,
+        PavementLayerTemplateRoadSegmentType value)
+        => new(label, value);
+
+    private static readonly IReadOnlyList<Preset> Presets = new[]
+    {
+        new Preset(
+            PavementSurfaceType.Asphalt,
+            PavementLayerTemplateRoadSegmentType.MainlineLane,
+            7.5,
+            "Ⅰ-1",
+            MainlineLayers(0.10, 0.10, 0.36)),
+        new Preset(
+            PavementSurfaceType.Asphalt,
+            PavementLayerTemplateRoadSegmentType.MainlineShoulder,
+            3.0,
+            "Ⅰ-2",
+            MainlineLayers(0.10, 0.10, 0.36)),
+        new Preset(
+            PavementSurfaceType.Asphalt,
+            PavementLayerTemplateRoadSegmentType.MainlineEdgeStrip,
+            0.75,
+            "Ⅰ-3",
+            MainlineLayers(0.10, 0.10, 0.36)),
+        new Preset(
+            PavementSurfaceType.Asphalt,
+            PavementLayerTemplateRoadSegmentType.Ramp,
+            3.5,
+            "Ⅰ-4",
+            new[]
+            {
+                AsphaltUpper(),
+                AsphaltMiddle(),
+                AsphaltSeal(),
+                Layer(PavementLayerType.Base, "32cm水泥稳定碎石", 0.32, 0.15, 1.0, 55, 108, 189, 0.04),
+                Layer(PavementLayerType.Subbase, "20cm低剂量水泥稳定碎石", 0.20, 0.15, 1.0, 61, 120, 210, 0.20),
+            }),
+        new Preset(
+            PavementSurfaceType.Asphalt,
+            PavementLayerTemplateRoadSegmentType.BridgeTransition,
+            7.5,
+            "Ⅱ-1",
+            new[]
+            {
+                AsphaltUpper(),
+                AsphaltMiddle(),
+                AsphaltSeal(),
+                Layer(PavementLayerType.ApproachSlab, "水泥混凝土", 0.35, 0.0, 0.0, 102, 102, 102, 0.04),
+                Layer(PavementLayerType.Cushion, "水泥砂浆", 0.03, 0.0, 0.0, 181, 53, 53, 0.07),
+                Layer(PavementLayerType.Subbase, "级配碎石", 0.25, 0.0, 0.0, 61, 120, 210, 0.50),
+            }),
+        new Preset(
+            PavementSurfaceType.Asphalt,
+            PavementLayerTemplateRoadSegmentType.BridgeDeck,
+            7.5,
+            "Ⅱ-2",
+            new[]
+            {
+                AsphaltUpper(),
+                AsphaltMiddle(),
+                AsphaltSeal(),
+            }),
+        new Preset(
+            PavementSurfaceType.Asphalt,
+            PavementLayerTemplateRoadSegmentType.InterchangeCrossroad,
+            7.5,
+            "Ⅱ-3",
+            new[]
+            {
+                AsphaltUpper(),
+                AsphaltMiddle(),
+                Layer(PavementLayerType.Base, "32cm水泥稳定碎石", 0.32, 0.15, 1.0, 55, 108, 189, 0.04),
+                Layer(PavementLayerType.Subbase, "20cm低剂量水泥稳定碎石", 0.20, 0.15, 1.0, 61, 120, 210, 0.20),
+            }),
+        new Preset(
+            PavementSurfaceType.Asphalt,
+            PavementLayerTemplateRoadSegmentType.Tunnel,
+            7.5,
+            "Ⅱ-4",
+            new[]
+            {
+                AsphaltUpper(),
+                AsphaltMiddle(),
+                AsphaltSeal(),
+                Layer(PavementLayerType.Base, "水泥混凝土", 0.24, 0.0, 0.0, 102, 102, 102, 0.04),
+                Layer(PavementLayerType.Subbase, "20cm低剂量水泥稳定碎石", 0.20, 0.0, 0.0, 61, 120, 210, 0.20),
+            }),
+        new Preset(
+            PavementSurfaceType.Concrete,
+            PavementLayerTemplateRoadSegmentType.TollPlaza,
+            7.5,
+            "Ⅲ-1",
+            new[]
+            {
+                Layer(PavementLayerType.UpperSurface, "水泥混凝土", 0.26, 0.0, 0.0, 102, 102, 102, 0.04),
+                Layer(PavementLayerType.Base, "水泥稳定碎石", 0.20, 0.0, 0.0, 55, 108, 189, 0.04),
+                Layer(PavementLayerType.Subbase, "级配碎石", 0.20, 0.0, 0.0, 61, 120, 210, 0.50),
+            }),
+        new Preset(
+            PavementSurfaceType.Concrete,
+            PavementLayerTemplateRoadSegmentType.PassageConnection,
+            7.5,
+            "Ⅲ-2",
+            new[]
+            {
+                Layer(PavementLayerType.UpperSurface, "水泥混凝土", 0.22, 0.0, 0.0, 102, 102, 102, 0.04),
+                Layer(PavementLayerType.Base, "级配碎石", 0.18, 0.0, 0.0, 61, 120, 210, 0.50),
+                Layer(PavementLayerType.Subbase, "石灰土", 0.18, 0.0, 0.0, 61, 120, 210, 0.20),
+            }),
+    };
+
+    private static IReadOnlyList<PavementLayerTemplateLayerDto> MainlineLayers(
+        double baseWidening,
+        double subbaseWidening,
+        double baseThickness)
+        => new[]
+        {
+            AsphaltUpper(),
+            AsphaltMiddle(),
+            Layer(PavementLayerType.LowerSurface, "8cm沥青马蹄脂碎石混合料（SUP-25）", 0.08, 0.0, 0.0, 80, 80, 80, 0.005),
+            AsphaltSeal(),
+            Layer(PavementLayerType.Base, $"{(int)Math.Round(baseThickness * 100.0)}cm水泥稳定碎石", baseThickness, baseWidening, 1.0, 55, 108, 189, 0.04),
+            Layer(PavementLayerType.Subbase, "20cm低剂量水泥稳定碎石", 0.20, subbaseWidening, 1.0, 61, 120, 210, 0.20),
+        };
+
+    private static PavementLayerTemplateLayerDto AsphaltUpper()
+        => Layer(PavementLayerType.UpperSurface, "4cm沥青马蹄脂碎石混合料（SMA-13s）", 0.04, 0.0, 0.0, 102, 102, 102, 0.10);
+
+    private static PavementLayerTemplateLayerDto AsphaltMiddle()
+        => Layer(PavementLayerType.MiddleSurface, "6cm沥青马蹄脂碎石混合料（SUP-20）", 0.06, 0.0, 0.0, 102, 102, 102, 0.003);
+
+    private static PavementLayerTemplateLayerDto AsphaltSeal()
+        => Layer(PavementLayerType.AsphaltSeal, "沥青封层", 0.01, 0.0, 0.0, 80, 80, 80, 1.0);
+
+    private static PavementLayerTemplateLayerDto Layer(
+        PavementLayerType type,
+        string name,
+        double thickness,
+        double widening,
+        double slope,
+        int colorR,
+        int colorG,
+        int colorB,
+        double hatchScale)
+        => new()
+        {
+            Type = type,
+            Name = name,
+            UniformThickness = true,
+            Thickness = thickness,
+            InnerThickness = thickness,
+            OuterThickness = thickness,
+            InnerWidening = widening,
+            OuterWidening = widening,
+            InnerSlope = slope,
+            OuterSlope = slope,
+            ColorR = colorR,
+            ColorG = colorG,
+            ColorB = colorB,
+            HatchPattern = "SOLID",
+            HatchAngle = 0.0,
+            HatchScale = hatchScale,
+        };
+
+    private sealed class Preset
+    {
+        public Preset(
+            PavementSurfaceType pavementType,
+            PavementLayerTemplateRoadSegmentType roadSegmentType,
+            double previewWidth,
+            string structureCode,
+            IReadOnlyList<PavementLayerTemplateLayerDto> layers)
+        {
+            PavementType = pavementType;
+            RoadSegmentType = roadSegmentType;
+            PreviewWidth = previewWidth;
+            StructureCode = structureCode;
+            Layers = layers;
+        }
+
+        public PavementSurfaceType PavementType { get; }
+        public PavementLayerTemplateRoadSegmentType RoadSegmentType { get; }
+        public double PreviewWidth { get; }
+        public string StructureCode { get; }
+        public IReadOnlyList<PavementLayerTemplateLayerDto> Layers { get; }
+    }
+}

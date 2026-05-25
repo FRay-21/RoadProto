@@ -1,7 +1,9 @@
 #include "domain/cross_section/PavementLayerTemplateModel.h"
 
 #include <algorithm>
+#include <array>
 #include <cmath>
+#include <utility>
 
 namespace roadproto::domain::cross_section {
 namespace {
@@ -61,6 +63,9 @@ PavementLayerTemplateLayer makeLayer(
     layer.innerWidening = innerWidening;
     layer.outerWidening = outerWidening;
     layer.color = defaultLayerColorForIndex(colorIndex);
+    layer.hatchPattern = L"SOLID";
+    layer.hatchAngle = 0.0;
+    layer.hatchScale = 1.0;
     return layer;
 }
 
@@ -97,6 +102,67 @@ void clampSideInsets(double topWidth, double& innerInset, double& outerInset)
     outerInset *= scale;
 }
 
+bool isSupportedMoistureType(PavementSubgradeMoistureType type)
+{
+    switch (type) {
+    case PavementSubgradeMoistureType::Dry:
+    case PavementSubgradeMoistureType::Medium:
+    case PavementSubgradeMoistureType::Wet:
+    case PavementSubgradeMoistureType::OverWet:
+        return true;
+    default:
+        return false;
+    }
+}
+
+bool isSupportedSurfaceType(PavementSurfaceType type)
+{
+    switch (type) {
+    case PavementSurfaceType::Asphalt:
+    case PavementSurfaceType::Concrete:
+        return true;
+    default:
+        return false;
+    }
+}
+
+bool isSupportedSoilGroup(PavementSubgradeSoilGroup group)
+{
+    switch (group) {
+    case PavementSubgradeSoilGroup::Bedrock:
+    case PavementSubgradeSoilGroup::CrushedStoneSoil:
+    case PavementSubgradeSoilGroup::GravelSoil:
+    case PavementSubgradeSoilGroup::SandSoil:
+    case PavementSubgradeSoilGroup::SiltySoil:
+    case PavementSubgradeSoilGroup::LowLiquidLimitClay:
+    case PavementSubgradeSoilGroup::HighLiquidLimitClay:
+    case PavementSubgradeSoilGroup::OrganicSoil:
+    case PavementSubgradeSoilGroup::SoftSoil:
+    case PavementSubgradeSoilGroup::ExpansiveSoil:
+    case PavementSubgradeSoilGroup::Loess:
+    case PavementSubgradeSoilGroup::Other:
+        return true;
+    default:
+        return false;
+    }
+}
+
+template <typename T, typename Predicate>
+void normalizeUniqueEnumList(std::vector<T>& values, Predicate isSupported)
+{
+    std::vector<T> normalized;
+    normalized.reserve(values.size());
+    for (const auto value : values) {
+        if (!isSupported(value)) {
+            continue;
+        }
+        if (std::find(normalized.begin(), normalized.end(), value) == normalized.end()) {
+            normalized.push_back(value);
+        }
+    }
+    values = std::move(normalized);
+}
+
 } // namespace
 
 PavementLayerTemplateData PavementLayerTemplateDefaults::create()
@@ -109,9 +175,11 @@ PavementLayerTemplateData PavementLayerTemplateDefaults::create()
         makeLayer(PavementLayerType::UpperSurface, 0.04, 0.0, 0.0, 0),
         makeLayer(PavementLayerType::MiddleSurface, 0.06, 0.0, 0.0, 1),
         makeLayer(PavementLayerType::LowerSurface, 0.08, 0.0, 0.0, 2),
-        makeLayer(PavementLayerType::Base, 0.18, 0.15, 0.15, 3),
-        makeLayer(PavementLayerType::Subbase, 0.20, 0.15, 0.15, 4),
-        makeLayer(PavementLayerType::Cushion, 0.15, 0.15, 0.15, 5),
+        makeLayer(PavementLayerType::AsphaltSeal, 0.01, 0.0, 0.0, 3),
+        makeLayer(PavementLayerType::Base, 0.18, 0.15, 0.15, 4),
+        makeLayer(PavementLayerType::Subbase, 0.20, 0.15, 0.15, 5),
+        makeLayer(PavementLayerType::Cushion, 0.15, 0.15, 0.15, 6),
+        makeLayer(PavementLayerType::ApproachSlab, 0.35, 0.0, 0.0, 7),
     };
     return data;
 }
@@ -126,9 +194,55 @@ bool PavementLayerTemplateRules::isSupportedPreviewWidth(double previewWidth)
     return isPositiveFinite(previewWidth);
 }
 
+bool PavementLayerTemplateRules::isSupportedHatchPattern(const std::wstring& hatchPattern)
+{
+    static constexpr std::array<const wchar_t*, 57> kSupportedPatterns = {
+        L"SOLID",
+        L"ANSI31", L"ANSI32", L"ANSI33", L"ANSI34", L"ANSI35", L"ANSI36", L"ANSI37", L"ANSI38",
+        L"AR-B816", L"AR-B816C", L"AR-B88", L"AR-BRELM", L"AR-BRSTD", L"AR-CONC",
+        L"AR-HBONE", L"AR-PARQ1", L"AR-RROOF", L"AR-RSHKE", L"AR-SAND",
+        L"BOX", L"BRASS", L"BRICK", L"BRSTONE", L"CLAY", L"CORK", L"CROSS", L"DASH",
+        L"DOLMIT", L"DOTS", L"EARTH", L"ESCHER", L"FLEX", L"GOST_GLASS", L"GOST_GROUND",
+        L"GOST_WOOD", L"GRASS", L"GRATE", L"GRAVEL", L"HEX", L"HONEY", L"HOUND",
+        L"INSUL", L"LINE", L"MUDST", L"NET", L"NET3", L"PLAST", L"PLASTI",
+        L"SACNCR", L"SQUARE", L"STARS", L"STEEL", L"SWAMP", L"TRANS", L"TRIANG",
+        L"ZIGZAG"};
+    return std::find(kSupportedPatterns.begin(), kSupportedPatterns.end(), hatchPattern) != kSupportedPatterns.end();
+}
+
 PavementLayerTemplateDisplayColor PavementLayerTemplateRules::displayColorForLayerIndex(std::size_t index)
 {
     return defaultLayerColorForIndex(index);
+}
+
+const wchar_t* PavementLayerTemplateRules::displayModeCode(PavementLayerTemplateDisplayMode mode)
+{
+    switch (mode) {
+    case PavementLayerTemplateDisplayMode::Color:
+        return L"Color";
+    case PavementLayerTemplateDisplayMode::Hatch:
+        return L"Hatch";
+    case PavementLayerTemplateDisplayMode::HatchAndColor:
+        return L"HatchAndColor";
+    default:
+        return L"Color";
+    }
+}
+
+PavementLayerTemplateDisplayMode PavementLayerTemplateRules::displayModeFromCode(
+    const std::wstring& code,
+    PavementLayerTemplateDisplayMode fallback)
+{
+    if (code == L"Color") {
+        return PavementLayerTemplateDisplayMode::Color;
+    }
+    if (code == L"Hatch") {
+        return PavementLayerTemplateDisplayMode::Hatch;
+    }
+    if (code == L"HatchAndColor") {
+        return PavementLayerTemplateDisplayMode::HatchAndColor;
+    }
+    return fallback;
 }
 
 bool PavementLayerTemplateRules::normalize(PavementLayerTemplateData& data, std::wstring& errorMessage)
@@ -149,6 +263,12 @@ bool PavementLayerTemplateRules::normalize(PavementLayerTemplateData& data, std:
         errorMessage = L"Pavement layer template requires at least one layer.";
         return false;
     }
+
+    if (!isSupportedSurfaceType(data.properties.pavementType)) {
+        data.properties.pavementType = PavementSurfaceType::Asphalt;
+    }
+    normalizeUniqueEnumList(data.properties.subgradeMoistureTypes, isSupportedMoistureType);
+    normalizeUniqueEnumList(data.properties.subgradeSoilGroups, isSupportedSoilGroup);
 
     for (std::size_t layerIndex = 0; layerIndex < data.layers.size(); ++layerIndex) {
         auto& layer = data.layers[layerIndex];
@@ -180,6 +300,15 @@ bool PavementLayerTemplateRules::normalize(PavementLayerTemplateData& data, std:
             layer.color.r = normalizeColorChannel(layer.color.r);
             layer.color.g = normalizeColorChannel(layer.color.g);
             layer.color.b = normalizeColorChannel(layer.color.b);
+        }
+        if (!isSupportedHatchPattern(layer.hatchPattern)) {
+            layer.hatchPattern = L"SOLID";
+        }
+        if (!isFinite(layer.hatchAngle)) {
+            layer.hatchAngle = 0.0;
+        }
+        if (!isPositiveFinite(layer.hatchScale)) {
+            layer.hatchScale = 1.0;
         }
     }
 
@@ -271,6 +400,10 @@ const wchar_t* pavementLayerTypeCode(PavementLayerType type)
         return L"Subbase";
     case PavementLayerType::Cushion:
         return L"Cushion";
+    case PavementLayerType::AsphaltSeal:
+        return L"AsphaltSeal";
+    case PavementLayerType::ApproachSlab:
+        return L"ApproachSlab";
     default:
         return L"UpperSurface";
     }
@@ -291,6 +424,10 @@ const wchar_t* pavementLayerTypeDisplayName(PavementLayerType type)
         return L"\u5e95\u57fa\u5c42";
     case PavementLayerType::Cushion:
         return L"\u57ab\u5c42";
+    case PavementLayerType::AsphaltSeal:
+        return L"\u6ca5\u9752\u5c01\u5c42";
+    case PavementLayerType::ApproachSlab:
+        return L"\u642d\u677f\u5c42";
     default:
         return L"\u4e0a\u9762\u5c42";
     }
@@ -317,6 +454,207 @@ PavementLayerType pavementLayerTypeFromCode(
     }
     if (code == L"Cushion") {
         return PavementLayerType::Cushion;
+    }
+    if (code == L"AsphaltSeal") {
+        return PavementLayerType::AsphaltSeal;
+    }
+    if (code == L"ApproachSlab") {
+        return PavementLayerType::ApproachSlab;
+    }
+    return fallback;
+}
+
+const wchar_t* pavementSubgradeMoistureTypeCode(PavementSubgradeMoistureType type)
+{
+    switch (type) {
+    case PavementSubgradeMoistureType::Dry:
+        return L"Dry";
+    case PavementSubgradeMoistureType::Medium:
+        return L"Medium";
+    case PavementSubgradeMoistureType::Wet:
+        return L"Wet";
+    case PavementSubgradeMoistureType::OverWet:
+        return L"OverWet";
+    default:
+        return L"Dry";
+    }
+}
+
+const wchar_t* pavementSubgradeMoistureTypeDisplayName(PavementSubgradeMoistureType type)
+{
+    switch (type) {
+    case PavementSubgradeMoistureType::Dry:
+        return L"\u5e72\u71e5";
+    case PavementSubgradeMoistureType::Medium:
+        return L"\u4e2d\u6e7f";
+    case PavementSubgradeMoistureType::Wet:
+        return L"\u6f6e\u6e7f";
+    case PavementSubgradeMoistureType::OverWet:
+        return L"\u8fc7\u6e7f";
+    default:
+        return L"\u5e72\u71e5";
+    }
+}
+
+PavementSubgradeMoistureType pavementSubgradeMoistureTypeFromCode(
+    const std::wstring& code,
+    PavementSubgradeMoistureType fallback)
+{
+    if (code == L"Dry") {
+        return PavementSubgradeMoistureType::Dry;
+    }
+    if (code == L"Medium") {
+        return PavementSubgradeMoistureType::Medium;
+    }
+    if (code == L"Wet") {
+        return PavementSubgradeMoistureType::Wet;
+    }
+    if (code == L"OverWet") {
+        return PavementSubgradeMoistureType::OverWet;
+    }
+    return fallback;
+}
+
+const wchar_t* pavementSurfaceTypeCode(PavementSurfaceType type)
+{
+    switch (type) {
+    case PavementSurfaceType::Asphalt:
+        return L"Asphalt";
+    case PavementSurfaceType::Concrete:
+        return L"Concrete";
+    default:
+        return L"Asphalt";
+    }
+}
+
+const wchar_t* pavementSurfaceTypeDisplayName(PavementSurfaceType type)
+{
+    switch (type) {
+    case PavementSurfaceType::Asphalt:
+        return L"\u6ca5\u9752\u8def\u9762";
+    case PavementSurfaceType::Concrete:
+        return L"\u6df7\u51dd\u571f\u8def\u9762";
+    default:
+        return L"\u6ca5\u9752\u8def\u9762";
+    }
+}
+
+PavementSurfaceType pavementSurfaceTypeFromCode(
+    const std::wstring& code,
+    PavementSurfaceType fallback)
+{
+    if (code == L"Asphalt") {
+        return PavementSurfaceType::Asphalt;
+    }
+    if (code == L"Concrete") {
+        return PavementSurfaceType::Concrete;
+    }
+    return fallback;
+}
+
+const wchar_t* pavementSubgradeSoilGroupCode(PavementSubgradeSoilGroup group)
+{
+    switch (group) {
+    case PavementSubgradeSoilGroup::Bedrock:
+        return L"Bedrock";
+    case PavementSubgradeSoilGroup::CrushedStoneSoil:
+        return L"CrushedStoneSoil";
+    case PavementSubgradeSoilGroup::GravelSoil:
+        return L"GravelSoil";
+    case PavementSubgradeSoilGroup::SandSoil:
+        return L"SandSoil";
+    case PavementSubgradeSoilGroup::SiltySoil:
+        return L"SiltySoil";
+    case PavementSubgradeSoilGroup::LowLiquidLimitClay:
+        return L"LowLiquidLimitClay";
+    case PavementSubgradeSoilGroup::HighLiquidLimitClay:
+        return L"HighLiquidLimitClay";
+    case PavementSubgradeSoilGroup::OrganicSoil:
+        return L"OrganicSoil";
+    case PavementSubgradeSoilGroup::SoftSoil:
+        return L"SoftSoil";
+    case PavementSubgradeSoilGroup::ExpansiveSoil:
+        return L"ExpansiveSoil";
+    case PavementSubgradeSoilGroup::Loess:
+        return L"Loess";
+    case PavementSubgradeSoilGroup::Other:
+        return L"Other";
+    default:
+        return L"Other";
+    }
+}
+
+const wchar_t* pavementSubgradeSoilGroupDisplayName(PavementSubgradeSoilGroup group)
+{
+    switch (group) {
+    case PavementSubgradeSoilGroup::Bedrock:
+        return L"\u57fa\u5ca9";
+    case PavementSubgradeSoilGroup::CrushedStoneSoil:
+        return L"\u788e\u77f3\u571f";
+    case PavementSubgradeSoilGroup::GravelSoil:
+        return L"\u783e\u7c7b\u571f";
+    case PavementSubgradeSoilGroup::SandSoil:
+        return L"\u7802\u7c7b\u571f";
+    case PavementSubgradeSoilGroup::SiltySoil:
+        return L"\u7c89\u8d28\u571f";
+    case PavementSubgradeSoilGroup::LowLiquidLimitClay:
+        return L"\u4f4e\u6db2\u9650\u9ecf\u571f";
+    case PavementSubgradeSoilGroup::HighLiquidLimitClay:
+        return L"\u9ad8\u6db2\u9650\u9ecf\u571f";
+    case PavementSubgradeSoilGroup::OrganicSoil:
+        return L"\u6709\u673a\u8d28\u571f";
+    case PavementSubgradeSoilGroup::SoftSoil:
+        return L"\u8f6f\u571f";
+    case PavementSubgradeSoilGroup::ExpansiveSoil:
+        return L"\u81a8\u80c0\u571f";
+    case PavementSubgradeSoilGroup::Loess:
+        return L"\u9ec4\u571f";
+    case PavementSubgradeSoilGroup::Other:
+        return L"\u5176\u4ed6";
+    default:
+        return L"\u5176\u4ed6";
+    }
+}
+
+PavementSubgradeSoilGroup pavementSubgradeSoilGroupFromCode(
+    const std::wstring& code,
+    PavementSubgradeSoilGroup fallback)
+{
+    if (code == L"Bedrock") {
+        return PavementSubgradeSoilGroup::Bedrock;
+    }
+    if (code == L"CrushedStoneSoil") {
+        return PavementSubgradeSoilGroup::CrushedStoneSoil;
+    }
+    if (code == L"GravelSoil") {
+        return PavementSubgradeSoilGroup::GravelSoil;
+    }
+    if (code == L"SandSoil") {
+        return PavementSubgradeSoilGroup::SandSoil;
+    }
+    if (code == L"SiltySoil") {
+        return PavementSubgradeSoilGroup::SiltySoil;
+    }
+    if (code == L"LowLiquidLimitClay") {
+        return PavementSubgradeSoilGroup::LowLiquidLimitClay;
+    }
+    if (code == L"HighLiquidLimitClay") {
+        return PavementSubgradeSoilGroup::HighLiquidLimitClay;
+    }
+    if (code == L"OrganicSoil") {
+        return PavementSubgradeSoilGroup::OrganicSoil;
+    }
+    if (code == L"SoftSoil") {
+        return PavementSubgradeSoilGroup::SoftSoil;
+    }
+    if (code == L"ExpansiveSoil") {
+        return PavementSubgradeSoilGroup::ExpansiveSoil;
+    }
+    if (code == L"Loess") {
+        return PavementSubgradeSoilGroup::Loess;
+    }
+    if (code == L"Other") {
+        return PavementSubgradeSoilGroup::Other;
     }
     return fallback;
 }

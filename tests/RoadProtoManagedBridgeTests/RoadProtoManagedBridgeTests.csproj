@@ -15,6 +15,7 @@
     <Compile Include="..\..\src\ui\wpf\RoadProto.Terrain.UI\Bridge\RoadModelSectionViewerFile.cs" Link="Bridge\RoadModelSectionViewerFile.cs" />
     <Compile Include="..\..\src\ui\wpf\RoadProto.Terrain.UI\Bridge\PavementLayerTemplateDialogDtos.cs" Link="Bridge\PavementLayerTemplateDialogDtos.cs" />
     <Compile Include="..\..\src\ui\wpf\RoadProto.Terrain.UI\Bridge\PavementLayerTemplateDialogFile.cs" Link="Bridge\PavementLayerTemplateDialogFile.cs" />
+    <Compile Include="..\..\src\ui\wpf\RoadProto.Terrain.UI\Bridge\PavementLayerTemplatePresetFactory.cs" Link="Bridge\PavementLayerTemplatePresetFactory.cs" />
     <Compile Include="..\..\src\ui\wpf\RoadProto.Terrain.UI\Bridge\PavementLayerTemplateXmlFile.cs" Link="Bridge\PavementLayerTemplateXmlFile.cs" />
     <Compile Include="..\..\src\ui\wpf\RoadProto.Terrain.UI\Bridge\SlopeTemplateDialogDtos.cs" Link="Bridge\SlopeTemplateDialogDtos.cs" />
     <Compile Include="..\..\src\ui\wpf\RoadProto.Terrain.UI\Bridge\SlopeTemplateDialogFile.cs" Link="Bridge\SlopeTemplateDialogFile.cs" />

@@ -26,6 +26,14 @@ public static class PavementLayerTemplateXmlFile
             TemplateName = ReadRequiredString(properties, "name"),
             DisplayScale = ReadRequiredPositiveDouble(properties, "displayScale"),
             PreviewWidth = ReadRequiredPositiveDouble(properties, "previewWidth"),
+            DisplayMode = ReadOptionalEnum(properties, "displayMode", PavementLayerTemplateDisplayMode.Color),
+            ShowAllGeneralParameters = ReadOptionalBool(properties, "showAllGeneralParameters", false),
+            StructureCode = ReadOptionalString(properties, "structureCode", string.Empty),
+            SubgradeMoistureTypes = ReadOptionalEnumList<PavementSubgradeMoistureType>(properties, "subgradeMoistureTypes"),
+            PavementType = ReadOptionalEnum(properties, "pavementType", PavementSurfaceType.Asphalt),
+            SubgradeSoilGroups = ReadOptionalEnumList<PavementSubgradeSoilGroup>(properties, "subgradeSoilGroups"),
+            DesignDeflection = ReadOptionalString(properties, "designDeflection", string.Empty),
+            CumulativeAxleLoads = ReadOptionalString(properties, "cumulativeAxleLoads", string.Empty),
         };
 
         var layerIndex = 0;
@@ -49,6 +57,9 @@ public static class PavementLayerTemplateXmlFile
                 ColorR = ReadOptionalColorChannel(element, "colorR", defaultColor.R),
                 ColorG = ReadOptionalColorChannel(element, "colorG", defaultColor.G),
                 ColorB = ReadOptionalColorChannel(element, "colorB", defaultColor.B),
+                HatchPattern = PavementLayerTemplateLabels.NormalizeHatchPattern(ReadOptionalString(element, "hatchPattern", "SOLID")),
+                HatchAngle = PavementLayerTemplateLabels.NormalizeHatchAngle(ReadOptionalDouble(element, "hatchAngle", 0.0)),
+                HatchScale = PavementLayerTemplateLabels.NormalizeHatchScale(ReadOptionalDouble(element, "hatchScale", 1.0)),
             });
             layerIndex++;
         }
@@ -72,7 +83,15 @@ public static class PavementLayerTemplateXmlFile
                     "Properties",
                     new XAttribute("name", template.TemplateName ?? string.Empty),
                     new XAttribute("displayScale", Format(template.DisplayScale)),
-                    new XAttribute("previewWidth", Format(template.PreviewWidth))),
+                    new XAttribute("previewWidth", Format(template.PreviewWidth)),
+                    new XAttribute("displayMode", template.DisplayMode.ToString()),
+                    new XAttribute("showAllGeneralParameters", template.ShowAllGeneralParameters ? "true" : "false"),
+                    new XAttribute("structureCode", template.StructureCode ?? string.Empty),
+                    new XAttribute("subgradeMoistureTypes", JoinEnumList(template.SubgradeMoistureTypes)),
+                    new XAttribute("pavementType", template.PavementType.ToString()),
+                    new XAttribute("subgradeSoilGroups", JoinEnumList(template.SubgradeSoilGroups)),
+                    new XAttribute("designDeflection", template.DesignDeflection ?? string.Empty),
+                    new XAttribute("cumulativeAxleLoads", template.CumulativeAxleLoads ?? string.Empty)),
                 template.Layers.Select(layer => new XElement(
                     "Layer",
                     new XAttribute("type", layer.Type.ToString()),
@@ -87,7 +106,10 @@ public static class PavementLayerTemplateXmlFile
                     new XAttribute("outerSlope", Format(layer.OuterSlope)),
                     new XAttribute("colorR", ClampColor(layer.ColorR).ToString(CultureInfo.InvariantCulture)),
                     new XAttribute("colorG", ClampColor(layer.ColorG).ToString(CultureInfo.InvariantCulture)),
-                    new XAttribute("colorB", ClampColor(layer.ColorB).ToString(CultureInfo.InvariantCulture))))));
+                    new XAttribute("colorB", ClampColor(layer.ColorB).ToString(CultureInfo.InvariantCulture)),
+                    new XAttribute("hatchPattern", PavementLayerTemplateLabels.NormalizeHatchPattern(layer.HatchPattern)),
+                    new XAttribute("hatchAngle", Format(PavementLayerTemplateLabels.NormalizeHatchAngle(layer.HatchAngle))),
+                    new XAttribute("hatchScale", Format(PavementLayerTemplateLabels.NormalizeHatchScale(layer.HatchScale)))))));
 
         document.Save(path);
     }
@@ -110,6 +132,9 @@ public static class PavementLayerTemplateXmlFile
         return value!;
     }
 
+    private static string ReadOptionalString(XElement element, string name, string fallback)
+        => (string?)element.Attribute(name) is { Length: > 0 } value ? value : fallback;
+
     private static double ReadRequiredDouble(XElement element, string name)
     {
         var raw = ReadRequiredString(element, name);
@@ -118,6 +143,22 @@ public static class PavementLayerTemplateXmlFile
             || double.IsInfinity(value))
         {
             throw new InvalidDataException($"Invalid pavement layer template XML numeric attribute: {name}.");
+        }
+        return value;
+    }
+
+    private static double ReadOptionalDouble(XElement element, string name, double fallback)
+    {
+        var raw = (string?)element.Attribute(name);
+        if (string.IsNullOrWhiteSpace(raw))
+        {
+            return fallback;
+        }
+        if (!double.TryParse(raw, NumberStyles.Float, CultureInfo.InvariantCulture, out var value)
+            || double.IsNaN(value)
+            || double.IsInfinity(value))
+        {
+            return fallback;
         }
         return value;
     }
@@ -162,6 +203,28 @@ public static class PavementLayerTemplateXmlFile
         throw new InvalidDataException($"Invalid pavement layer template XML boolean attribute: {name}.");
     }
 
+    private static bool ReadOptionalBool(XElement element, string name, bool fallback)
+    {
+        var value = (string?)element.Attribute(name);
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return fallback;
+        }
+
+        var text = value!;
+        if (text.Equals("1", StringComparison.OrdinalIgnoreCase)
+            || text.Equals("true", StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+        if (text.Equals("0", StringComparison.OrdinalIgnoreCase)
+            || text.Equals("false", StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+        return fallback;
+    }
+
     private static T ReadRequiredEnum<T>(XElement element, string name)
         where T : struct
     {
@@ -172,6 +235,45 @@ public static class PavementLayerTemplateXmlFile
         }
         return result;
     }
+
+    private static T ReadOptionalEnum<T>(XElement element, string name, T fallback)
+        where T : struct
+    {
+        var value = (string?)element.Attribute(name);
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return fallback;
+        }
+
+        return Enum.TryParse<T>(value, ignoreCase: false, out var result) ? result : fallback;
+    }
+
+    private static System.Collections.Generic.List<T> ReadOptionalEnumList<T>(XElement element, string name)
+        where T : struct
+    {
+        var result = new System.Collections.Generic.List<T>();
+        var value = (string?)element.Attribute(name);
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return result;
+        }
+
+        var text = value!;
+        foreach (var raw in text.Split(new[] { ';' }, StringSplitOptions.RemoveEmptyEntries))
+        {
+            if (Enum.TryParse<T>(raw, ignoreCase: false, out var parsed)
+                && Enum.IsDefined(typeof(T), parsed)
+                && !result.Contains(parsed))
+            {
+                result.Add(parsed);
+            }
+        }
+        return result;
+    }
+
+    private static string JoinEnumList<T>(System.Collections.Generic.IEnumerable<T> values)
+        where T : struct
+        => string.Join(";", values.Select(value => value.ToString()));
 
     private static string Format(double value)
         => value.ToString("R", CultureInfo.InvariantCulture);

@@ -11,6 +11,7 @@ namespace roadproto::cad_adapter::objectarx::cross_section {
 struct PavementLayerTemplateDialogRequest {
     std::wstring handle;
     std::wstring responsePath;
+    bool showCreateWizard = false;
     AcGePoint3d insertionPoint;
     roadproto::domain::cross_section::PavementLayerTemplateData data;
 };

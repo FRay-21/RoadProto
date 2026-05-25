@@ -15,6 +15,7 @@
 #include <sstream>
 #include <unordered_map>
 #include <utility>
+#include <vector>
 
 namespace roadproto::cad_adapter::objectarx::cross_section {
 namespace {
@@ -145,6 +146,9 @@ void writeKeyValue(std::ostream& stream, const std::wstring& key, std::size_t va
     stream << wideToUtf8(key) << '=' << value << '\n';
 }
 
+template <typename T, typename CodeFunction>
+std::wstring joinEnumCodes(const std::vector<T>& values, CodeFunction code);
+
 bool writeRequestFile(
     const PavementLayerTemplateDialogRequest& request,
     const std::wstring& requestPath,
@@ -159,12 +163,37 @@ bool writeRequestFile(
 
     writeKeyValue(stream, L"handle", request.handle);
     writeKeyValue(stream, L"responsePath", responsePath);
+    writeKeyValue(stream, L"showCreateWizard", request.showCreateWizard);
     writeKeyValue(stream, L"insertionX", request.insertionPoint.x);
     writeKeyValue(stream, L"insertionY", request.insertionPoint.y);
     writeKeyValue(stream, L"insertionZ", request.insertionPoint.z);
     writeKeyValue(stream, L"templateName", request.data.properties.name);
     writeKeyValue(stream, L"displayScale", request.data.properties.displayScale);
     writeKeyValue(stream, L"previewWidth", request.data.properties.previewWidth);
+    writeKeyValue(
+        stream,
+        L"displayMode",
+        roadproto::domain::cross_section::PavementLayerTemplateRules::displayModeCode(request.data.properties.displayMode));
+    writeKeyValue(stream, L"showAllGeneralParameters", request.data.properties.showAllGeneralParameters);
+    writeKeyValue(stream, L"structureCode", request.data.properties.structureCode);
+    writeKeyValue(
+        stream,
+        L"subgradeMoistureTypes",
+        joinEnumCodes(
+            request.data.properties.subgradeMoistureTypes,
+            roadproto::domain::cross_section::pavementSubgradeMoistureTypeCode));
+    writeKeyValue(
+        stream,
+        L"pavementType",
+        roadproto::domain::cross_section::pavementSurfaceTypeCode(request.data.properties.pavementType));
+    writeKeyValue(
+        stream,
+        L"subgradeSoilGroups",
+        joinEnumCodes(
+            request.data.properties.subgradeSoilGroups,
+            roadproto::domain::cross_section::pavementSubgradeSoilGroupCode));
+    writeKeyValue(stream, L"designDeflection", request.data.properties.designDeflection);
+    writeKeyValue(stream, L"cumulativeAxleLoads", request.data.properties.cumulativeAxleLoads);
     writeKeyValue(stream, L"layerCount", request.data.layers.size());
 
     for (std::size_t i = 0; i < request.data.layers.size(); ++i) {
@@ -183,6 +212,9 @@ bool writeRequestFile(
         writeKeyValue(stream, prefix + L".colorR", layer.color.r);
         writeKeyValue(stream, prefix + L".colorG", layer.color.g);
         writeKeyValue(stream, prefix + L".colorB", layer.color.b);
+        writeKeyValue(stream, prefix + L".hatchPattern", layer.hatchPattern);
+        writeKeyValue(stream, prefix + L".hatchAngle", layer.hatchAngle);
+        writeKeyValue(stream, prefix + L".hatchScale", layer.hatchScale);
     }
     return true;
 }
@@ -264,6 +296,57 @@ double doubleValue(
     } catch (...) {
         return fallback;
     }
+}
+
+template <typename T, typename CodeFunction>
+std::wstring joinEnumCodes(const std::vector<T>& values, CodeFunction code)
+{
+    std::wstring output;
+    for (const auto value : values) {
+        if (!output.empty()) {
+            output += L";";
+        }
+        output += code(value);
+    }
+    return output;
+}
+
+std::vector<roadproto::domain::cross_section::PavementSubgradeMoistureType> parseMoistureTypeList(
+    const std::wstring& value)
+{
+    using roadproto::domain::cross_section::PavementSubgradeMoistureType;
+    using roadproto::domain::cross_section::pavementSubgradeMoistureTypeCode;
+    using roadproto::domain::cross_section::pavementSubgradeMoistureTypeFromCode;
+
+    std::vector<PavementSubgradeMoistureType> result;
+    std::wistringstream stream(value);
+    std::wstring token;
+    while (std::getline(stream, token, L';')) {
+        const auto parsed = pavementSubgradeMoistureTypeFromCode(token);
+        if (token == pavementSubgradeMoistureTypeCode(parsed)) {
+            result.push_back(parsed);
+        }
+    }
+    return result;
+}
+
+std::vector<roadproto::domain::cross_section::PavementSubgradeSoilGroup> parseSoilGroupList(
+    const std::wstring& value)
+{
+    using roadproto::domain::cross_section::PavementSubgradeSoilGroup;
+    using roadproto::domain::cross_section::pavementSubgradeSoilGroupCode;
+    using roadproto::domain::cross_section::pavementSubgradeSoilGroupFromCode;
+
+    std::vector<PavementSubgradeSoilGroup> result;
+    std::wistringstream stream(value);
+    std::wstring token;
+    while (std::getline(stream, token, L';')) {
+        const auto parsed = pavementSubgradeSoilGroupFromCode(token);
+        if (token == pavementSubgradeSoilGroupCode(parsed)) {
+            result.push_back(parsed);
+        }
+    }
+    return result;
 }
 
 bool parseIntStrict(const std::wstring& value, int& result)
@@ -449,6 +532,20 @@ bool readPavementLayerTemplateDialogResponse(
         || !requiredDoubleValue(values, L"previewWidth", response.data.properties.previewWidth, errorMessage)) {
         return false;
     }
+    response.data.properties.displayMode =
+        roadproto::domain::cross_section::PavementLayerTemplateRules::displayModeFromCode(
+            valueOrDefault(values, L"displayMode", L"Color"));
+    response.data.properties.showAllGeneralParameters = boolValue(values, L"showAllGeneralParameters", false);
+    response.data.properties.structureCode = valueOrDefault(values, L"structureCode");
+    response.data.properties.subgradeMoistureTypes =
+        parseMoistureTypeList(valueOrDefault(values, L"subgradeMoistureTypes"));
+    response.data.properties.pavementType =
+        roadproto::domain::cross_section::pavementSurfaceTypeFromCode(
+            valueOrDefault(values, L"pavementType", L"Asphalt"));
+    response.data.properties.subgradeSoilGroups =
+        parseSoilGroupList(valueOrDefault(values, L"subgradeSoilGroups"));
+    response.data.properties.designDeflection = valueOrDefault(values, L"designDeflection");
+    response.data.properties.cumulativeAxleLoads = valueOrDefault(values, L"cumulativeAxleLoads");
 
     int layerCount = 0;
     if (!requiredIntValue(values, L"layerCount", layerCount, errorMessage)) {
@@ -476,9 +573,12 @@ bool readPavementLayerTemplateDialogResponse(
             || !requiredDoubleValue(values, prefix + L".outerSlope", layer.outerSlope, errorMessage)
             || !requiredIntValue(values, prefix + L".colorR", layer.color.r, errorMessage)
             || !requiredIntValue(values, prefix + L".colorG", layer.color.g, errorMessage)
-            || !requiredIntValue(values, prefix + L".colorB", layer.color.b, errorMessage)) {
+            || !requiredIntValue(values, prefix + L".colorB", layer.color.b, errorMessage)
+            || !requiredDoubleValue(values, prefix + L".hatchAngle", layer.hatchAngle, errorMessage)
+            || !requiredDoubleValue(values, prefix + L".hatchScale", layer.hatchScale, errorMessage)) {
             return false;
         }
+        layer.hatchPattern = valueOrDefault(values, prefix + L".hatchPattern", L"SOLID");
         response.data.layers.push_back(std::move(layer));
     }
 

@@ -6,7 +6,7 @@
 
 ## 能力说明
 
-路面结构层模板能力用于独立表达横断面部件上的铺装结构层参数，包括层类型、RGB 显示颜色、厚度、内外侧加宽和坡度。该能力与路基模板部件通过 handle 关联，后续可复用于横断面建模、三维道路结构层、出图、材料统计和算量。
+路面结构层模板能力用于独立表达横断面部件上的铺装结构层参数，包括层类型、RGB 显示颜色、厚度、内外侧加宽和坡度。该能力与路基模板部件通过 handle 关联，后续可复用于横断面建模、三维道路结构层、出图、材料统计和算量。创建阶段提供路面结构层创建向导，按路面类型和适应路段类型生成文档预设初始值；编辑既有 DWG 实体时继续直接使用原有参数窗口。
 
 ## 当前实现
 
@@ -15,20 +15,26 @@
 - 源码路径：`src/cad_adapter/objectarx/cross_section/DnPavementLayerTemplateEntity.*`
 - 源码路径：`src/cad_adapter/objectarx/cross_section/PavementLayerTemplateDialogBridge.*`
 - 源码路径：`src/ui/wpf/RoadProto.Terrain.UI/PavementLayerTemplateWindow.xaml`
+- 源码路径：`src/ui/wpf/RoadProto.Terrain.UI/PavementLayerTemplateCreateWizardWindow.xaml`
+- 源码路径：`src/ui/wpf/RoadProto.Terrain.UI/Bridge/PavementLayerTemplatePresetFactory.cs`
 - 对外类型/函数：`PavementLayerTemplateData`、`PavementLayerTemplateLayer`、`PavementLayerTemplateRules`、`PavementLayerTemplateDefaults`、`PavementLayerTemplateCreateService`、`DnPavementLayerTemplateEntity`
 - 当前使用该能力的命令：`RD_SECTION_PAVEMENT_LAYER_TEMPLATE_CREATE`、`RD_SECTION_PAVEMENT_LAYER_TEMPLATE_EDIT_HANDLE`、`RD_SECTION_PAVEMENT_LAYER_TEMPLATE_APPLY_DIALOG_FILE`、`RD_SECTION_SUBGRADE_TEMPLATE_APPLY_DIALOG_FILE`、`RD_SECTION_ROAD_MODEL_CREATE`
 
 ## 可复用内容
 
-- 结构层类型枚举和显示名称：上面层、中面层、下面层、基层、底基层、垫层。
+- 结构层类型枚举和显示名称：上面层、中面层、下面层、沥青封层、基层、底基层、垫层、搭板层。
+- 路面结构层创建向导：创建命令先按路面类型和适应路段类型选择预设，当前内置沥青路面主线行车道、主线硬路肩、主线路缘带、互通匝道、桥头过渡段、桥面铺装、互通被交路、隧道，以及混凝土路面收费站广场、通道连接线。向导只在新建流程显示，双击或 handle 编辑既有 `DnPavementLayerTemplateEntity` 时仍进入原有 WPF 参数窗口。
 - 每层 RGB 显示色：默认按层号给出蓝、绿、黄、橙、紫、灰初始色，用户可独立修改；WPF 预览、DWG 模板实体、道路模型结构层填充面/边线和查看横断面预览都使用层数据中的 RGB。
+- 每层填充类型、角度和比例：`PavementLayerTemplateLayer::hatchPattern` 保存 CAD 常用填充名，`hatchAngle` 保存填充角度，`hatchScale` 保存填充比例；`PavementLayerTemplateProperties::displayMode` 支持按颜色、按填充、按填充+颜色显示。该显示策略用于 WPF 预览和 `DnPavementLayerTemplateEntity`，道路模型结构层保持颜色显示。
+- 通用设计数据：`PavementLayerTemplateProperties::showAllGeneralParameters` 控制 WPF 是否展开全部通用参数；`structureCode`、`subgradeMoistureTypes`、`pavementType`、`subgradeSoilGroups`、`designDeflection` 和 `cumulativeAxleLoads` 仅作为模板数据、Bridge 字段和 `.rpavement.xml` 属性保留，暂不参与结构层几何、预览标注、DWG 模板实体标题或道路模型结构层显示。
+- 当前层编辑交互：WPF 只展示当前选中结构层参数，预览图点击、当前层输入框和上/下按钮都可改变当前编辑层，减少多层模板参数滚动量。
 - 等厚/非等厚厚度模型：勾选“内外厚度是否一致”时使用单一厚度，未勾选时使用内侧厚度和外侧厚度。
 - 加宽和坡度编辑模型：WPF 默认勾选“内外加宽是否一致”和“内外坡度是否一致”，需要差异化时再分别填写内侧和外侧。
 - 内外侧语义：内侧 = closer to road centerline for the subgrade component；外侧 = farther from road centerline。内侧加宽向道路中线方向扩展。
 - 结构层横断面预览几何构建：每一层只保留顶边、底边、内侧边和外侧边四条边。除第一层外，当前层顶边以上一层底边所在直线为基准；加宽沿该直线平行/共线延长或收回，正加宽让当前层顶边更宽，负加宽让顶边缩短。任何情况下都不生成“接触边 + 外轮廓”的六点台阶形。
 - 坡度输入支持 `1:n` 或数字 `n`，`n` 表示每 1 个竖向厚度对应的水平位移量，侧边水平位移量 = `厚度 * n`。正坡度表示从顶边向下到底边时侧边向外放，负坡度表示向内收。`1:1` 时侧边与底边约为 45°，`1:2` 时约为 30°，`1:0.5` 时约为 60°；坡度允许为负，`1:-0.5` 时侧边向内收且与底边约为 120°。加宽只改变顶边端点，不参与坡度计算，不改变坡率。
 - 结构层默认显示配色由 `PavementLayerTemplateRules::displayColorForLayerIndex` 统一提供；归一化后颜色存入 `PavementLayerTemplateLayer::color`，后续绘制和模型生成只读取层保存色。
-- WPF 预览、`DnPavementLayerTemplateEntity` 和 `DnRoadModelEntity` 的结构层使用一致的显示策略：先绘制所有层的预览式弱化填充，再绘制层色边线和层名/厚度/加宽/坡度标注或道路模型线框；DWG 模板实体和道路模型结构层面使用与 WPF 相同的四点轮廓顺序绘制 `polygon` 填充，填充色为按预览背景与同一 RGB 透明度预混合后的弱化色，避免 AutoCAD 真实透明、视觉样式和旧代理图形缓存造成颜色过亮或形状分叉。文字标注使用支持中文的 `AcGiTextStyle`。相邻层共线重叠的边界沿同一几何线表达，避免非等厚结构层的斜向边界重复或台阶化。
+- WPF 预览可按颜色、填充、填充+颜色三种方式显示，并使用固定字号的层名+厚度单行标注、CAD 式加宽尺寸线和侧边中心 `1:n` 坡度标注；填充预览读取每层 `hatchAngle` 和 `hatchScale`。`DnPavementLayerTemplateEntity` 使用同一轮廓和显示方式，但不显示尺寸标注，只在模板上方按文字总长度居中绘制模板名称。`DnRoadModelEntity` 不跟随模板显示方式切换，仍按层 RGB 颜色绘制结构层弱化填充面和边线。
 - WPF 预览图提供居中初始视图、鼠标位置基点滚轮缩放和中键平移。
 - 独立 DWG 模板实体 `DnPavementLayerTemplateEntity`，支持图面显示、DWG 持久化、几何范围和变换。
 - `.rpavement.xml` 导入导出格式，可在 WPF 侧保存和读取模板参数，用于跨图纸流转。
@@ -37,7 +43,7 @@
 ## 不可复用或临时内容
 
 - WPF 与 C++ 之间的请求/响应文件 Bridge 属于原型接入方式。
-- `.rpavement.xml` 当前保存几何参数和每层 RGB 显示色，不保存正式材料库、造价、压实度或规范编号。
+- `.rpavement.xml` 当前保存几何参数、每层 RGB 显示色、填充类型、填充角度、填充比例，以及结构代号、路基干湿类型、路面类型、路基土组、设计弯沉和累计轴次等通用设计数据；这些通用设计数据先作为数据保留，不保存正式材料库、造价、压实度或规范编号。
 - 路基模板部件当前保存模板 handle 和名称；模板变更后不会自动通知已生成道路模型。
 - 当前道路模型结构层弱化填充面属于 `DnRoadModelEntity` 的显示表达，不是可单独选择、编辑、赋材质或算量的实体体积。
 

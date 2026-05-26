@@ -1162,6 +1162,11 @@ static void PavementLayerTemplateEnumsExposeWizardLayerTypes()
 
 static void PavementLayerTemplatePresetFactoryBuildsDocumentDefaults()
 {
+    foreach (var hatchPattern in new[] { "NET", "AR-HBONE", "GRAVEL", "SACNCR", "TRIANG", "AR-SAND", "HEX" })
+    {
+        Check(PavementLayerTemplateLabels.HatchPatternOptions.Contains(hatchPattern), $"hatch pattern options should include document pattern {hatchPattern}");
+    }
+
     var mainline = PavementLayerTemplatePresetFactory.Create(
         PavementSurfaceType.Asphalt,
         PavementLayerTemplateRoadSegmentType.MainlineLane);
@@ -1176,13 +1181,33 @@ static void PavementLayerTemplatePresetFactoryBuildsDocumentDefaults()
     Check(mainline.Layers[0].Type == PavementLayerType.UpperSurface, "mainline first layer should be upper surface");
     Check(mainline.Layers[0].Name == "4cm沥青马蹄脂碎石混合料（SMA-13s）", "mainline upper surface should use document material name");
     Check(Math.Abs(mainline.Layers[0].Thickness - 0.04) < 1.0e-9, "mainline upper surface should use document thickness");
+    Check(mainline.Layers[0].HatchPattern == "NET", "mainline upper surface should use document hatch pattern image");
+    Check(Math.Abs(mainline.Layers[0].HatchScale - 0.1) < 1.0e-9, "mainline upper surface should use document hatch scale");
+    var middleSurface = mainline.Layers.Single(layer => layer.Type == PavementLayerType.MiddleSurface);
+    Check(middleSurface.HatchPattern == "AR-HBONE", "mainline middle surface should use document hatch pattern image");
+    Check(Math.Abs(middleSurface.HatchScale - 0.003) < 1.0e-9, "mainline middle surface should use document hatch scale");
+    var lowerSurface = mainline.Layers.Single(layer => layer.Type == PavementLayerType.LowerSurface);
+    Check(lowerSurface.HatchPattern == "AR-HBONE", "mainline lower surface should use document hatch pattern image");
+    Check(Math.Abs(lowerSurface.HatchScale - 0.005) < 1.0e-9, "mainline lower surface should use document hatch scale");
     var asphaltSeal = mainline.Layers.Single(layer => layer.Type == PavementLayerType.AsphaltSeal);
     Check(asphaltSeal.Name == "沥青封层", "mainline should include asphalt seal layer");
     Check(asphaltSeal.HatchPattern == "SOLID", "asphalt seal should use document hatch pattern");
     Check(Math.Abs(asphaltSeal.Thickness - 0.01) < 1.0e-9, "asphalt seal should use document thickness");
+    Check(Math.Abs(asphaltSeal.HatchScale - 1.0) < 1.0e-9, "asphalt seal should use document hatch scale");
     var baseLayer = mainline.Layers.Single(layer => layer.Type == PavementLayerType.Base);
     Check(baseLayer.Name == "36cm水泥稳定碎石", "mainline base should use document material name");
     Check(Math.Abs(baseLayer.InnerWidening - 0.1) < 1.0e-9 && Math.Abs(baseLayer.InnerSlope - 1.0) < 1.0e-9, "mainline base should use document widening and slope");
+    Check(baseLayer.HatchPattern == "GRAVEL", "mainline base should use document hatch pattern image");
+    Check(Math.Abs(baseLayer.HatchScale - 0.04) < 1.0e-9, "mainline base should use document hatch scale");
+    var subbaseLayer = mainline.Layers.Single(layer => layer.Type == PavementLayerType.Subbase);
+    Check(subbaseLayer.HatchPattern == "SACNCR", "mainline subbase should use document hatch pattern image");
+    Check(Math.Abs(subbaseLayer.HatchScale - 0.2) < 1.0e-9, "mainline subbase should use document hatch scale");
+
+    var wizardMainline = PavementLayerTemplateLabels.CloneTemplate(mainline);
+    Check(wizardMainline.Layers[0].HatchPattern == "NET", "wizard clone should preserve mainline upper surface hatch pattern");
+    Check(wizardMainline.Layers.Single(layer => layer.Type == PavementLayerType.MiddleSurface).HatchPattern == "AR-HBONE", "wizard clone should preserve mainline middle surface hatch pattern");
+    Check(wizardMainline.Layers.Single(layer => layer.Type == PavementLayerType.Base).HatchPattern == "GRAVEL", "wizard clone should preserve mainline base hatch pattern");
+    Check(wizardMainline.Layers.Single(layer => layer.Type == PavementLayerType.Subbase).HatchPattern == "SACNCR", "wizard clone should preserve mainline subbase hatch pattern");
 
     var bridgeTransition = PavementLayerTemplatePresetFactory.Create(
         PavementSurfaceType.Asphalt,
@@ -1193,6 +1218,14 @@ static void PavementLayerTemplatePresetFactoryBuildsDocumentDefaults()
     var approachSlab = bridgeTransition.Layers.Single(layer => layer.Type == PavementLayerType.ApproachSlab);
     Check(approachSlab.Name == "水泥混凝土", "bridge transition should include approach slab material");
     Check(Math.Abs(approachSlab.Thickness - 0.35) < 1.0e-9, "approach slab should use document thickness");
+    Check(approachSlab.HatchPattern == "TRIANG", "approach slab should use document hatch pattern image");
+    Check(Math.Abs(approachSlab.HatchScale - 0.04) < 1.0e-9, "approach slab should use document hatch scale");
+    var cushion = bridgeTransition.Layers.Single(layer => layer.Type == PavementLayerType.Cushion);
+    Check(cushion.HatchPattern == "AR-SAND", "bridge transition cushion should use document hatch pattern image");
+    Check(Math.Abs(cushion.HatchScale - 0.07) < 1.0e-9, "bridge transition cushion should use document hatch scale");
+    var gradedSubbase = bridgeTransition.Layers.Single(layer => layer.Type == PavementLayerType.Subbase);
+    Check(gradedSubbase.HatchPattern == "HEX", "bridge transition graded aggregate should use document hatch pattern image");
+    Check(Math.Abs(gradedSubbase.HatchScale - 0.5) < 1.0e-9, "bridge transition graded aggregate should use document hatch scale");
 
     var tollPlaza = PavementLayerTemplatePresetFactory.Create(
         PavementSurfaceType.Concrete,
@@ -1200,6 +1233,12 @@ static void PavementLayerTemplatePresetFactoryBuildsDocumentDefaults()
     Check(tollPlaza.PavementType == PavementSurfaceType.Concrete, "toll plaza preset should use concrete pavement type");
     Check(tollPlaza.StructureCode == "Ⅲ-1", "toll plaza preset should use document structure code");
     Check(tollPlaza.Layers.Count == 3, "toll plaza preset should include only populated concrete pavement layers");
+    Check(tollPlaza.Layers[0].HatchPattern == "TRIANG", "toll plaza concrete layer should use document hatch pattern image");
+    Check(Math.Abs(tollPlaza.Layers[0].HatchScale - 0.04) < 1.0e-9, "toll plaza concrete layer should use document hatch scale");
+    Check(tollPlaza.Layers[1].HatchPattern == "GRAVEL", "toll plaza base should use document hatch pattern image");
+    Check(Math.Abs(tollPlaza.Layers[1].HatchScale - 0.04) < 1.0e-9, "toll plaza base should use document hatch scale");
+    Check(tollPlaza.Layers[2].HatchPattern == "HEX", "toll plaza graded aggregate should use document hatch pattern image");
+    Check(Math.Abs(tollPlaza.Layers[2].HatchScale - 0.5) < 1.0e-9, "toll plaza graded aggregate should use document hatch scale");
 }
 
 static void PavementLayerTemplateApplyUsesUniqueResponsePathContract()

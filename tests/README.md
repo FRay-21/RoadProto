@@ -147,7 +147,7 @@ AutoCAD 图形界面需要手工验证 `RD_SECTION_ROAD_MODEL_CREATE`、`RD_SECT
 
 核心测试覆盖 `CROSS_SECTION` 模块中 `RD_SECTION_PAVEMENT_LAYER_TEMPLATE_CREATE`、`RD_SECTION_PAVEMENT_LAYER_TEMPLATE_EDIT_HANDLE` 和 `RD_SECTION_PAVEMENT_LAYER_TEMPLATE_APPLY_DIALOG_FILE` 的命令元数据和业务文档路径，并通过源码契约检查 `DnPavementLayerTemplateEntity`、`PavementLayerTemplateDialogBridge` 和 `ObjectArxPavementLayerTemplateCommand`。
 
-托管 bridge 测试覆盖路面结构层模板 WPF 请求/响应文件、每层 RGB 字段、每层填充类型、填充角度、填充比例、显示方式、显示全部通用参数、结构代号、路基干湿类型、路面类型、路基土组、设计弯沉、累计轴次、`.rpavement.xml` 导入导出、非法 XML 拒绝、窗口 `SaveXml` / `ImportXml` 动作、预览鼠标缩放锚定源码契约、预览点击选层、当前层输入和上下切换按钮、索引颜色弹窗、加宽/坡度一致复选框、四边形/梯形预览契约和 AutoCAD Ribbon/命令注册源码契约。
+托管 bridge 测试覆盖路面结构层模板 WPF 请求/响应文件、每层 RGB 字段、每层填充类型、填充角度、填充比例、显示方式、显示全部通用参数、结构代号、路基干湿类型、路面类型、路基土组、设计弯沉、累计轴次、创建向导文档预设中由图片表达的填充类型和对应填充比例、向导确认后克隆到参数窗口时保留合法文档填充名、`.rpavement.xml` 导入导出、非法 XML 拒绝、窗口 `SaveXml` / `ImportXml` 动作、预览鼠标缩放锚定源码契约、预览点击选层、当前层输入和上下切换按钮、索引颜色弹窗、加宽/坡度一致复选框、四边形/梯形预览契约和 AutoCAD Ribbon/命令注册源码契约。
 
 AutoCAD 图形界面需要手工验证 `RD_SECTION_PAVEMENT_LAYER_TEMPLATE_CREATE`、`RD_SECTION_PAVEMENT_LAYER_TEMPLATE_EDIT_HANDLE`、`RD_SECTION_PAVEMENT_LAYER_TEMPLATE_APPLY_DIALOG_FILE`、`RD_SECTION_SUBGRADE_TEMPLATE_CREATE`、`RD_SECTION_ROAD_MODEL_CREATE`、`RD_SECTION_ROAD_MODEL_VIEW_SECTION` 和相关实体：
 

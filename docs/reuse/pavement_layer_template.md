@@ -26,6 +26,7 @@
 - 路面结构层创建向导：创建命令先按路面类型和适应路段类型选择预设，当前内置沥青路面主线行车道、主线硬路肩、主线路缘带、互通匝道、桥头过渡段、桥面铺装、互通被交路、隧道，以及混凝土路面收费站广场、通道连接线。向导只在新建流程显示，双击或 handle 编辑既有 `DnPavementLayerTemplateEntity` 时仍进入原有 WPF 参数窗口。
 - 每层 RGB 显示色：默认按层号给出蓝、绿、黄、橙、紫、灰初始色，用户可独立修改；WPF 预览、DWG 模板实体、道路模型结构层填充面/边线和查看横断面预览都使用层数据中的 RGB。
 - 每层填充类型、角度和比例：`PavementLayerTemplateLayer::hatchPattern` 保存 CAD 常用填充名，`hatchAngle` 保存填充角度，`hatchScale` 保存填充比例；`PavementLayerTemplateProperties::displayMode` 支持按颜色、按填充、按填充+颜色显示。该显示策略用于 WPF 预览和 `DnPavementLayerTemplateEntity`，道路模型结构层保持颜色显示。
+- 文档预设填充映射：`参数示意.docx` 中“填充类型”可以用图片表达，创建向导必须把图片标注转换为稳定 CAD 填充名，并与填充比例一起作为默认参数读入。向导确认后进入参数窗口时，合法的文档填充名仍必须保留，不能被候选项归一化二次回退为 `SOLID`。当前材料默认映射为：`4cm沥青马蹄脂碎石混合料（SMA-13s） -> NET / 0.1`，`6cm沥青马蹄脂碎石混合料（SUP-20） -> AR-HBONE / 0.003`，`8cm沥青马蹄脂碎石混合料（SUP-25） -> AR-HBONE / 0.005`，`沥青封层 -> SOLID / 1`，`水泥稳定碎石 -> GRAVEL / 0.04`，`20cm低剂量水泥稳定碎石 -> SACNCR / 0.2`，`水泥混凝土 -> TRIANG / 0.04`，`水泥砂浆 -> AR-SAND / 0.07`，`级配碎石 -> HEX / 0.5`，`石灰土 -> SACNCR / 0.2`。
 - 通用设计数据：`PavementLayerTemplateProperties::showAllGeneralParameters` 控制 WPF 是否展开全部通用参数；`structureCode`、`subgradeMoistureTypes`、`pavementType`、`subgradeSoilGroups`、`designDeflection` 和 `cumulativeAxleLoads` 仅作为模板数据、Bridge 字段和 `.rpavement.xml` 属性保留，暂不参与结构层几何、预览标注、DWG 模板实体标题或道路模型结构层显示。
 - 当前层编辑交互：WPF 只展示当前选中结构层参数，预览图点击、当前层输入框和上/下按钮都可改变当前编辑层，减少多层模板参数滚动量。
 - 等厚/非等厚厚度模型：勾选“内外厚度是否一致”时使用单一厚度，未勾选时使用内侧厚度和外侧厚度。

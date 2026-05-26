@@ -123,8 +123,8 @@ public static class PavementLayerTemplatePresetFactory
                 AsphaltUpper(),
                 AsphaltMiddle(),
                 AsphaltSeal(),
-                Layer(PavementLayerType.Base, "32cm水泥稳定碎石", 0.32, 0.15, 1.0, 55, 108, 189, 0.04),
-                Layer(PavementLayerType.Subbase, "20cm低剂量水泥稳定碎石", 0.20, 0.15, 1.0, 61, 120, 210, 0.20),
+                Layer(PavementLayerType.Base, "32cm水泥稳定碎石", 0.32, 0.15, 1.0, 55, 108, 189, 0.04, "GRAVEL"),
+                Layer(PavementLayerType.Subbase, "20cm低剂量水泥稳定碎石", 0.20, 0.15, 1.0, 61, 120, 210, 0.20, "SACNCR"),
             }),
         new Preset(
             PavementSurfaceType.Asphalt,
@@ -136,9 +136,9 @@ public static class PavementLayerTemplatePresetFactory
                 AsphaltUpper(),
                 AsphaltMiddle(),
                 AsphaltSeal(),
-                Layer(PavementLayerType.ApproachSlab, "水泥混凝土", 0.35, 0.0, 0.0, 102, 102, 102, 0.04),
-                Layer(PavementLayerType.Cushion, "水泥砂浆", 0.03, 0.0, 0.0, 181, 53, 53, 0.07),
-                Layer(PavementLayerType.Subbase, "级配碎石", 0.25, 0.0, 0.0, 61, 120, 210, 0.50),
+                Layer(PavementLayerType.ApproachSlab, "水泥混凝土", 0.35, 0.0, 0.0, 102, 102, 102, 0.04, "TRIANG"),
+                Layer(PavementLayerType.Cushion, "水泥砂浆", 0.03, 0.0, 0.0, 181, 53, 53, 0.07, "AR-SAND"),
+                Layer(PavementLayerType.Subbase, "级配碎石", 0.25, 0.0, 0.0, 61, 120, 210, 0.50, "HEX"),
             }),
         new Preset(
             PavementSurfaceType.Asphalt,
@@ -160,8 +160,8 @@ public static class PavementLayerTemplatePresetFactory
             {
                 AsphaltUpper(),
                 AsphaltMiddle(),
-                Layer(PavementLayerType.Base, "32cm水泥稳定碎石", 0.32, 0.15, 1.0, 55, 108, 189, 0.04),
-                Layer(PavementLayerType.Subbase, "20cm低剂量水泥稳定碎石", 0.20, 0.15, 1.0, 61, 120, 210, 0.20),
+                Layer(PavementLayerType.Base, "32cm水泥稳定碎石", 0.32, 0.15, 1.0, 55, 108, 189, 0.04, "GRAVEL"),
+                Layer(PavementLayerType.Subbase, "20cm低剂量水泥稳定碎石", 0.20, 0.15, 1.0, 61, 120, 210, 0.20, "SACNCR"),
             }),
         new Preset(
             PavementSurfaceType.Asphalt,
@@ -173,8 +173,8 @@ public static class PavementLayerTemplatePresetFactory
                 AsphaltUpper(),
                 AsphaltMiddle(),
                 AsphaltSeal(),
-                Layer(PavementLayerType.Base, "水泥混凝土", 0.24, 0.0, 0.0, 102, 102, 102, 0.04),
-                Layer(PavementLayerType.Subbase, "20cm低剂量水泥稳定碎石", 0.20, 0.0, 0.0, 61, 120, 210, 0.20),
+                Layer(PavementLayerType.Base, "水泥混凝土", 0.24, 0.0, 0.0, 102, 102, 102, 0.04, "TRIANG"),
+                Layer(PavementLayerType.Subbase, "20cm低剂量水泥稳定碎石", 0.20, 0.0, 0.0, 61, 120, 210, 0.20, "SACNCR"),
             }),
         new Preset(
             PavementSurfaceType.Concrete,
@@ -183,9 +183,9 @@ public static class PavementLayerTemplatePresetFactory
             "Ⅲ-1",
             new[]
             {
-                Layer(PavementLayerType.UpperSurface, "水泥混凝土", 0.26, 0.0, 0.0, 102, 102, 102, 0.04),
-                Layer(PavementLayerType.Base, "水泥稳定碎石", 0.20, 0.0, 0.0, 55, 108, 189, 0.04),
-                Layer(PavementLayerType.Subbase, "级配碎石", 0.20, 0.0, 0.0, 61, 120, 210, 0.50),
+                Layer(PavementLayerType.UpperSurface, "水泥混凝土", 0.26, 0.0, 0.0, 102, 102, 102, 0.04, "TRIANG"),
+                Layer(PavementLayerType.Base, "水泥稳定碎石", 0.20, 0.0, 0.0, 55, 108, 189, 0.04, "GRAVEL"),
+                Layer(PavementLayerType.Subbase, "级配碎石", 0.20, 0.0, 0.0, 61, 120, 210, 0.50, "HEX"),
             }),
         new Preset(
             PavementSurfaceType.Concrete,
@@ -194,9 +194,9 @@ public static class PavementLayerTemplatePresetFactory
             "Ⅲ-2",
             new[]
             {
-                Layer(PavementLayerType.UpperSurface, "水泥混凝土", 0.22, 0.0, 0.0, 102, 102, 102, 0.04),
-                Layer(PavementLayerType.Base, "级配碎石", 0.18, 0.0, 0.0, 61, 120, 210, 0.50),
-                Layer(PavementLayerType.Subbase, "石灰土", 0.18, 0.0, 0.0, 61, 120, 210, 0.20),
+                Layer(PavementLayerType.UpperSurface, "水泥混凝土", 0.22, 0.0, 0.0, 102, 102, 102, 0.04, "TRIANG"),
+                Layer(PavementLayerType.Base, "级配碎石", 0.18, 0.0, 0.0, 61, 120, 210, 0.50, "HEX"),
+                Layer(PavementLayerType.Subbase, "石灰土", 0.18, 0.0, 0.0, 61, 120, 210, 0.20, "SACNCR"),
             }),
     };
 
@@ -208,17 +208,17 @@ public static class PavementLayerTemplatePresetFactory
         {
             AsphaltUpper(),
             AsphaltMiddle(),
-            Layer(PavementLayerType.LowerSurface, "8cm沥青马蹄脂碎石混合料（SUP-25）", 0.08, 0.0, 0.0, 80, 80, 80, 0.005),
+            Layer(PavementLayerType.LowerSurface, "8cm沥青马蹄脂碎石混合料（SUP-25）", 0.08, 0.0, 0.0, 80, 80, 80, 0.005, "AR-HBONE"),
             AsphaltSeal(),
-            Layer(PavementLayerType.Base, $"{(int)Math.Round(baseThickness * 100.0)}cm水泥稳定碎石", baseThickness, baseWidening, 1.0, 55, 108, 189, 0.04),
-            Layer(PavementLayerType.Subbase, "20cm低剂量水泥稳定碎石", 0.20, subbaseWidening, 1.0, 61, 120, 210, 0.20),
+            Layer(PavementLayerType.Base, $"{(int)Math.Round(baseThickness * 100.0)}cm水泥稳定碎石", baseThickness, baseWidening, 1.0, 55, 108, 189, 0.04, "GRAVEL"),
+            Layer(PavementLayerType.Subbase, "20cm低剂量水泥稳定碎石", 0.20, subbaseWidening, 1.0, 61, 120, 210, 0.20, "SACNCR"),
         };
 
     private static PavementLayerTemplateLayerDto AsphaltUpper()
-        => Layer(PavementLayerType.UpperSurface, "4cm沥青马蹄脂碎石混合料（SMA-13s）", 0.04, 0.0, 0.0, 102, 102, 102, 0.10);
+        => Layer(PavementLayerType.UpperSurface, "4cm沥青马蹄脂碎石混合料（SMA-13s）", 0.04, 0.0, 0.0, 102, 102, 102, 0.10, "NET");
 
     private static PavementLayerTemplateLayerDto AsphaltMiddle()
-        => Layer(PavementLayerType.MiddleSurface, "6cm沥青马蹄脂碎石混合料（SUP-20）", 0.06, 0.0, 0.0, 102, 102, 102, 0.003);
+        => Layer(PavementLayerType.MiddleSurface, "6cm沥青马蹄脂碎石混合料（SUP-20）", 0.06, 0.0, 0.0, 102, 102, 102, 0.003, "AR-HBONE");
 
     private static PavementLayerTemplateLayerDto AsphaltSeal()
         => Layer(PavementLayerType.AsphaltSeal, "沥青封层", 0.01, 0.0, 0.0, 80, 80, 80, 1.0);
@@ -232,7 +232,8 @@ public static class PavementLayerTemplatePresetFactory
         int colorR,
         int colorG,
         int colorB,
-        double hatchScale)
+        double hatchScale,
+        string hatchPattern = "SOLID")
         => new()
         {
             Type = type,
@@ -248,7 +249,7 @@ public static class PavementLayerTemplatePresetFactory
             ColorR = colorR,
             ColorG = colorG,
             ColorB = colorB,
-            HatchPattern = "SOLID",
+            HatchPattern = hatchPattern,
             HatchAngle = 0.0,
             HatchScale = hatchScale,
         };

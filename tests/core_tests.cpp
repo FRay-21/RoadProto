@@ -19,6 +19,7 @@
 #include "domain/cross_section/SectionDrawingConfigModel.h"
 #include "domain/cross_section/SlopeTemplateModel.h"
 #include "domain/cross_section/SubgradeTemplateModel.h"
+#include "domain/quantity/PavementQuantityDrawingFaceSampler.h"
 #include "domain/profile/ProfileDmxFile.h"
 #include "domain/profile/ProfileGradeGraphLayout.h"
 #include "domain/profile/ProfileVerticalCurveCalculator.h"
@@ -1307,6 +1308,143 @@ void pavementLayerTemplateRulesAcceptPositiveFiniteDisplayScale()
     CHECK(PavementLayerTemplateRules::isSupportedDisplayScale(25.0));
     CHECK(!PavementLayerTemplateRules::isSupportedDisplayScale(0.0));
     CHECK(!PavementLayerTemplateRules::isSupportedDisplayScale(std::numeric_limits<double>::quiet_NaN()));
+}
+
+void pavementQuantityDrawingFaceSamplerUsesEditedPolygonGeometry()
+{
+    using namespace roadproto::domain::quantity;
+
+    std::vector<PavementQuantityDrawingFace> faces;
+    faces.push_back(
+        PavementQuantityDrawingFace{
+            L"上面层",
+            L"右侧行车道",
+            {
+                PavementQuantityDrawingPoint{0.0, 1.0},
+                PavementQuantityDrawingPoint{4.0, 1.0},
+                PavementQuantityDrawingPoint{5.0, 0.0},
+                PavementQuantityDrawingPoint{0.0, 0.0},
+            }});
+
+    const auto sample = PavementQuantityDrawingFaceSampler::sampleAtStation(25.0, faces);
+    CHECK(sample.has_value());
+    if (sample.has_value()) {
+        CHECK(sample->station == 25.0);
+        CHECK(sample->layers.size() == 1);
+        CHECK(sample->layers.front().layerName == L"上面层");
+        CHECK(sample->layers.front().componentName == L"右侧行车道");
+        CHECK(std::fabs(sample->layers.front().projectedWidth - 5.0) < 1.0e-9);
+        CHECK(std::fabs(sample->layers.front().sectionArea - 4.5) < 1.0e-9);
+    }
+}
+
+void pavementQuantityDrawingFaceSamplerAggregatesAndSkipsInvalidFaces()
+{
+    using namespace roadproto::domain::quantity;
+
+    const std::vector<PavementQuantityDrawingFace> faces = {
+        PavementQuantityDrawingFace{
+            L"基层",
+            L"左侧硬路肩",
+            {
+                PavementQuantityDrawingPoint{0.0, 0.0},
+                PavementQuantityDrawingPoint{3.0, 0.0},
+                PavementQuantityDrawingPoint{3.0, 1.0},
+                PavementQuantityDrawingPoint{0.0, 1.0},
+            }},
+        PavementQuantityDrawingFace{
+            L"基层",
+            L"左侧硬路肩",
+            {
+                PavementQuantityDrawingPoint{3.0, 0.0},
+                PavementQuantityDrawingPoint{5.0, 0.0},
+                PavementQuantityDrawingPoint{5.0, 0.5},
+                PavementQuantityDrawingPoint{3.0, 0.5},
+            }},
+        PavementQuantityDrawingFace{
+            L"",
+            L"",
+            {
+                PavementQuantityDrawingPoint{0.0, 0.0},
+                PavementQuantityDrawingPoint{2.0, 0.0},
+                PavementQuantityDrawingPoint{2.0, 1.0},
+                PavementQuantityDrawingPoint{0.0, 1.0},
+            }},
+        PavementQuantityDrawingFace{
+            L"跳过",
+            L"非有限",
+            {
+                PavementQuantityDrawingPoint{0.0, 0.0},
+                PavementQuantityDrawingPoint{std::numeric_limits<double>::infinity(), 0.0},
+                PavementQuantityDrawingPoint{1.0, 1.0},
+            }},
+        PavementQuantityDrawingFace{
+            L"跳过",
+            L"退化",
+            {
+                PavementQuantityDrawingPoint{1.0, 0.0},
+                PavementQuantityDrawingPoint{1.0, 1.0},
+                PavementQuantityDrawingPoint{1.0, 2.0},
+            }},
+    };
+
+    const auto sample = PavementQuantityDrawingFaceSampler::sampleAtStation(50.0, faces);
+    CHECK(sample.has_value());
+    if (!sample.has_value()) {
+        return;
+    }
+
+    CHECK(sample->layers.size() == 2);
+    const auto hardShoulder = std::find_if(sample->layers.begin(), sample->layers.end(), [](const auto& layer) {
+        return layer.layerName == L"基层" && layer.componentName == L"左侧硬路肩";
+    });
+    CHECK(hardShoulder != sample->layers.end());
+    if (hardShoulder != sample->layers.end()) {
+        CHECK(std::fabs(hardShoulder->projectedWidth - 5.0) < 1.0e-9);
+        CHECK(std::fabs(hardShoulder->sectionArea - 4.0) < 1.0e-9);
+    }
+
+    const auto defaults = std::find_if(sample->layers.begin(), sample->layers.end(), [](const auto& layer) {
+        return layer.layerName == L"路面结构层" && layer.componentName == L"未分部件";
+    });
+    CHECK(defaults != sample->layers.end());
+    if (defaults != sample->layers.end()) {
+        CHECK(std::fabs(defaults->projectedWidth - 2.0) < 1.0e-9);
+        CHECK(std::fabs(defaults->sectionArea - 2.0) < 1.0e-9);
+    }
+}
+
+void pavementQuantityDrawingFaceSamplerRejectsAllInvalidFaces()
+{
+    using namespace roadproto::domain::quantity;
+
+    const std::vector<PavementQuantityDrawingFace> faces = {
+        PavementQuantityDrawingFace{
+            L"少点",
+            L"无效",
+            {
+                PavementQuantityDrawingPoint{0.0, 0.0},
+                PavementQuantityDrawingPoint{1.0, 0.0},
+            }},
+        PavementQuantityDrawingFace{
+            L"零宽",
+            L"无效",
+            {
+                PavementQuantityDrawingPoint{2.0, 0.0},
+                PavementQuantityDrawingPoint{2.0, 1.0},
+                PavementQuantityDrawingPoint{2.0, 2.0},
+            }},
+        PavementQuantityDrawingFace{
+            L"非有限",
+            L"无效",
+            {
+                PavementQuantityDrawingPoint{0.0, 0.0},
+                PavementQuantityDrawingPoint{1.0, std::numeric_limits<double>::quiet_NaN()},
+                PavementQuantityDrawingPoint{1.0, 1.0},
+            }},
+    };
+
+    CHECK(!PavementQuantityDrawingFaceSampler::sampleAtStation(75.0, faces).has_value());
 }
 
 void slopeTemplateDefaultsBuildFillAndCutProfiles()
@@ -6555,6 +6693,9 @@ int main()
     pavementLayerTemplateKeepsAdjacentLayerBoundariesCoincidentAfterNonUniformThickness();
     pavementLayerTemplateWideningExtendsCurrentTopEdgeLine();
     pavementLayerTemplateRulesAcceptPositiveFiniteDisplayScale();
+    pavementQuantityDrawingFaceSamplerUsesEditedPolygonGeometry();
+    pavementQuantityDrawingFaceSamplerAggregatesAndSkipsInvalidFaces();
+    pavementQuantityDrawingFaceSamplerRejectsAllInvalidFaces();
     slopeTemplateDefaultsBuildFillAndCutProfiles();
     slopeTemplateRulesResolveThreeGeometryModes();
     slopeTemplateRulesValidateRepeatLastGroup();

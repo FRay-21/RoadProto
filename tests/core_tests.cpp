@@ -3782,6 +3782,25 @@ void crossSectionModuleRegistersSectionDrawingConfigCommands()
         CHECK(!applyCommand->reusable);
     }
 }
+void pavementQuantityCommandPrefersDrawingFacesContract()
+{
+    const auto sourcePath = findRepositoryRootForTests()
+        / "src"
+        / "cad_adapter"
+        / "objectarx"
+        / "drawing_quantity"
+        / "ObjectArxPavementQuantityTableCommand.cpp";
+    CHECK(std::filesystem::exists(sourcePath));
+
+    const auto source = readTextFileForTests(sourcePath);
+    const auto drawingFacePosition = source.find("PavementQuantityDrawingFaceSampler::sampleAtStation");
+    const auto roadModelPosition = source.find("sample = sampleFromRoadModelSection");
+    CHECK(drawingFacePosition != std::string::npos);
+    CHECK(roadModelPosition != std::string::npos);
+    CHECK(drawingFacePosition < roadModelPosition);
+    CHECK(source.find("drawingFacesFromSectionDrawing") != std::string::npos);
+    CHECK(source.find("sampleFromDrawingFaces") == std::string::npos);
+}
 void managedRibbonExtensionRegistersSubgradeTemplateEntryPoints()
 {
     const auto sourcePath = findRepositoryRootForTests()
@@ -7014,6 +7033,7 @@ int main()
     crossSectionModuleRegistersSectionDrawingConfigCommands();
     pavementLayerTemplateDocumentationAndVersionContracts();
     startupRegistrationIncludesCrossSectionModule();
+    pavementQuantityCommandPrefersDrawingFacesContract();
     managedRibbonExtensionRegistersSubgradeTemplateEntryPoints();
     managedRibbonExtensionRegistersRoadModelEntryPoints();
     roadModelWpfBridgeSourceContainsRequiredFields();

@@ -24,6 +24,9 @@ using roadproto::domain::cross_section::RoadModelSlopeComponentLine;
 using roadproto::domain::cross_section::RoadModelSlopeLineKey;
 using roadproto::domain::cross_section::RoadModelSlopeTemplateGroup;
 using roadproto::domain::cross_section::RoadModelSlopeTemplateReference;
+using roadproto::domain::cross_section::RoadModelStructureRange;
+using roadproto::domain::cross_section::RoadModelStructureSideRange;
+using roadproto::domain::cross_section::RoadModelStructureType;
 using roadproto::domain::cross_section::RoadModelTemplateAssignment;
 using roadproto::domain::cross_section::RoadModelWireColor;
 using roadproto::domain::cross_section::RoadModelWireLine;
@@ -45,8 +48,9 @@ ACRX_DXF_DEFINE_MEMBERS(
 
 namespace {
 
-constexpr Adesk::Int16 kEntityVersion = 6;
+constexpr Adesk::Int16 kEntityVersion = 7;
 constexpr Adesk::Int32 kMaxAssignments = 10000;
+constexpr Adesk::Int32 kMaxStructureRanges = 10000;
 constexpr Adesk::Int32 kMaxSlopeTemplateGroups = 10000;
 constexpr Adesk::Int32 kMaxSlopeTemplateReferences = 10000;
 constexpr Adesk::Int32 kMaxComponentLines = 100000;
@@ -282,6 +286,19 @@ bool isValidRoadModelWireLineKindValue(Adesk::Int32 value)
         || value == static_cast<Adesk::Int32>(RoadModelWireLineKind::PavementLayer);
 }
 
+bool isValidRoadModelStructureTypeValue(Adesk::Int32 value)
+{
+    return value == static_cast<Adesk::Int32>(RoadModelStructureType::Bridge)
+        || value == static_cast<Adesk::Int32>(RoadModelStructureType::Tunnel);
+}
+
+bool isValidRoadModelStructureSideRangeValue(Adesk::Int32 value)
+{
+    return value == static_cast<Adesk::Int32>(RoadModelStructureSideRange::Left)
+        || value == static_cast<Adesk::Int32>(RoadModelStructureSideRange::Right)
+        || value == static_cast<Adesk::Int32>(RoadModelStructureSideRange::Both);
+}
+
 bool isValidLineKey(const RoadModelLineKey& key)
 {
     return canWriteInt32(key.componentIndex)
@@ -322,6 +339,15 @@ bool isValidSlopeTemplateGroup(const RoadModelSlopeTemplateGroup& group)
         }
     }
     return true;
+}
+
+bool isValidStructureRange(const RoadModelStructureRange& structure)
+{
+    return std::isfinite(structure.startStation)
+        && std::isfinite(structure.endStation)
+        && structure.endStation >= structure.startStation
+        && isValidRoadModelStructureTypeValue(static_cast<Adesk::Int32>(structure.type))
+        && isValidRoadModelStructureSideRangeValue(static_cast<Adesk::Int32>(structure.sideRange));
 }
 
 bool isValidRoadModelSectionNode(const RoadModelSectionNode& node, SubgradeSide expectedSide)
@@ -413,6 +439,7 @@ bool isValidRoadModelWireLine(const RoadModelWireLine& line)
 bool validateRoadModelDataForPersistence(const RoadModelData& data)
 {
     if (data.config.assignments.size() > static_cast<std::size_t>(kMaxAssignments)
+        || data.config.structures.size() > static_cast<std::size_t>(kMaxStructureRanges)
         || data.sampledStations.size() > static_cast<std::size_t>(kMaxSampledStations)
         || data.componentLines.size() > static_cast<std::size_t>(kMaxComponentLines)
         || data.slopeLines.size() > static_cast<std::size_t>(kMaxComponentLines)
@@ -429,6 +456,11 @@ bool validateRoadModelDataForPersistence(const RoadModelData& data)
 
     for (const auto& row : data.config.assignments) {
         if (!std::isfinite(row.startStation) || !std::isfinite(row.endStation)) {
+            return false;
+        }
+    }
+    for (const auto& structure : data.config.structures) {
+        if (!isValidStructureRange(structure)) {
             return false;
         }
     }
@@ -519,6 +551,36 @@ void writeAssignment(AcDbDwgFiler* filer, const RoadModelTemplateAssignment& row
     filer->writeDouble(row.endStation);
     writeWideString(filer, row.templateHandle);
     writeWideString(filer, row.templateName);
+}
+
+Acad::ErrorStatus readStructureRange(AcDbDwgFiler* filer, RoadModelStructureRange& structure)
+{
+    filer->readDouble(&structure.startStation);
+    filer->readDouble(&structure.endStation);
+
+    Adesk::Int32 type = 0;
+    filer->readInt32(&type);
+    if (!isValidRoadModelStructureTypeValue(type)) {
+        return Acad::eInvalidInput;
+    }
+    structure.type = static_cast<RoadModelStructureType>(type);
+
+    Adesk::Int32 sideRange = 0;
+    filer->readInt32(&sideRange);
+    if (!isValidRoadModelStructureSideRangeValue(sideRange)) {
+        return Acad::eInvalidInput;
+    }
+    structure.sideRange = static_cast<RoadModelStructureSideRange>(sideRange);
+
+    return isValidStructureRange(structure) ? Acad::eOk : Acad::eInvalidInput;
+}
+
+void writeStructureRange(AcDbDwgFiler* filer, const RoadModelStructureRange& structure)
+{
+    filer->writeDouble(structure.startStation);
+    filer->writeDouble(structure.endStation);
+    filer->writeInt32(static_cast<Adesk::Int32>(structure.type));
+    filer->writeInt32(static_cast<Adesk::Int32>(structure.sideRange));
 }
 
 void readSlopeTemplateReference(AcDbDwgFiler* filer, RoadModelSlopeTemplateReference& reference)
@@ -1517,6 +1579,22 @@ Acad::ErrorStatus DnRoadModelEntity::dwgInFields(AcDbDwgFiler* filer)
         readData.config.assignments.push_back(std::move(row));
     }
 
+    if (version >= 7) {
+        Adesk::Int32 structureCount = 0;
+        if (!readCount(filer, kMaxStructureRanges, structureCount)) {
+            return Acad::eInvalidInput;
+        }
+        readData.config.structures.reserve(static_cast<std::size_t>(structureCount));
+        for (Adesk::Int32 i = 0; i < structureCount; ++i) {
+            RoadModelStructureRange structure;
+            status = readStructureRange(filer, structure);
+            if (status != Acad::eOk) {
+                return status;
+            }
+            readData.config.structures.push_back(std::move(structure));
+        }
+    }
+
     if (version >= 2) {
         filer->readDouble(&readData.config.slopeConfig.leftSearchWidth);
         filer->readDouble(&readData.config.slopeConfig.rightSearchWidth);
@@ -1664,6 +1742,11 @@ Acad::ErrorStatus DnRoadModelEntity::dwgOutFields(AcDbDwgFiler* filer) const
     filer->writeInt32(static_cast<Adesk::Int32>(data_.config.assignments.size()));
     for (const auto& row : data_.config.assignments) {
         writeAssignment(filer, row);
+    }
+
+    filer->writeInt32(static_cast<Adesk::Int32>(data_.config.structures.size()));
+    for (const auto& structure : data_.config.structures) {
+        writeStructureRange(filer, structure);
     }
 
     filer->writeDouble(data_.config.slopeConfig.leftSearchWidth);

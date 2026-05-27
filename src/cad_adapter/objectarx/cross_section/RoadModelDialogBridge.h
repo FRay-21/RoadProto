@@ -26,6 +26,7 @@ struct RoadModelDialogRequest {
     int selectedLeftSlopeGroupIndex = -1;
     int selectedRightSlopeGroupIndex = -1;
     std::vector<roadproto::domain::cross_section::RoadModelTemplateAssignment> assignments;
+    std::vector<roadproto::domain::cross_section::RoadModelStructureRange> structures;
     std::vector<roadproto::domain::cross_section::RoadModelSlopeTemplateGroup> leftSlopeGroups;
     std::vector<roadproto::domain::cross_section::RoadModelSlopeTemplateGroup> rightSlopeGroups;
 };
@@ -42,6 +43,7 @@ struct RoadModelDialogResponse {
     double leftSlopeSearchWidth = 50.0;
     double rightSlopeSearchWidth = 50.0;
     std::vector<roadproto::domain::cross_section::RoadModelTemplateAssignment> assignments;
+    std::vector<roadproto::domain::cross_section::RoadModelStructureRange> structures;
     std::vector<roadproto::domain::cross_section::RoadModelSlopeTemplateGroup> leftSlopeGroups;
     std::vector<roadproto::domain::cross_section::RoadModelSlopeTemplateGroup> rightSlopeGroups;
 };

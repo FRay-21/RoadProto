@@ -914,6 +914,7 @@ bool queueDialogForRoadModelEdit(AcDbObjectId roadModelId)
     request.profileVerticalCurveHandle = config.profileVerticalCurveHandle;
     request.sampleInterval = config.sampleInterval;
     request.assignments = config.assignments;
+    request.structures = config.structures;
     request.leftSlopeSearchWidth = config.slopeConfig.leftSearchWidth;
     request.rightSlopeSearchWidth = config.slopeConfig.rightSearchWidth;
     request.leftSlopeGroups = config.slopeConfig.leftGroups;
@@ -1000,6 +1001,7 @@ bool handlePickTemplateAction(const RoadModelDialogResponse& response)
     request.sampleInterval = response.sampleInterval;
     request.selectedAssignmentIndex = response.pickAssignmentIndex;
     request.assignments = response.assignments;
+    request.structures = response.structures;
     request.leftSlopeSearchWidth = response.leftSlopeSearchWidth;
     request.rightSlopeSearchWidth = response.rightSlopeSearchWidth;
     request.leftSlopeGroups = response.leftSlopeGroups;
@@ -1038,6 +1040,7 @@ bool handlePickSlopeTemplateAction(const RoadModelDialogResponse& response, bool
     request.leftSlopeSearchWidth = response.leftSlopeSearchWidth;
     request.rightSlopeSearchWidth = response.rightSlopeSearchWidth;
     request.assignments = response.assignments;
+    request.structures = response.structures;
     request.leftSlopeGroups = response.leftSlopeGroups;
     request.rightSlopeGroups = response.rightSlopeGroups;
     request.selectedLeftSlopeGroupIndex = leftSide ? response.pickSlopeGroupIndex : -1;
@@ -1469,6 +1472,7 @@ void runRoadModelApplyDialogFileCommand()
     config.profileVerticalCurveHandle = verticalCurveHandle;
     config.sampleInterval = response.sampleInterval;
     config.assignments = response.assignments;
+    config.structures = response.structures;
     config.slopeConfig.leftSearchWidth = response.leftSlopeSearchWidth;
     config.slopeConfig.rightSearchWidth = response.rightSlopeSearchWidth;
     config.slopeConfig.leftGroups = response.leftSlopeGroups;

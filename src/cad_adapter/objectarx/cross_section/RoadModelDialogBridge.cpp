@@ -19,8 +19,15 @@ namespace roadproto::cad_adapter::objectarx::cross_section {
 namespace {
 
 constexpr int kMaxDialogAssignments = 10000;
+constexpr int kMaxDialogStructures = 10000;
 constexpr int kMaxDialogSlopeGroups = 10000;
 constexpr int kMaxDialogSlopeTemplates = 10000;
+
+using roadproto::domain::cross_section::RoadModelStructureSideRange;
+using roadproto::domain::cross_section::RoadModelStructureType;
+
+std::wstring structureTypeText(RoadModelStructureType type);
+std::wstring structureSideRangeText(RoadModelStructureSideRange sideRange);
 
 std::string wideToUtf8(const std::wstring& value)
 {
@@ -199,6 +206,15 @@ bool writeRequestFile(
         writeKeyValue(stream, prefix + L".templateHandle", assignment.templateHandle);
         writeKeyValue(stream, prefix + L".templateName", assignment.templateName);
     }
+    writeKeyValue(stream, L"structureCount", request.structures.size());
+    for (std::size_t i = 0; i < request.structures.size(); ++i) {
+        const auto& structure = request.structures[i];
+        const auto prefix = L"structure." + std::to_wstring(i);
+        writeKeyValue(stream, prefix + L".startStation", structure.startStation);
+        writeKeyValue(stream, prefix + L".endStation", structure.endStation);
+        writeKeyValue(stream, prefix + L".type", structureTypeText(structure.type));
+        writeKeyValue(stream, prefix + L".sideRange", structureSideRangeText(structure.sideRange));
+    }
     const auto writeSlopeGroups = [&stream](const std::wstring& prefix, const auto& groups) {
         writeKeyValue(stream, prefix + L"Count", groups.size());
         for (std::size_t i = 0; i < groups.size(); ++i) {
@@ -319,6 +335,48 @@ bool tryDoubleValue(
     }
 }
 
+RoadModelStructureType structureTypeValue(
+    const std::unordered_map<std::wstring, std::wstring>& values,
+    const std::wstring& key)
+{
+    const auto value = valueOrDefault(values, key, L"Bridge");
+    return value == L"Tunnel" || value == L"tunnel"
+        ? RoadModelStructureType::Tunnel
+        : RoadModelStructureType::Bridge;
+}
+
+RoadModelStructureSideRange structureSideRangeValue(
+    const std::unordered_map<std::wstring, std::wstring>& values,
+    const std::wstring& key)
+{
+    const auto value = valueOrDefault(values, key, L"Both");
+    if (value == L"Left" || value == L"left") {
+        return RoadModelStructureSideRange::Left;
+    }
+    if (value == L"Right" || value == L"right") {
+        return RoadModelStructureSideRange::Right;
+    }
+    return RoadModelStructureSideRange::Both;
+}
+
+std::wstring structureTypeText(RoadModelStructureType type)
+{
+    return type == RoadModelStructureType::Tunnel ? L"Tunnel" : L"Bridge";
+}
+
+std::wstring structureSideRangeText(RoadModelStructureSideRange sideRange)
+{
+    switch (sideRange) {
+    case RoadModelStructureSideRange::Left:
+        return L"Left";
+    case RoadModelStructureSideRange::Right:
+        return L"Right";
+    case RoadModelStructureSideRange::Both:
+    default:
+        return L"Both";
+    }
+}
+
 void removeFileIfExists(const std::wstring& path)
 {
     if (path.empty()) {
@@ -435,6 +493,29 @@ bool readRoadModelDialogResponse(
         response.assignments.push_back(std::move(assignment));
     }
 
+    int structureCount = 0;
+    if (!tryIntValue(values, L"structureCount", structureCount)) {
+        structureCount = 0;
+    }
+    if (structureCount < 0 || structureCount > kMaxDialogStructures) {
+        errorMessage = L"Road model dialog response has invalid structure count.";
+        return false;
+    }
+    response.structures.clear();
+    response.structures.reserve(static_cast<std::size_t>(structureCount));
+    for (int i = 0; i < structureCount; ++i) {
+        const auto prefix = L"structure." + std::to_wstring(i);
+        roadproto::domain::cross_section::RoadModelStructureRange structure;
+        if (!tryDoubleValue(values, prefix + L".startStation", structure.startStation)
+            || !tryDoubleValue(values, prefix + L".endStation", structure.endStation)) {
+            errorMessage = L"Road model dialog response has invalid structure station.";
+            return false;
+        }
+        structure.type = structureTypeValue(values, prefix + L".type");
+        structure.sideRange = structureSideRangeValue(values, prefix + L".sideRange");
+        response.structures.push_back(structure);
+    }
+
     const auto readSlopeGroups = [&values, &errorMessage](
         const std::wstring& prefix,
         std::vector<roadproto::domain::cross_section::RoadModelSlopeTemplateGroup>& groups) {
@@ -481,6 +562,10 @@ bool readRoadModelDialogResponse(
 
     if (response.accepted
         && !roadproto::domain::cross_section::RoadModelRules::validateAssignments(response.assignments, errorMessage)) {
+        return false;
+    }
+    if (response.accepted
+        && !roadproto::domain::cross_section::RoadModelRules::validateStructureRanges(response.structures, errorMessage)) {
         return false;
     }
     if (response.accepted

@@ -1,5 +1,27 @@
 # 版本记录
 
+## v0.1.27 - 2026-05-27
+
+- 版本标识：`v0.1.27_20260527_RoadModelStructures`。
+- ARX 文件：`RoadProto_v0.1.27_20260527_RoadModelStructures.arx`。
+- 阶段：横断面戴帽构造物范围与边坡跳过。
+- 是否可作为稳定测试版本：是。核心测试 Debug/Release、托管 bridge 测试、WPF Debug/Release 构建和 `RoadProto.sln` Debug/Release 全量构建已验证。
+
+### 修改内容
+
+- 横断面戴帽新增构造物 tab，可维护起点桩号、终点桩号、构造物类型和影响范围。
+- 构造物类型支持桥梁、隧道；影响范围支持左侧、右侧、两侧。
+- 新增 `RoadModelStructureRange` 配置，并通过 WPF DTO、临时请求/响应文件、C++ `RoadModelDialogBridge` 和 `DnRoadModelEntity` DWG 持久化同步保存。
+- 生成道路模型时，桥梁或隧道命中的桩号范围内，按左侧、右侧或两侧跳过对应边坡放坡，模型中不生成该侧边坡线。
+- `RoadModelStationSampler` 将构造物起终点纳入采样桩号，确保构造物边界处能断开或恢复边坡。
+- `DnRoadModelEntity` 数据版本升至 7；旧版本道路模型读取时构造物列表为空，新版本保存构造物范围配置。
+- 更新横断面戴帽业务文档、道路模型复用说明、模块说明、README 和测试说明。
+
+### 验证状态
+
+- 自动化验证：托管 bridge 测试通过；核心测试 Debug/Release 构建与运行通过；WPF Debug 构建通过；`RoadProto.sln` Debug/Release 全量构建通过，生成 `RoadProto_v0.1.27_20260527_RoadModelStructures.arx` 和 `RoadProto.Terrain.UI.dll`。
+- 图形界面验证：本轮未在 AutoCAD 2021 图形界面完整点验；建议加载 Debug 或 Release 产物后验证 `构造物` tab 的桥梁/隧道、左侧/右侧/两侧范围、编辑回显、DWG 保存重开和边坡缺失效果。
+
 ## v0.1.26 - 2026-05-25
 
 - 版本标识：`v0.1.26_20260525_CrossSectionFrameLabelWhite`。

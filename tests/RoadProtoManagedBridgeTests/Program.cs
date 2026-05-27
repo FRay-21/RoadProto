@@ -566,6 +566,85 @@ static void RoadModelSlopeGroupsRoundTripUsingInvariantCultureAndEscaping()
     }
 }
 
+static void RoadModelStructuresRoundTripUsingInvariantCultureAndEscaping()
+{
+    var path = NewTempFile();
+    try
+    {
+        File.WriteAllLines(path, new[]
+        {
+            "handle=RM-1",
+            "responsePath=C:/temp/road-model.response",
+            "roadCenterlineHandle=CL-1",
+            "profileVerticalCurveHandle=VC-1",
+            "sampleInterval=10",
+            "assignmentCount=0",
+            "leftSlopeGroupCount=0",
+            "rightSlopeGroupCount=0",
+            "structureCount=2",
+            "structure.0.startStation=12.5",
+            "structure.0.endStation=34.75",
+            "structure.0.type=Bridge",
+            "structure.0.sideRange=Left",
+            "structure.1.startStation=40",
+            "structure.1.endStation=60",
+            "structure.1.type=Tunnel",
+            "structure.1.sideRange=Both",
+        }, Encoding.UTF8);
+
+        WithCulture("fr-FR", () =>
+        {
+            var request = RoadModelDialogFile.ReadRequest(path);
+            Check(request.Structures.Count == 2, "road model request should read structure rows");
+            Check(Math.Abs(request.Structures[0].StartStation - 12.5) < 1.0e-9, "structure start station should parse invariant decimal");
+            Check(Math.Abs(request.Structures[0].EndStation - 34.75) < 1.0e-9, "structure end station should parse invariant decimal");
+            Check(request.Structures[0].Type == RoadModelStructureType.Bridge, "structure type should parse bridge");
+            Check(request.Structures[0].SideRange == RoadModelStructureSideRange.Left, "structure side range should parse left");
+            Check(request.Structures[1].Type == RoadModelStructureType.Tunnel, "structure type should parse tunnel");
+            Check(request.Structures[1].SideRange == RoadModelStructureSideRange.Both, "structure side range should parse both");
+        });
+
+        var response = new RoadModelDialogResponse
+        {
+            Accepted = true,
+            Handle = "RM-1",
+            RoadCenterlineHandle = "CL-1",
+            ProfileVerticalCurveHandle = "VC-1",
+            SampleInterval = 10,
+        };
+        response.Structures.Add(new RoadModelStructureRangeDto
+        {
+            StartStation = 12.5,
+            EndStation = 34.75,
+            Type = RoadModelStructureType.Bridge,
+            SideRange = RoadModelStructureSideRange.Left,
+        });
+        response.Structures.Add(new RoadModelStructureRangeDto
+        {
+            StartStation = 40,
+            EndStation = 60,
+            Type = RoadModelStructureType.Tunnel,
+            SideRange = RoadModelStructureSideRange.Both,
+        });
+
+        RoadModelDialogFile.WriteResponse(path, response);
+        var content = File.ReadAllText(path, Encoding.UTF8);
+        Check(content.Contains("structureCount=2"), "road model response should write structure count");
+        Check(content.Contains("structure.0.startStation=12.5"), "road model response should write structure start station");
+        Check(content.Contains("structure.0.type=Bridge"), "road model response should write bridge type");
+        Check(content.Contains("structure.0.sideRange=Left"), "road model response should write left side range");
+        Check(content.Contains("structure.1.type=Tunnel"), "road model response should write tunnel type");
+        Check(content.Contains("structure.1.sideRange=Both"), "road model response should write both side range");
+    }
+    finally
+    {
+        if (File.Exists(path))
+        {
+            File.Delete(path);
+        }
+    }
+}
+
 static void RoadModelRequestReadsSelectedAssignmentIndex()
 {
     var path = NewTempFile();
@@ -790,6 +869,15 @@ static void RoadModelWindowReadOnlyHandleBindingIsOneWay()
         "RoadProto.Terrain.UI",
         "RoadModelWindow.xaml");
     var xaml = File.ReadAllText(xamlPath, Encoding.UTF8);
+    var dtoPath = Path.Combine(
+        FindRepoRoot(),
+        "src",
+        "ui",
+        "wpf",
+        "RoadProto.Terrain.UI",
+        "Bridge",
+        "RoadModelDialogDtos.cs");
+    var dtoSource = File.ReadAllText(dtoPath, Encoding.UTF8);
     Check(
         xaml.Contains("Text=\"{Binding RoadCenterlineHandle, Mode=OneWay}\""),
         "road model window should bind read-only road centerline handle with Mode=OneWay");
@@ -817,6 +905,18 @@ static void RoadModelWindowReadOnlyHandleBindingIsOneWay()
     Check(
         xaml.Contains("Click=\"OnDeleteLeftSlopeTemplate\"") && xaml.Contains("Click=\"OnMoveLeftSlopeTemplateUp\""),
         "road model window should allow editing templates inside a group");
+    Check(
+        xaml.Contains("Header=\"构造物\""),
+        "road model window should include structure tab");
+    Check(
+        xaml.Contains("ItemsSource=\"{Binding Structures}\""),
+        "road model window should bind structure rows");
+    Check(
+        xaml.Contains("RoadModelStructureOptions.Types") && xaml.Contains("RoadModelStructureOptions.SideRanges"),
+        "road model window should expose structure type and side range dropdowns");
+    Check(
+        dtoSource.Contains("桥梁") && dtoSource.Contains("隧道") && dtoSource.Contains("两侧"),
+        "road model window should expose bridge, tunnel, and both-side choices");
 }
 
 static PavementLayerTemplateLayerDto MakePavementLayer(
@@ -1473,6 +1573,7 @@ RoadModelRequestReadsAssignmentsUsingInvariantCultureAndEscaping();
 RoadModelResponseWritesAssignmentsUsingInvariantCultureAndEscaping();
 RoadModelResponseWritesPickTemplateActionAndRowIndex();
 RoadModelSlopeGroupsRoundTripUsingInvariantCultureAndEscaping();
+RoadModelStructuresRoundTripUsingInvariantCultureAndEscaping();
 RoadModelRequestReadsSelectedAssignmentIndex();
 RoadModelRequestRejectsMissingOrEmptyResponsePath();
 RoadModelSectionViewerRequestReadsPreviewsUsingInvariantCultureAndEscaping();

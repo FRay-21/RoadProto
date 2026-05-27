@@ -1,6 +1,7 @@
 <Window x:Class="RoadProto.Terrain.UI.RoadModelWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:bridge="clr-namespace:RoadProto.Terrain.UI.Bridge"
         Title="横断面戴帽"
         Width="980"
         Height="640"
@@ -254,6 +255,47 @@
                             </Grid>
                         </TabItem>
                     </TabControl>
+                </Grid>
+            </TabItem>
+
+            <TabItem Header="构造物">
+                <Grid Margin="16">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                    </Grid.RowDefinitions>
+
+                    <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,12">
+                        <Button Content="新增" Click="OnAddStructure" />
+                        <Button Content="删除" Click="OnDeleteStructure" />
+                        <Button Content="上移" Click="OnMoveStructureUp" />
+                        <Button Content="下移" Click="OnMoveStructureDown" />
+                    </StackPanel>
+
+                    <DataGrid Grid.Row="1"
+                              AutoGenerateColumns="False"
+                              CanUserAddRows="False"
+                              ItemsSource="{Binding Structures}"
+                              SelectedItem="{Binding SelectedStructure, Mode=TwoWay}"
+                              HeadersVisibility="Column"
+                              GridLinesVisibility="Horizontal">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="起点桩号" Binding="{Binding StartStation}" Width="*" />
+                            <DataGridTextColumn Header="终点桩号" Binding="{Binding EndStation}" Width="*" />
+                            <DataGridComboBoxColumn Header="构造物类型"
+                                                    ItemsSource="{x:Static bridge:RoadModelStructureOptions.Types}"
+                                                    DisplayMemberPath="Label"
+                                                    SelectedValuePath="Value"
+                                                    SelectedValueBinding="{Binding Type}"
+                                                    Width="*" />
+                            <DataGridComboBoxColumn Header="范围"
+                                                    ItemsSource="{x:Static bridge:RoadModelStructureOptions.SideRanges}"
+                                                    DisplayMemberPath="Label"
+                                                    SelectedValuePath="Value"
+                                                    SelectedValueBinding="{Binding SideRange}"
+                                                    Width="*" />
+                        </DataGrid.Columns>
+                    </DataGrid>
                 </Grid>
             </TabItem>
         </TabControl>

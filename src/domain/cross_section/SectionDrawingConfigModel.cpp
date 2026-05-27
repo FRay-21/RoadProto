@@ -516,6 +516,11 @@ std::optional<SectionDrawingConfigData> SectionDrawingConfigCsv::read(
         data.pavementRows.push_back(std::move(row));
     }
 
+    if (!headerConsumed) {
+        errorMessage = L"Section drawing config CSV header is missing.";
+        return std::nullopt;
+    }
+
     if (!SectionDrawingConfigRules::normalize(data, errorMessage)) {
         return std::nullopt;
     }

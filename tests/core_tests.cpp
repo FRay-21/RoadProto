@@ -721,13 +721,34 @@ void sectionDrawingConfigCsvRejectsInvalidHeader()
 {
     using namespace roadproto::domain::cross_section;
 
-    const auto csv =
+    const auto expectRejected = [](const std::string& csv) {
+        std::wstring errorMessage;
+        const auto parsed = SectionDrawingConfigCsv::read(csv, L"F:\\section_config.csv", errorMessage);
+
+        CHECK(!parsed.has_value());
+        CHECK(!errorMessage.empty());
+    };
+
+    expectRejected(
         std::string("\xEF\xBB\xBF")
         + u8"起点桩号,终点桩号,路基类型,错误列,模板名称\n"
-        + u8"0,50,左侧行车道,1A2B,主线结构层\n";
+        + u8"0,50,左侧行车道,1A2B,主线结构层\n");
+    expectRejected(
+        std::string("\xEF\xBB\xBF")
+        + u8"起点桩号,终点桩号,路基类型,模板Handle,错误列\n"
+        + u8"0,50,左侧行车道,1A2B,主线结构层\n");
+    expectRejected(
+        std::string("\xEF\xBB\xBF")
+        + u8"终点桩号,起点桩号,路基类型,模板Handle,模板名称\n"
+        + u8"0,50,左侧行车道,1A2B,主线结构层\n");
+}
+
+void sectionDrawingConfigCsvRejectsMissingHeader()
+{
+    using namespace roadproto::domain::cross_section;
 
     std::wstring errorMessage;
-    const auto parsed = SectionDrawingConfigCsv::read(csv, L"F:\\section_config.csv", errorMessage);
+    const auto parsed = SectionDrawingConfigCsv::read(" \r\n\t\r\n", L"F:\\section_config.csv", errorMessage);
 
     CHECK(!parsed.has_value());
     CHECK(!errorMessage.empty());
@@ -6450,6 +6471,7 @@ int main()
     sectionDrawingConfigComponentMatchingUsesSideAndType();
     sectionDrawingConfigCsvRoundTripsUtf8Rows();
     sectionDrawingConfigCsvRejectsInvalidHeader();
+    sectionDrawingConfigCsvRejectsMissingHeader();
     subgradeTemplateCreateServiceBuildsDefaultTemplate();
     pavementLayerTemplateCreateServiceBuildsDefaultTemplate();
     pavementLayerTemplateRulesNormalizeThicknessAndCodes();

@@ -702,6 +702,27 @@ Acad::ErrorStatus DnRoadModelSectionDrawingEntity::replaceFaces(std::vector<Road
     return Acad::eOk;
 }
 
+Acad::ErrorStatus DnRoadModelSectionDrawingEntity::setSectionDrawingConfigAndFaces(
+    const SectionDrawingConfigData& config,
+    std::vector<RoadModelSectionDrawingFace> faces)
+{
+    assertWriteEnabled();
+    auto updated = data_;
+    updated.config = config;
+    updated.faces = std::move(faces);
+
+    std::wstring errorMessage;
+    if (!SectionDrawingConfigRules::normalize(updated.config, errorMessage)
+        || !validateSectionDrawingConfig(updated.config)
+        || !validateDrawingData(updated)) {
+        return Acad::eInvalidInput;
+    }
+
+    data_ = std::move(updated);
+    recordGraphicsModified(true);
+    return Acad::eOk;
+}
+
 Acad::ErrorStatus DnRoadModelSectionDrawingEntity::dwgInFields(AcDbDwgFiler* filer)
 {
     assertWriteEnabled();

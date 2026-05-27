@@ -39,6 +39,7 @@ using roadproto::domain::cross_section::PavementLayerTemplateData;
 using roadproto::domain::cross_section::PavementLayerTemplateRules;
 using roadproto::domain::cross_section::RoadModelComponentLine;
 using roadproto::domain::cross_section::RoadModelData;
+using roadproto::domain::cross_section::RoadModelPoint3d;
 using roadproto::domain::cross_section::RoadModelSection;
 using roadproto::domain::cross_section::RoadModelSectionNode;
 using roadproto::domain::cross_section::RoadModelSectionNodeKind;
@@ -344,23 +345,42 @@ std::vector<RoadModelSectionDrawingFace> preserveManualEditedFaces(
     return preserved;
 }
 
-std::vector<RoadModelSectionNode> sortedFiniteNodesForSide(
-    const RoadModelSection& section,
-    SubgradeSide side)
+bool sameRoadModelPoint(const RoadModelPoint3d& left, const RoadModelPoint3d& right)
 {
-    const auto& source = side == SubgradeSide::Left ? section.leftNodes : section.rightNodes;
-    std::vector<RoadModelSectionNode> nodes;
-    for (const auto& node : source) {
+    constexpr double kPointTolerance = 1.0e-5;
+    return std::fabs(left.x - right.x) <= kPointTolerance
+        && std::fabs(left.y - right.y) <= kPointTolerance
+        && std::fabs(left.z - right.z) <= kPointTolerance;
+}
+
+bool linePointMatchesSectionNode(const RoadModelComponentLine& line, const RoadModelSectionNode& node)
+{
+    return std::any_of(line.points.begin(), line.points.end(), [&node](const auto& point) {
+        return sameRoadModelPoint(point, node.point);
+    });
+}
+
+bool findBoundaryNodeAtStation(
+    const RoadModelComponentLine& line,
+    const RoadModelSection& section,
+    double station,
+    RoadModelSectionNode& boundaryNode)
+{
+    if (!std::isfinite(station)) {
+        return false;
+    }
+
+    const auto& nodes = line.key.side == SubgradeSide::Left ? section.leftNodes : section.rightNodes;
+    for (const auto& node : nodes) {
         if (node.kind == RoadModelSectionNodeKind::Subgrade
             && std::isfinite(node.offset)
-            && std::isfinite(node.elevation)) {
-            nodes.push_back(node);
+            && std::isfinite(node.elevation)
+            && linePointMatchesSectionNode(line, node)) {
+            boundaryNode = node;
+            return true;
         }
     }
-    std::sort(nodes.begin(), nodes.end(), [](const auto& left, const auto& right) {
-        return std::fabs(left.offset) < std::fabs(right.offset);
-    });
-    return nodes;
+    return false;
 }
 
 struct SectionComponentSpan {
@@ -371,19 +391,26 @@ struct SectionComponentSpan {
     RoadModelSectionNode outer;
 };
 
-struct ComponentBoundaryPresence {
+struct ComponentBoundaryNodes {
     bool hasInner = false;
     bool hasOuter = false;
+    RoadModelSectionNode inner;
+    RoadModelSectionNode outer;
 };
 
 std::vector<SectionComponentSpan> collectSectionComponentSpans(
     const RoadModelData& roadModel,
     const RoadModelSection& section,
+    double drawingStation,
     const SectionPavementLayerConfigRow* row)
 {
-    std::map<std::tuple<SubgradeSide, SubgradeComponentType, std::size_t>, ComponentBoundaryPresence> boundaries;
+    std::map<std::tuple<SubgradeSide, SubgradeComponentType, std::size_t>, ComponentBoundaryNodes> boundaries;
     for (const auto& line : roadModel.componentLines) {
         if (row != nullptr && !SectionDrawingConfigRules::matchesComponent(*row, line.key.side, line.key.componentType)) {
+            continue;
+        }
+        RoadModelSectionNode boundaryNode;
+        if (!findBoundaryNodeAtStation(line, section, drawingStation, boundaryNode)) {
             continue;
         }
         auto& boundary = boundaries[std::make_tuple(
@@ -392,8 +419,10 @@ std::vector<SectionComponentSpan> collectSectionComponentSpans(
             line.key.componentIndex)];
         if (line.key.boundaryIndex == 0) {
             boundary.hasInner = true;
+            boundary.inner = std::move(boundaryNode);
         } else if (line.key.boundaryIndex == 1) {
             boundary.hasOuter = true;
+            boundary.outer = std::move(boundaryNode);
         }
     }
 
@@ -407,13 +436,8 @@ std::vector<SectionComponentSpan> collectSectionComponentSpans(
             continue;
         }
 
-        auto nodes = sortedFiniteNodesForSide(section, side);
-        if (componentIndex + 1 >= nodes.size()) {
-            continue;
-        }
-
-        auto inner = nodes[componentIndex];
-        auto outer = nodes[componentIndex + 1];
+        auto inner = boundary.inner;
+        auto outer = boundary.outer;
         if (std::fabs(outer.offset) < std::fabs(inner.offset)) {
             std::swap(inner, outer);
         }
@@ -445,7 +469,7 @@ std::vector<SectionDrawingConfigComponentOption> collectComponentOptions(
             continue;
         }
 
-        for (const auto& span : collectSectionComponentSpans(roadModel, *section, nullptr)) {
+        for (const auto& span : collectSectionComponentSpans(roadModel, *section, station, nullptr)) {
             SectionDrawingComponentTypeSelection selection;
             selection.side = span.side;
             selection.componentType = span.componentType;
@@ -591,7 +615,7 @@ std::vector<RoadModelSectionDrawingFace> buildConfiguredPavementFaces(
         return faces;
     }
 
-    const auto spans = collectSectionComponentSpans(roadModel, *section, &resolved->row);
+    const auto spans = collectSectionComponentSpans(roadModel, *section, drawing.station, &resolved->row);
     if (spans.empty()) {
         warnings.push_back(L"No matching component span exists at station " + std::to_wstring(drawing.station));
     }
@@ -835,13 +859,11 @@ bool applySectionDrawingConfigToAllDrawings(
             templates,
             manualCountForDrawing,
             warnings);
-        RoadModelSectionDrawingData updatedDrawing = drawing;
-        updatedDrawing.faces = std::move(faces);
 
         if (acdbOpenObject(entity, drawingId, AcDb::kForWrite) != Acad::eOk || entity == nullptr) {
             continue;
         }
-        if (entity->setDrawingData(updatedDrawing) == Acad::eOk) {
+        if (entity->setSectionDrawingConfigAndFaces(normalized, std::move(faces)) == Acad::eOk) {
             ++updatedDrawingCount;
             preservedManualFaceCount += manualCountForDrawing;
             entity->recordGraphicsModified(true);

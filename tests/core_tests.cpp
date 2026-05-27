@@ -4067,6 +4067,10 @@ void sectionDrawingConfigObjectArxCommandSourceContracts()
         root / "src" / "cad_adapter" / "objectarx" / "cross_section" / "ObjectArxSectionDrawingConfigCommand.h");
     const auto source = readTextFileForTests(
         root / "src" / "cad_adapter" / "objectarx" / "cross_section" / "ObjectArxSectionDrawingConfigCommand.cpp");
+    const auto entityHeader = readTextFileForTests(
+        root / "src" / "cad_adapter" / "objectarx" / "cross_section" / "DnRoadModelSectionDrawingEntity.h");
+    const auto entitySource = readTextFileForTests(
+        root / "src" / "cad_adapter" / "objectarx" / "cross_section" / "DnRoadModelSectionDrawingEntity.cpp");
     const auto module = readTextFileForTests(root / "src" / "modules" / "cross_section" / "CrossSectionModule.cpp");
     const auto ribbon = readTextFileForTests(
         root / "src" / "ui" / "wpf" / "RoadProto.Terrain.UI" / "AutoCad" / "RoadProtoRibbonExtension.cs");
@@ -4089,12 +4093,19 @@ void sectionDrawingConfigObjectArxCommandSourceContracts()
     CHECK(source.find("PavementLayerTemplateRules::buildSection") != std::string::npos);
     CHECK(source.find("SectionDrawingConfigRules::resolvePavementRow") != std::string::npos);
     CHECK(source.find("SectionDrawingConfigRules::matchesComponent") != std::string::npos);
+    CHECK(source.find("linePointMatchesSectionNode") != std::string::npos);
+    CHECK(source.find("findBoundaryNodeAtStation") != std::string::npos);
+    CHECK(source.find("line.key.boundaryIndex") != std::string::npos);
+    CHECK(source.find("drawing.station") != std::string::npos);
     CHECK(source.find("std::min(component.key.componentIndex") == std::string::npos);
     CHECK(source.find("component.key.componentIndex, nodes.size") == std::string::npos);
+    CHECK(source.find("componentIndex + 1 >= nodes.size()") == std::string::npos);
+    CHECK(source.find("nodes[componentIndex]") == std::string::npos);
     CHECK(source.find("sourceTemplateHandle") != std::string::npos);
     CHECK(source.find("sourceConfigRowIndex") != std::string::npos);
     CHECK(source.find("+ std::to_wstring(span.componentIndex)") != std::string::npos);
-    CHECK(source.find("setDrawingData(updatedDrawing)") != std::string::npos);
+    CHECK(source.find("setSectionDrawingConfigAndFaces") != std::string::npos);
+    CHECK(source.find("setDrawingData(updatedDrawing)") == std::string::npos);
     CHECK(source.find("warnings.push_back") != std::string::npos);
     CHECK(source.find("writeWarnings(editor, warnings)") != std::string::npos);
     CHECK(source.find("queueSectionDrawingConfigWpfDialog") != std::string::npos);
@@ -4102,10 +4113,21 @@ void sectionDrawingConfigObjectArxCommandSourceContracts()
     CHECK(source.find("SectionDrawingConfigDialogAction::PickTemplate") != std::string::npos);
     CHECK(source.find("SectionDrawingConfigDialogAction::Draw") != std::string::npos);
     const auto buildFaces = source.find("auto faces = buildConfiguredPavementFaces");
-    const auto assignData = source.find("setDrawingData(updatedDrawing)");
+    const auto assignData = source.find("setSectionDrawingConfigAndFaces");
     CHECK(buildFaces != std::string::npos);
     CHECK(assignData != std::string::npos);
     CHECK(buildFaces < assignData);
+
+    CHECK(entityHeader.find("setSectionDrawingConfigAndFaces") != std::string::npos);
+    CHECK(entitySource.find("setSectionDrawingConfigAndFaces") != std::string::npos);
+    const auto atomicSetter = entitySource.find("setSectionDrawingConfigAndFaces");
+    const auto followingMethod = entitySource.find("Acad::ErrorStatus", atomicSetter + 1);
+    CHECK(atomicSetter != std::string::npos);
+    CHECK(followingMethod != std::string::npos);
+    const auto setterBody = entitySource.substr(atomicSetter, followingMethod - atomicSetter);
+    CHECK(setterBody.find("validateDrawingData(updated)") != std::string::npos);
+    CHECK(setterBody.find("xAxis_ =") == std::string::npos);
+    CHECK(setterBody.find("yAxis_ =") == std::string::npos);
 
     CHECK(module.find("RD_SECTION_DRAWING_CONFIG") != std::string::npos);
     CHECK(module.find("RD_SECTION_DRAWING_CONFIG_EDIT_HANDLE") != std::string::npos);

@@ -70,6 +70,9 @@ public:
         const roadproto::domain::cross_section::SectionDrawingConfigData& config);
     Acad::ErrorStatus replaceFaces(
         std::vector<roadproto::cad_adapter::objectarx::cross_section::RoadModelSectionDrawingFace> faces);
+    Acad::ErrorStatus setSectionDrawingConfigAndFaces(
+        const roadproto::domain::cross_section::SectionDrawingConfigData& config,
+        std::vector<roadproto::cad_adapter::objectarx::cross_section::RoadModelSectionDrawingFace> faces);
 
     Acad::ErrorStatus dwgInFields(AcDbDwgFiler* filer) override;
     Acad::ErrorStatus dwgOutFields(AcDbDwgFiler* filer) const override;

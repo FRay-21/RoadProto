@@ -16,6 +16,7 @@
 #include "domain/alignment/StationFormatter.h"
 #include "domain/cross_section/PavementLayerTemplateModel.h"
 #include "domain/cross_section/RoadModel.h"
+#include "domain/cross_section/SectionDrawingConfigModel.h"
 #include "domain/cross_section/SlopeTemplateModel.h"
 #include "domain/cross_section/SubgradeTemplateModel.h"
 #include "domain/profile/ProfileDmxFile.h"
@@ -611,6 +612,109 @@ void subgradeTemplateVariableSlopeUsesOnlySlopeTable()
 
     CHECK(std::fabs(SubgradeTemplateRules::slopeAtStation(component, 100.0) - 0.02) < 1.0e-9);
     CHECK(std::fabs(SubgradeTemplateRules::slopeAtStation(component, 110.0)) < 1.0e-9);
+}
+
+void sectionDrawingConfigRowsResolveByStationAndPriority()
+{
+    using namespace roadproto::domain::cross_section;
+
+    SectionDrawingConfigData config;
+    config.pavementRows.push_back(
+        SectionPavementLayerConfigRow{
+            20.0,
+            40.0,
+            {SectionDrawingComponentTypeSelection{SubgradeSide::Right, SubgradeComponentType::HardShoulder}},
+            L"AA",
+            L"\u53f3\u4fa7\u786c\u8def\u80a9\u7ed3\u6784\u5c42"});
+    config.pavementRows.push_back(
+        SectionPavementLayerConfigRow{
+            0.0,
+            100.0,
+            {SectionDrawingComponentTypeSelection{SubgradeSide::Right, SubgradeComponentType::TravelLane}},
+            L"BB",
+            L"\u53f3\u4fa7\u884c\u8f66\u9053\u7ed3\u6784\u5c42"});
+
+    std::wstring errorMessage;
+    CHECK(SectionDrawingConfigRules::normalize(config, errorMessage));
+    const auto firstMatch = SectionDrawingConfigRules::resolvePavementRow(config, 30.0);
+    CHECK(firstMatch.has_value());
+    if (firstMatch.has_value()) {
+        CHECK(firstMatch->rowIndex == 0);
+        CHECK(firstMatch->row.templateHandle == L"AA");
+    }
+
+    const auto secondMatch = SectionDrawingConfigRules::resolvePavementRow(config, 50.0);
+    CHECK(secondMatch.has_value());
+    if (secondMatch.has_value()) {
+        CHECK(secondMatch->rowIndex == 1);
+        CHECK(secondMatch->row.templateHandle == L"BB");
+    }
+
+    CHECK(!SectionDrawingConfigRules::resolvePavementRow(config, 120.0).has_value());
+}
+
+void sectionDrawingConfigComponentMatchingUsesSideAndType()
+{
+    using namespace roadproto::domain::cross_section;
+
+    SectionPavementLayerConfigRow row;
+    row.componentTypes = {
+        SectionDrawingComponentTypeSelection{SubgradeSide::Left, SubgradeComponentType::TravelLane},
+        SectionDrawingComponentTypeSelection{SubgradeSide::Right, SubgradeComponentType::HardShoulder},
+    };
+
+    CHECK(SectionDrawingConfigRules::matchesComponent(row, SubgradeSide::Left, SubgradeComponentType::TravelLane));
+    CHECK(SectionDrawingConfigRules::matchesComponent(row, SubgradeSide::Right, SubgradeComponentType::HardShoulder));
+    CHECK(!SectionDrawingConfigRules::matchesComponent(row, SubgradeSide::Right, SubgradeComponentType::TravelLane));
+}
+
+void sectionDrawingConfigCsvRoundTripsUtf8Rows()
+{
+    using namespace roadproto::domain::cross_section;
+
+    SectionDrawingConfigData config;
+    config.configPath = L"F:\\section_config.csv";
+    config.pavementRows.push_back(
+        SectionPavementLayerConfigRow{
+            0.0,
+            100.0,
+            {
+                SectionDrawingComponentTypeSelection{SubgradeSide::Left, SubgradeComponentType::TravelLane},
+                SectionDrawingComponentTypeSelection{SubgradeSide::Right, SubgradeComponentType::HardShoulder},
+            },
+            L"1A2B",
+            L"\u4e3b\u7ebf\u7ed3\u6784\u5c42"});
+
+    const auto csv = SectionDrawingConfigCsv::write(config);
+    CHECK(csv.find("\xEF\xBB\xBF") == 0);
+    CHECK(csv.find(u8"起点桩号,终点桩号,路基类型,模板Handle,模板名称") != std::string::npos);
+    CHECK(csv.find(u8"左侧行车道;右侧硬路肩") != std::string::npos);
+
+    std::wstring errorMessage;
+    const auto parsed = SectionDrawingConfigCsv::read(csv, L"F:\\section_config.csv", errorMessage);
+    CHECK(parsed.has_value());
+    if (parsed.has_value()) {
+        CHECK(parsed->configPath == L"F:\\section_config.csv");
+        CHECK(parsed->pavementRows.size() == 1);
+        CHECK(parsed->pavementRows.front().startStation == 0.0);
+        CHECK(parsed->pavementRows.front().endStation == 100.0);
+        CHECK(parsed->pavementRows.front().componentTypes.size() == 2);
+        CHECK(parsed->pavementRows.front().templateHandle == L"1A2B");
+        CHECK(parsed->pavementRows.front().templateName == L"\u4e3b\u7ebf\u7ed3\u6784\u5c42");
+    }
+
+    const auto codeCsv =
+        std::string("\xEF\xBB\xBF")
+        + u8"起点桩号,终点桩号,路基类型,模板Handle,模板名称\n"
+        + "0,50,Left:TravelLane,2B3C,CodeName\n";
+    const auto parsedCodes = SectionDrawingConfigCsv::read(codeCsv, L"F:\\section_config.csv", errorMessage);
+    CHECK(parsedCodes.has_value());
+    if (parsedCodes.has_value()) {
+        CHECK(parsedCodes->pavementRows.size() == 1);
+        CHECK(parsedCodes->pavementRows.front().componentTypes.size() == 1);
+        CHECK(parsedCodes->pavementRows.front().componentTypes.front().side == SubgradeSide::Left);
+        CHECK(parsedCodes->pavementRows.front().componentTypes.front().componentType == SubgradeComponentType::TravelLane);
+    }
 }
 
 void subgradeTemplateCreateServiceBuildsDefaultTemplate()
@@ -6326,6 +6430,9 @@ int main()
     subgradeTemplateNormalizePreservesLinkedPavementTemplateReference();
     subgradeTemplateNormalizeUnlinksEmptyPavementTemplateHandle();
     subgradeTemplateVariableSlopeUsesOnlySlopeTable();
+    sectionDrawingConfigRowsResolveByStationAndPriority();
+    sectionDrawingConfigComponentMatchingUsesSideAndType();
+    sectionDrawingConfigCsvRoundTripsUtf8Rows();
     subgradeTemplateCreateServiceBuildsDefaultTemplate();
     pavementLayerTemplateCreateServiceBuildsDefaultTemplate();
     pavementLayerTemplateRulesNormalizeThicknessAndCodes();

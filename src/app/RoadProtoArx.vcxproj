@@ -73,6 +73,7 @@
     <ClCompile Include="..\domain\alignment\StationFormatter.cpp" />
     <ClCompile Include="..\domain\cross_section\PavementLayerTemplateModel.cpp" />
     <ClCompile Include="..\domain\cross_section\RoadModel.cpp" />
+    <ClCompile Include="..\domain\cross_section\SectionDrawingConfigModel.cpp" />
     <ClCompile Include="..\domain\cross_section\SlopeTemplateModel.cpp" />
     <ClCompile Include="..\domain\cross_section\SubgradeTemplateModel.cpp" />
     <ClCompile Include="..\domain\profile\ProfileDmxFile.cpp" />

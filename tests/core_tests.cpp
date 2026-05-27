@@ -3966,6 +3966,45 @@ void sectionDrawingEntityPersistsConfigAndEditableFaceContracts()
     CHECK(finalStatusCheck < dataAssign);
 }
 
+void sectionDrawingConfigBridgeSourceContracts()
+{
+    const auto root = findRepositoryRootForTests();
+    const auto cppHeader = readTextFileForTests(
+        root / "src" / "cad_adapter" / "objectarx" / "cross_section" / "SectionDrawingConfigDialogBridge.h");
+    const auto cppSource = readTextFileForTests(
+        root / "src" / "cad_adapter" / "objectarx" / "cross_section" / "SectionDrawingConfigDialogBridge.cpp");
+    const auto dtoSource = readTextFileForTests(
+        root / "src" / "ui" / "wpf" / "RoadProto.Terrain.UI" / "Bridge" / "SectionDrawingConfigDialogDtos.cs");
+    const auto fileSource = readTextFileForTests(
+        root / "src" / "ui" / "wpf" / "RoadProto.Terrain.UI" / "Bridge" / "SectionDrawingConfigDialogFile.cs");
+    const auto arxProject = readTextFileForTests(root / "src" / "app" / "RoadProtoArx.vcxproj");
+
+    CHECK(cppHeader.find("SectionDrawingConfigComponentOption") != std::string::npos);
+    CHECK(cppHeader.find("SectionDrawingConfigDialogRequest") != std::string::npos);
+    CHECK(cppHeader.find("SectionDrawingConfigDialogResponse") != std::string::npos);
+    CHECK(cppHeader.find("PickTemplate") != std::string::npos);
+    CHECK(cppSource.find("RoadProtoSectionDrawingConfig_") != std::string::npos);
+    CHECK(cppSource.find("RD_SECTION_DRAWING_CONFIG_SHOW_WPF_DIALOG") != std::string::npos);
+    CHECK(cppSource.find("componentOptionCount") != std::string::npos);
+    CHECK(cppSource.find("pavementRowCount") != std::string::npos);
+    CHECK(cppSource.find("SectionDrawingConfigRules::normalize") != std::string::npos);
+    CHECK(cppSource.find("kMaxConfigRows") != std::string::npos);
+    CHECK(cppSource.find("kMaxConfigComponents") != std::string::npos);
+
+    CHECK(dtoSource.find("SectionDrawingConfigAction") != std::string::npos);
+    CHECK(dtoSource.find("Draw") != std::string::npos);
+    CHECK(dtoSource.find("PickTemplate") != std::string::npos);
+    CHECK(dtoSource.find("ComponentOptions") != std::string::npos);
+    CHECK(fileSource.find("ReadRequest") != std::string::npos);
+    CHECK(fileSource.find("WriteResponse") != std::string::npos);
+    CHECK(fileSource.find("ImportCsv") != std::string::npos);
+    CHECK(fileSource.find("ExportCsv") != std::string::npos);
+    CHECK(fileSource.find("CsvHeader") != std::string::npos);
+    CHECK(fileSource.find("Utf8Bom") != std::string::npos);
+    CHECK(fileSource.find("pavementRowCount") != std::string::npos);
+    CHECK(arxProject.find("SectionDrawingConfigDialogBridge.cpp") != std::string::npos);
+}
+
 void roadModelWpfBridgeSourceContainsRequiredFields()
 {
     const auto root = findRepositoryRootForTests();
@@ -6788,6 +6827,7 @@ int main()
     roadModelSectionViewerNativeBridgeSourceContainsRequiredFields();
     roadModelSectionDrawingEntitySourceContractsExist();
     sectionDrawingEntityPersistsConfigAndEditableFaceContracts();
+    sectionDrawingConfigBridgeSourceContracts();
     roadModelCommandSourceContainsCompleteObjectArxFlow();
     roadModelCommandSourceCollectsPavementTemplateSources();
     pavementLayerTemplateNativeSourcesContainRequiredContracts();

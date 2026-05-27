@@ -119,6 +119,7 @@
     <ClCompile Include="..\cad_adapter\objectarx\cross_section\DnSubgradeTemplateEntity.cpp" />
     <ClCompile Include="..\cad_adapter\objectarx\cross_section\RoadModelDialogBridge.cpp" />
     <ClCompile Include="..\cad_adapter\objectarx\cross_section\RoadModelSectionViewerBridge.cpp" />
+    <ClCompile Include="..\cad_adapter\objectarx\cross_section\SectionDrawingConfigDialogBridge.cpp" />
     <ClCompile Include="..\cad_adapter\objectarx\cross_section\ObjectArxPavementLayerTemplateCommand.cpp" />
     <ClCompile Include="..\cad_adapter\objectarx\cross_section\ObjectArxRoadModelCommand.cpp" />
     <ClCompile Include="..\cad_adapter\objectarx\cross_section\ObjectArxSlopeTemplateCommand.cpp" />

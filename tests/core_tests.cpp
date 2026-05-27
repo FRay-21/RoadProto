@@ -4049,11 +4049,17 @@ void sectionDrawingConfigWpfWindowSourceContracts()
     CHECK(code.find("ImportCsv") != std::string::npos);
     CHECK(code.find("ExportCsv") != std::string::npos);
     CHECK(code.find("PickTemplate") != std::string::npos);
+    CHECK(code.find("var importedRows = SectionDrawingConfigDialogFile.ImportCsv") != std::string::npos);
+    CHECK(code.find("foreach (var row in importedRows)") != std::string::npos);
     CHECK(code.find("Draw") != std::string::npos);
     CHECK(code.find("DrawingHandle = _request.DrawingHandle") != std::string::npos);
+    CHECK(code.find("PickRowIndex = PavementRows.IndexOf") != std::string::npos);
+    CHECK(code.find("Action = SectionDrawingConfigAction.None") != std::string::npos);
+    CHECK(code.find("Accepted = false") != std::string::npos);
     CHECK(code.find("RoadModelHandle = _request.RoadModelHandle") != std::string::npos);
     CHECK(code.find("ResponsePath = _request.ResponsePath") != std::string::npos);
     CHECK(code.find("ComponentOptions = ComponentOptions.ToList()") != std::string::npos);
+    CHECK(code.find("ConfigPath = ConfigPath") != std::string::npos);
     CHECK(code.find("PavementRows = PavementRows.ToList()") != std::string::npos);
 
     CHECK(commands.find("RoadProtoSectionDrawingConfig_") != std::string::npos);
@@ -4062,6 +4068,12 @@ void sectionDrawingConfigWpfWindowSourceContracts()
     CHECK(commands.find("SectionDrawingConfigDialogFile.ReadRequest") != std::string::npos);
     CHECK(commands.find("SectionDrawingConfigDialogFile.WriteResponse") != std::string::npos);
     CHECK(ribbon.find("CommandClass(typeof(RoadProto.Terrain.UI.AutoCad.SectionDrawingConfigDialogCommands))") != std::string::npos);
+    CHECK(commands.find("WriteResponse(request.ResponsePath, response)") != std::string::npos);
+    CHECK(commands.find("DrawingHandle = request.DrawingHandle") != std::string::npos);
+    CHECK(commands.find("RoadModelHandle = request.RoadModelHandle") != std::string::npos);
+    CHECK(commands.find("ResponsePath = request.ResponsePath") != std::string::npos);
+    CHECK(commands.find("ComponentOptions = request.ComponentOptions") != std::string::npos);
+    CHECK(commands.find("PavementRows = request.PavementRows") != std::string::npos);
 }
 
 void roadModelWpfBridgeSourceContainsRequiredFields()

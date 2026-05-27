@@ -70,10 +70,15 @@ public partial class SectionDrawingConfigWindow : Window, INotifyPropertyChanged
 
         try
         {
-            PavementRows.Clear();
-            foreach (var row in SectionDrawingConfigDialogFile.ImportCsv(dialog.FileName, ComponentOptions.ToList()))
+            var importedRows = SectionDrawingConfigDialogFile.ImportCsv(dialog.FileName, ComponentOptions.ToList());
+            foreach (var row in importedRows)
             {
                 RefreshComponentDisplayText(row);
+            }
+
+            PavementRows.Clear();
+            foreach (var row in importedRows)
+            {
                 PavementRows.Add(row);
             }
             ConfigPath = dialog.FileName;

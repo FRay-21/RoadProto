@@ -653,6 +653,58 @@ void sectionDrawingConfigRowsResolveByStationAndPriority()
     CHECK(!SectionDrawingConfigRules::resolvePavementRow(config, 120.0).has_value());
 }
 
+void sectionDrawingConfigRowsHandleBoundaryAndNormalizationEdges()
+{
+    using namespace roadproto::domain::cross_section;
+
+    SectionDrawingConfigData rawConfig;
+    rawConfig.pavementRows.push_back(SectionPavementLayerConfigRow{0.0, 100.0, {}, L"   ", L"Blank"});
+    CHECK(!SectionDrawingConfigRules::resolvePavementRow(rawConfig, 50.0).has_value());
+
+    SectionDrawingConfigData config;
+    config.pavementRows.push_back(
+        SectionPavementLayerConfigRow{
+            10.0,
+            20.0,
+            {SectionDrawingComponentTypeSelection{SubgradeSide::Left, SubgradeComponentType::TravelLane}},
+            L"EDGE",
+            L"Edge"});
+    config.pavementRows.push_back(
+        SectionPavementLayerConfigRow{
+            40.0,
+            30.0,
+            {
+                SectionDrawingComponentTypeSelection{SubgradeSide::Right, SubgradeComponentType::HardShoulder},
+                SectionDrawingComponentTypeSelection{SubgradeSide::Right, SubgradeComponentType::HardShoulder},
+                SectionDrawingComponentTypeSelection{SubgradeSide::Right, SubgradeComponentType::EarthShoulder},
+            },
+            L"SWAP",
+            L"Swap"});
+
+    std::wstring errorMessage;
+    CHECK(SectionDrawingConfigRules::normalize(config, errorMessage));
+
+    const auto startMatch = SectionDrawingConfigRules::resolvePavementRow(config, 10.0);
+    CHECK(startMatch.has_value());
+    if (startMatch.has_value()) {
+        CHECK(startMatch->row.templateHandle == L"EDGE");
+    }
+
+    const auto endMatch = SectionDrawingConfigRules::resolvePavementRow(config, 20.0);
+    CHECK(endMatch.has_value());
+    if (endMatch.has_value()) {
+        CHECK(endMatch->row.templateHandle == L"EDGE");
+    }
+
+    const auto swappedMatch = SectionDrawingConfigRules::resolvePavementRow(config, 35.0);
+    CHECK(swappedMatch.has_value());
+    if (swappedMatch.has_value()) {
+        CHECK(swappedMatch->row.templateHandle == L"SWAP");
+    }
+
+    CHECK(config.pavementRows[1].componentTypes.size() == 2);
+}
+
 void sectionDrawingConfigComponentMatchingUsesSideAndType()
 {
     using namespace roadproto::domain::cross_section;
@@ -749,6 +801,22 @@ void sectionDrawingConfigCsvRejectsMissingHeader()
 
     std::wstring errorMessage;
     const auto parsed = SectionDrawingConfigCsv::read(" \r\n\t\r\n", L"F:\\section_config.csv", errorMessage);
+
+    CHECK(!parsed.has_value());
+    CHECK(!errorMessage.empty());
+}
+
+void sectionDrawingConfigCsvRejectsInvalidDataRowColumnCount()
+{
+    using namespace roadproto::domain::cross_section;
+
+    const auto csv =
+        std::string("\xEF\xBB\xBF")
+        + u8"起点桩号,终点桩号,路基类型,模板Handle,模板名称\n"
+        + "0,50,Left:TravelLane,1A2B,CodeName,ExtraColumn\n";
+
+    std::wstring errorMessage;
+    const auto parsed = SectionDrawingConfigCsv::read(csv, L"F:\\section_config.csv", errorMessage);
 
     CHECK(!parsed.has_value());
     CHECK(!errorMessage.empty());
@@ -6468,10 +6536,12 @@ int main()
     subgradeTemplateNormalizeUnlinksEmptyPavementTemplateHandle();
     subgradeTemplateVariableSlopeUsesOnlySlopeTable();
     sectionDrawingConfigRowsResolveByStationAndPriority();
+    sectionDrawingConfigRowsHandleBoundaryAndNormalizationEdges();
     sectionDrawingConfigComponentMatchingUsesSideAndType();
     sectionDrawingConfigCsvRoundTripsUtf8Rows();
     sectionDrawingConfigCsvRejectsInvalidHeader();
     sectionDrawingConfigCsvRejectsMissingHeader();
+    sectionDrawingConfigCsvRejectsInvalidDataRowColumnCount();
     subgradeTemplateCreateServiceBuildsDefaultTemplate();
     pavementLayerTemplateCreateServiceBuildsDefaultTemplate();
     pavementLayerTemplateRulesNormalizeThicknessAndCodes();

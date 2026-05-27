@@ -367,7 +367,7 @@ std::optional<SectionDrawingResolvedPavementRow> SectionDrawingConfigRules::reso
 
     for (std::size_t i = 0; i < data.pavementRows.size(); ++i) {
         const auto& row = data.pavementRows[i];
-        if (row.templateHandle.empty()) {
+        if (trim(row.templateHandle).empty()) {
             continue;
         }
         if (station >= row.startStation - kStationTolerance && station <= row.endStation + kStationTolerance) {
@@ -470,7 +470,9 @@ std::optional<SectionDrawingConfigData> SectionDrawingConfigCsv::read(
 
     const auto records = splitCsvRecords(csv);
     bool headerConsumed = false;
+    std::size_t lineNumber = 0;
     for (const auto& record : records) {
+        ++lineNumber;
         if (isBlankRecord(record)) {
             continue;
         }
@@ -485,8 +487,10 @@ std::optional<SectionDrawingConfigData> SectionDrawingConfigCsv::read(
             continue;
         }
 
-        if (cells.size() < 5) {
-            errorMessage = L"Section drawing config CSV row must contain five columns.";
+        if (cells.size() != 5) {
+            errorMessage = L"Section drawing config CSV row "
+                + std::to_wstring(lineNumber)
+                + L" must contain exactly five columns.";
             return std::nullopt;
         }
 

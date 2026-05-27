@@ -313,6 +313,16 @@ bool isBlankRecord(const std::string& record)
     });
 }
 
+bool isExpectedCsvHeader(const std::vector<std::string>& cells)
+{
+    return cells.size() == 5
+        && utf8ToWide(cells[0]) == L"\u8d77\u70b9\u6869\u53f7"
+        && utf8ToWide(cells[1]) == L"\u7ec8\u70b9\u6869\u53f7"
+        && utf8ToWide(cells[2]) == L"\u8def\u57fa\u7c7b\u578b"
+        && utf8ToWide(cells[3]) == L"\u6a21\u677fHandle"
+        && utf8ToWide(cells[4]) == L"\u6a21\u677f\u540d\u79f0";
+}
+
 } // namespace
 
 bool SectionDrawingConfigRules::normalize(SectionDrawingConfigData& data, std::wstring& errorMessage)
@@ -468,12 +478,11 @@ std::optional<SectionDrawingConfigData> SectionDrawingConfigCsv::read(
         const auto cells = parseCsvLine(record);
         if (!headerConsumed) {
             headerConsumed = true;
-            if (cells.size() >= 5
-                && utf8ToWide(cells[0]) == L"\u8d77\u70b9\u6869\u53f7"
-                && utf8ToWide(cells[1]) == L"\u7ec8\u70b9\u6869\u53f7"
-                && utf8ToWide(cells[2]) == L"\u8def\u57fa\u7c7b\u578b") {
-                continue;
+            if (!isExpectedCsvHeader(cells)) {
+                errorMessage = L"Section drawing config CSV header is invalid.";
+                return std::nullopt;
             }
+            continue;
         }
 
         if (cells.size() < 5) {

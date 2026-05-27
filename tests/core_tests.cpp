@@ -717,6 +717,22 @@ void sectionDrawingConfigCsvRoundTripsUtf8Rows()
     }
 }
 
+void sectionDrawingConfigCsvRejectsInvalidHeader()
+{
+    using namespace roadproto::domain::cross_section;
+
+    const auto csv =
+        std::string("\xEF\xBB\xBF")
+        + u8"起点桩号,终点桩号,路基类型,错误列,模板名称\n"
+        + u8"0,50,左侧行车道,1A2B,主线结构层\n";
+
+    std::wstring errorMessage;
+    const auto parsed = SectionDrawingConfigCsv::read(csv, L"F:\\section_config.csv", errorMessage);
+
+    CHECK(!parsed.has_value());
+    CHECK(!errorMessage.empty());
+}
+
 void subgradeTemplateCreateServiceBuildsDefaultTemplate()
 {
     using namespace roadproto::application::cross_section;
@@ -6433,6 +6449,7 @@ int main()
     sectionDrawingConfigRowsResolveByStationAndPriority();
     sectionDrawingConfigComponentMatchingUsesSideAndType();
     sectionDrawingConfigCsvRoundTripsUtf8Rows();
+    sectionDrawingConfigCsvRejectsInvalidHeader();
     subgradeTemplateCreateServiceBuildsDefaultTemplate();
     pavementLayerTemplateCreateServiceBuildsDefaultTemplate();
     pavementLayerTemplateRulesNormalizeThicknessAndCodes();

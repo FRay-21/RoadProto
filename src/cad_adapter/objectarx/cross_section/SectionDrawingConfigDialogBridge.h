@@ -31,8 +31,11 @@ struct SectionDrawingConfigDialogResponse {
     SectionDrawingConfigDialogAction action = SectionDrawingConfigDialogAction::None;
     bool accepted = false;
     std::wstring drawingHandle;
+    std::wstring roadModelHandle;
+    std::wstring responsePath;
     int pickRowIndex = -1;
     roadproto::domain::cross_section::SectionDrawingConfigData config;
+    std::vector<SectionDrawingConfigComponentOption> componentOptions;
 };
 
 bool queueSectionDrawingConfigWpfDialog(

@@ -3982,6 +3982,9 @@ void sectionDrawingConfigBridgeSourceContracts()
     CHECK(cppHeader.find("SectionDrawingConfigComponentOption") != std::string::npos);
     CHECK(cppHeader.find("SectionDrawingConfigDialogRequest") != std::string::npos);
     CHECK(cppHeader.find("SectionDrawingConfigDialogResponse") != std::string::npos);
+    CHECK(cppHeader.find("roadModelHandle") != std::string::npos);
+    CHECK(cppHeader.find("responsePath") != std::string::npos);
+    CHECK(cppHeader.find("componentOptions") != std::string::npos);
     CHECK(cppHeader.find("PickTemplate") != std::string::npos);
     CHECK(cppSource.find("RoadProtoSectionDrawingConfig_") != std::string::npos);
     CHECK(cppSource.find("RD_SECTION_DRAWING_CONFIG_SHOW_WPF_DIALOG") != std::string::npos);
@@ -3990,18 +3993,30 @@ void sectionDrawingConfigBridgeSourceContracts()
     CHECK(cppSource.find("SectionDrawingConfigRules::normalize") != std::string::npos);
     CHECK(cppSource.find("kMaxConfigRows") != std::string::npos);
     CHECK(cppSource.find("kMaxConfigComponents") != std::string::npos);
+    CHECK(cppSource.find("std::optional<double>") != std::string::npos);
+    CHECK(cppSource.find("response station value is invalid") != std::string::npos);
+    CHECK(cppSource.find("removeFileIfExists(requestPath)") != std::string::npos);
 
     CHECK(dtoSource.find("SectionDrawingConfigAction") != std::string::npos);
     CHECK(dtoSource.find("Draw") != std::string::npos);
     CHECK(dtoSource.find("PickTemplate") != std::string::npos);
     CHECK(dtoSource.find("ComponentOptions") != std::string::npos);
+    CHECK(dtoSource.find("RoadModelHandle") != std::string::npos);
+    CHECK(dtoSource.find("ResponsePath") != std::string::npos);
     CHECK(fileSource.find("ReadRequest") != std::string::npos);
     CHECK(fileSource.find("WriteResponse") != std::string::npos);
+    CHECK(fileSource.find("Write(\"roadModelHandle\"") != std::string::npos);
+    CHECK(fileSource.find("Write(\"responsePath\"") != std::string::npos);
+    CHECK(fileSource.find("Write(\"componentOptionCount\"") != std::string::npos);
     CHECK(fileSource.find("ImportCsv") != std::string::npos);
     CHECK(fileSource.find("ExportCsv") != std::string::npos);
     CHECK(fileSource.find("CsvHeader") != std::string::npos);
     CHECK(fileSource.find("Utf8Bom") != std::string::npos);
     CHECK(fileSource.find("pavementRowCount") != std::string::npos);
+    CHECK(fileSource.find("InvalidDataException") != std::string::npos);
+    CHECK(fileSource.find("lineNumber") != std::string::npos);
+    CHECK(fileSource.find("columnName") != std::string::npos);
+    CHECK(fileSource.find("SanitizeCsvField") != std::string::npos);
     CHECK(arxProject.find("SectionDrawingConfigDialogBridge.cpp") != std::string::npos);
 }
 

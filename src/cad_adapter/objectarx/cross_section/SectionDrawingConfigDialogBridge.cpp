@@ -6,11 +6,13 @@
 
 #include <chrono>
 #include <cctype>
+#include <cmath>
 #include <cstdlib>
 #include <filesystem>
 #include <fstream>
 #include <iomanip>
 #include <locale>
+#include <optional>
 #include <sstream>
 #include <unordered_map>
 #include <utility>
@@ -286,18 +288,24 @@ int intValue(
     return end == value.c_str() ? fallback : static_cast<int>(parsed);
 }
 
-double doubleValue(
+std::optional<double> doubleValue(
     const std::unordered_map<std::wstring, std::wstring>& values,
-    const std::wstring& key,
-    double fallback = 0.0)
+    const std::wstring& key)
 {
     const auto value = valueOrDefault(values, key);
     if (value.empty()) {
-        return fallback;
+        return std::nullopt;
     }
-    wchar_t* end = nullptr;
-    const auto parsed = std::wcstod(value.c_str(), &end);
-    return end == value.c_str() ? fallback : parsed;
+
+    std::wistringstream stream(value);
+    stream.imbue(std::locale::classic());
+    double parsed = 0.0;
+    stream >> parsed;
+    stream >> std::ws;
+    if (!stream || !stream.eof() || !std::isfinite(parsed)) {
+        return std::nullopt;
+    }
+    return parsed;
 }
 
 std::vector<std::wstring> splitWide(const std::wstring& value, wchar_t delimiter)
@@ -358,6 +366,7 @@ bool queueSectionDrawingConfigWpfDialog(
     const auto requestPath = tempFilePath(L".request");
     const auto responsePath = request.responsePath.empty() ? tempFilePath(L".response") : request.responsePath;
     if (!writeRequestFile(request, requestPath, responsePath, errorMessage)) {
+        removeFileIfExists(requestPath);
         return false;
     }
     if (!writePendingRequestPath(requestPath, errorMessage)) {
@@ -396,8 +405,30 @@ bool readSectionDrawingConfigDialogResponse(
     parsed.action = actionFromCode(valueOrDefault(values, L"action"));
     parsed.accepted = boolValue(values, L"accepted", false);
     parsed.drawingHandle = valueOrDefault(values, L"drawingHandle");
+    parsed.roadModelHandle = valueOrDefault(values, L"roadModelHandle");
+    parsed.responsePath = valueOrDefault(values, L"responsePath");
     parsed.pickRowIndex = intValue(values, L"pickRowIndex", -1);
     parsed.config.configPath = valueOrDefault(values, L"configPath");
+
+    const auto componentOptionCount = intValue(values, L"componentOptionCount", 0);
+    if (componentOptionCount < 0 || componentOptionCount > kMaxComponentOptions) {
+        errorMessage = L"Section drawing config response component option count is invalid.";
+        return false;
+    }
+    parsed.componentOptions.reserve(static_cast<std::size_t>(componentOptionCount));
+    for (int i = 0; i < componentOptionCount; ++i) {
+        const auto prefix = L"componentOption." + std::to_wstring(i);
+        SectionDrawingConfigComponentOption option;
+        option.code = valueOrDefault(values, prefix + L".code");
+        option.displayName = valueOrDefault(values, prefix + L".displayName");
+        const auto selection = SectionDrawingConfigRules::componentSelectionFromText(option.code);
+        if (!selection.has_value()) {
+            errorMessage = L"Section drawing config response component option code is invalid.";
+            return false;
+        }
+        option.selection = *selection;
+        parsed.componentOptions.push_back(std::move(option));
+    }
 
     const auto rowCount = intValue(values, L"pavementRowCount", 0);
     if (rowCount < 0 || rowCount > kMaxConfigRows) {
@@ -408,8 +439,14 @@ bool readSectionDrawingConfigDialogResponse(
     for (int i = 0; i < rowCount; ++i) {
         const auto prefix = L"pavementRow." + std::to_wstring(i);
         SectionPavementLayerConfigRow row;
-        row.startStation = doubleValue(values, prefix + L".startStation");
-        row.endStation = doubleValue(values, prefix + L".endStation");
+        const auto startStation = doubleValue(values, prefix + L".startStation");
+        const auto endStation = doubleValue(values, prefix + L".endStation");
+        if (!startStation.has_value() || !endStation.has_value()) {
+            errorMessage = L"Section drawing config response station value is invalid.";
+            return false;
+        }
+        row.startStation = *startStation;
+        row.endStation = *endStation;
         row.templateHandle = valueOrDefault(values, prefix + L".templateHandle");
         row.templateName = valueOrDefault(values, prefix + L".templateName");
 

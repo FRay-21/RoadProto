@@ -53,10 +53,23 @@ public static class SectionDrawingConfigDialogFile
             Write("action", ActionCode(response.Action)),
             Write("accepted", response.Accepted),
             Write("drawingHandle", response.DrawingHandle),
+            Write("roadModelHandle", response.RoadModelHandle),
+            Write("responsePath", response.ResponsePath),
             Write("pickRowIndex", response.PickRowIndex),
             Write("configPath", response.ConfigPath),
-            Write("pavementRowCount", response.PavementRows.Count),
+            Write("componentOptionCount", response.ComponentOptions.Count),
         };
+
+        for (var i = 0; i < response.ComponentOptions.Count; i++)
+        {
+            lines.Add(Write($"componentOption.{i}.code", response.ComponentOptions[i].Code));
+            lines.Add(Write($"componentOption.{i}.displayName", response.ComponentOptions[i].DisplayName));
+        }
+
+        lines.AddRange(new[]
+        {
+            Write("pavementRowCount", response.PavementRows.Count),
+        });
 
         for (var i = 0; i < response.PavementRows.Count; i++)
         {
@@ -97,8 +110,8 @@ public static class SectionDrawingConfigDialogFile
 
             var row = new SectionDrawingConfigRowDto
             {
-                StartStation = ParseDouble(cells[0]),
-                EndStation = ParseDouble(cells[1]),
+                StartStation = ParseDouble(cells[0], i + 1, "起点桩号"),
+                EndStation = ParseDouble(cells[1], i + 1, "终点桩号"),
                 TemplateHandle = cells[3].Trim(),
                 TemplateName = cells[4].Trim(),
             };
@@ -121,9 +134,9 @@ public static class SectionDrawingConfigDialogFile
                 ",",
                 CsvEscape(row.StartStation.ToString("R", CultureInfo.InvariantCulture)),
                 CsvEscape(row.EndStation.ToString("R", CultureInfo.InvariantCulture)),
-                CsvEscape(ComponentDisplayText(row, options)),
-                CsvEscape(row.TemplateHandle),
-                CsvEscape(row.TemplateName)));
+                CsvEscape(SanitizeCsvField(ComponentDisplayText(row, options))),
+                CsvEscape(SanitizeCsvField(row.TemplateHandle)),
+                CsvEscape(SanitizeCsvField(row.TemplateName))));
         }
 
         File.WriteAllLines(path, lines, Utf8Bom);
@@ -221,8 +234,17 @@ public static class SectionDrawingConfigDialogFile
     private static double GetDouble(Dictionary<string, string> values, string key, double fallback = 0.0)
         => double.TryParse(Get(values, key), NumberStyles.Float, CultureInfo.InvariantCulture, out var value) ? value : fallback;
 
-    private static double ParseDouble(string value)
-        => double.TryParse(value.Trim(), NumberStyles.Float, CultureInfo.InvariantCulture, out var result) ? result : 0.0;
+    private static double ParseDouble(string value, int lineNumber, string columnName)
+    {
+        if (double.TryParse(value.Trim(), NumberStyles.Float, CultureInfo.InvariantCulture, out var result)
+            && !double.IsNaN(result)
+            && !double.IsInfinity(result))
+        {
+            return result;
+        }
+
+        throw new InvalidDataException($"CSV line {lineNumber}, column {columnName} is not a valid number.");
+    }
 
     private static int ClampCount(int value, int maxValue)
         => Math.Max(0, Math.Min(maxValue, value));
@@ -292,6 +314,9 @@ public static class SectionDrawingConfigDialogFile
         }
         return "\"" + value.Replace("\"", "\"\"") + "\"";
     }
+
+    private static string SanitizeCsvField(string value)
+        => (value ?? string.Empty).Replace('\r', ' ').Replace('\n', ' ');
 
     private static List<string> ParseCsvLine(string line)
     {

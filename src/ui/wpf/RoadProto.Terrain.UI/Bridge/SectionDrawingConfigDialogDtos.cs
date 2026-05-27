@@ -40,7 +40,10 @@ public sealed class SectionDrawingConfigResponse
     public SectionDrawingConfigAction Action { get; set; } = SectionDrawingConfigAction.None;
     public bool Accepted { get; set; }
     public string DrawingHandle { get; set; } = string.Empty;
+    public string RoadModelHandle { get; set; } = string.Empty;
+    public string ResponsePath { get; set; } = string.Empty;
     public int PickRowIndex { get; set; } = -1;
     public string ConfigPath { get; set; } = string.Empty;
+    public List<SectionDrawingConfigComponentOptionDto> ComponentOptions { get; set; } = new();
     public List<SectionDrawingConfigRowDto> PavementRows { get; set; } = new();
 }

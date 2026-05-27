@@ -25,8 +25,6 @@
 #include <cmath>
 #include <cwctype>
 #include <filesystem>
-#include <limits>
-#include <map>
 #include <optional>
 #include <sstream>
 #include <string>
@@ -39,16 +37,12 @@ namespace {
 #ifndef ROADPROTO_TEST_BUILD
 
 using roadproto::cad_adapter::objectarx::cross_section::RoadModelSectionDrawingData;
-using roadproto::cad_adapter::objectarx::cross_section::RoadModelSectionDrawingFace;
 using roadproto::domain::cross_section::RoadModelData;
-using roadproto::domain::cross_section::RoadModelSection;
-using roadproto::domain::cross_section::RoadModelSectionNode;
 using roadproto::domain::cross_section::RoadModelStructureType;
 using roadproto::domain::quantity::PavementQuantityAggregationMode;
 using roadproto::domain::quantity::PavementQuantityDrawingFace;
 using roadproto::domain::quantity::PavementQuantityDrawingFaceSampler;
 using roadproto::domain::quantity::PavementQuantityDrawingPoint;
-using roadproto::domain::quantity::PavementQuantityLayerSample;
 using roadproto::domain::quantity::PavementQuantitySectionSample;
 using roadproto::domain::quantity::PavementQuantitySegmentType;
 using roadproto::domain::quantity::PavementQuantityStructureRange;
@@ -299,84 +293,6 @@ bool readRoadModelData(
 bool sameStation(double lhs, double rhs)
 {
     return std::fabs(lhs - rhs) <= kStationTolerance;
-}
-
-const RoadModelSection* findSectionAtStation(const std::vector<RoadModelSection>& sections, double station)
-{
-    const RoadModelSection* best = nullptr;
-    auto bestDistance = std::numeric_limits<double>::infinity();
-    for (const auto& section : sections) {
-        const auto distance = std::fabs(section.station - station);
-        if (distance < bestDistance) {
-            best = &section;
-            bestDistance = distance;
-        }
-    }
-    return bestDistance <= kStationTolerance ? best : nullptr;
-}
-
-struct LocalLayerTotals {
-    double projectedWidth = 0.0;
-    double sectionArea = 0.0;
-};
-
-using LocalLayerKey = std::pair<std::wstring, std::wstring>;
-
-std::wstring normalizeComponentName(const std::wstring& name)
-{
-    return name.empty() ? L"未分部件" : name;
-}
-
-std::wstring normalizeLayerName(const std::wstring& name)
-{
-    return name.empty() ? L"路面结构层" : name;
-}
-
-double polygonArea(const std::vector<std::pair<double, double>>& points)
-{
-    if (points.size() < 3) {
-        return 0.0;
-    }
-
-    double sum = 0.0;
-    for (std::size_t i = 0; i < points.size(); ++i) {
-        const auto& first = points[i];
-        const auto& second = points[(i + 1) % points.size()];
-        sum += first.first * second.second - second.first * first.second;
-    }
-    return std::fabs(sum) * 0.5;
-}
-
-void appendPavementLayerNodes(
-    const std::vector<RoadModelSectionNode>& nodes,
-    std::map<LocalLayerKey, LocalLayerTotals>& totalsByLayer)
-{
-    constexpr std::size_t kNodesPerLayer = 4;
-    for (std::size_t i = 0; i + kNodesPerLayer - 1 < nodes.size(); i += kNodesPerLayer) {
-        const auto& topInner = nodes[i];
-        const auto& topOuter = nodes[i + 1];
-        const auto& bottomInner = nodes[i + 2];
-        const auto& bottomOuter = nodes[i + 3];
-        const auto key = LocalLayerKey{
-            normalizeComponentName(topInner.componentName),
-            normalizeLayerName(topInner.label)};
-
-        const auto minOffset = std::min(
-            std::min(topInner.offset, topOuter.offset),
-            std::min(bottomInner.offset, bottomOuter.offset));
-        const auto maxOffset = std::max(
-            std::max(topInner.offset, topOuter.offset),
-            std::max(bottomInner.offset, bottomOuter.offset));
-        const auto area = polygonArea(
-            {{topInner.offset, topInner.elevation},
-             {topOuter.offset, topOuter.elevation},
-             {bottomOuter.offset, bottomOuter.elevation},
-             {bottomInner.offset, bottomInner.elevation}});
-
-        auto& totals = totalsByLayer[key];
-        totals.projectedWidth += std::max(0.0, maxOffset - minOffset);
-        totals.sectionArea += area;
-    }
 }
 
 std::optional<PavementQuantitySectionSample> sampleFromRoadModelSection(

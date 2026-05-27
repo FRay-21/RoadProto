@@ -56,7 +56,8 @@
 | 路面结构层模板 WPF 编辑 Bridge | V0.1.24 原型，通过请求/响应文件编辑路面结构层模板、显示方式、每层 RGB、每层填充类型、填充角度、填充比例，以及可折叠显示的结构代号、路基干湿类型、路面类型、路基土组、设计弯沉和累计轴次；WPF 支持路面结构层创建向导、文档预设初始值、当前层编辑、预览点击选层、固定字号标注、索引颜色选择和 `.rpavement.xml` 导入导出 | `src/cad_adapter/objectarx/cross_section/PavementLayerTemplateDialogBridge.*` |
 | 横断面道路模型 | V0.1.19 原型，按道路中线、竖曲线、路基模板范围、路面结构层模板引用和边坡模板组生成断面节点链、结构层边界线与弱化填充显示、地面剖面快照与三维网格线框，支持优先级解析、行内点选模板、模板组管理、生成进度回调、TIN 网格候选剖切、采样桩号保存、横断面预览、DWG 持久化和编辑回写 | `src/domain/cross_section/RoadModel.*` |
 | 道路模型自定义实体 | V0.1.19 原型，保存 `RoadModelData`、采样桩号、断面节点链、结构层节点、地面剖面快照和网格线框，并绘制路基、结构层、边坡横向肋线、纵向连接线、最外侧边界线、端部封闭线和过渡线，支持 DWG 持久化、几何范围和变换 | `src/cad_adapter/objectarx/cross_section/DnRoadModelEntity.*` |
-| 道路模型横断面查看 Bridge | V0.1.19 原型，通过请求文件把道路模型断面节点、结构层线和地面快照预览传给 WPF 只读查看窗口 | `src/cad_adapter/objectarx/cross_section/RoadModelSectionViewerBridge.*` |
+| 道路模型横断面落图实体 | V0.1.26 原型，每个桩号生成一个 `DnRoadModelSectionDrawingEntity`，保存外框、桩号文字、线段、结构层面域、颜色和模板填充参数；外框和桩号文字使用白色，用作后续面积标注承载 | `src/cad_adapter/objectarx/cross_section/DnRoadModelSectionDrawingEntity.*` |
+| 道路模型横断面查看 Bridge | V0.1.25 原型，通过请求文件把道路模型断面节点、结构层线和地面快照预览传给 WPF 查看窗口，通过响应文件触发模型空间批量绘制横断面动作 | `src/cad_adapter/objectarx/cross_section/RoadModelSectionViewerBridge.*` |
 
 ## 模块专用能力
 
@@ -128,7 +129,8 @@
 - `RoadModelBuildService` 是应用层构建入口，负责校验 handle、配置、采样和模板来源后调用 domain builder。
 - `DnRoadModelEntity` 是 CAD 持久化和显示能力，负责保存三维路基与边坡兼容部件线、生成时采样桩号、断面节点链、网格线框、DWG 保存重开、范围和变换。
 - `RoadModelDialogBridge` 是原型阶段 UI 解耦能力，通过请求/响应文件在 WPF 与 C++ ObjectARX 之间传递模板范围表和行内点选模板动作。
-- `RoadModelSectionViewerBridge` 是原型阶段 UI 解耦能力，通过请求文件在 C++ ObjectARX 与 WPF 之间传递多个桩号的只读断面预览。
+- `RoadModelSectionViewerBridge` 是原型阶段 UI 解耦能力，通过请求/响应文件在 C++ ObjectARX 与 WPF 之间传递多个桩号的断面预览和绘制横断面动作。
+- `DnRoadModelSectionDrawingEntity` 是 CAD 持久化和显示能力，负责把单个桩号横断面作为外框自定义实体保存，结构层面域可继续扩展为断面面积标注和算量承载。
 - 当前道路模型只生成三维线框，自动联动重建、道路面模型、结构层实体面和算量仍需后续扩展。
 
 ## V0.1.21 路面结构层模板复用边界

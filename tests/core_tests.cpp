@@ -113,9 +113,9 @@ void pavementLayerTemplateDocumentationAndVersionContracts()
     const auto root = findRepositoryRootForTests();
 
     const auto buildProps = readTextFileForTests(root / "build" / "RoadProto.Build.props");
-    CHECK(buildProps.find("<RoadProtoVersion>v0.1.24</RoadProtoVersion>") != std::string::npos);
+    CHECK(buildProps.find("<RoadProtoVersion>v0.1.26</RoadProtoVersion>") != std::string::npos);
     CHECK(buildProps.find("<RoadProtoBuildDate>20260525</RoadProtoBuildDate>") != std::string::npos);
-    CHECK(buildProps.find("<RoadProtoStage>PavementLayerTemplateWizard</RoadProtoStage>") != std::string::npos);
+    CHECK(buildProps.find("<RoadProtoStage>CrossSectionFrameLabelWhite</RoadProtoStage>") != std::string::npos);
 
     CHECK(std::filesystem::exists(root / "docs" / "reuse" / "pavement_layer_template.md"));
     const auto reuseDoc = readTextFileForTests(root / "docs" / "reuse" / "pavement_layer_template.md");
@@ -132,27 +132,33 @@ void pavementLayerTemplateDocumentationAndVersionContracts()
     CHECK(reuseDoc.find("搭板层") != std::string::npos);
 
     const auto versionLog = readTextFileForTests(root / "docs" / "dev" / "version_log.md");
-    CHECK(versionLog.find("v0.1.24_20260525_PavementLayerTemplateWizard") != std::string::npos);
-    CHECK(versionLog.find("RoadProto_v0.1.24_20260525_PavementLayerTemplateWizard.arx") != std::string::npos);
+    CHECK(versionLog.find("v0.1.26_20260525_CrossSectionFrameLabelWhite") != std::string::npos);
+    CHECK(versionLog.find("RoadProto_v0.1.26_20260525_CrossSectionFrameLabelWhite.arx") != std::string::npos);
+    CHECK(versionLog.find("AutoCAD ACI 7") != std::string::npos);
+    CHECK(versionLog.find("查看横断面预览交互与模型空间批量落图") != std::string::npos);
+    CHECK(versionLog.find("DnRoadModelSectionDrawingEntity") != std::string::npos);
     CHECK(versionLog.find("是否可作为稳定测试版本：是。核心测试 Debug/Release、托管 bridge 测试、WPF Release 构建和 ARX Release 构建已验证") != std::string::npos);
     CHECK(versionLog.find("新增路面结构层创建向导") != std::string::npos);
     CHECK(versionLog.find("沥青封层") != std::string::npos);
     CHECK(versionLog.find("搭板层") != std::string::npos);
 
     const auto readme = readTextFileForTests(root / "README.md");
-    CHECK(readme.find("RoadProto_v0.1.24_20260525_PavementLayerTemplateWizard.arx") != std::string::npos);
+    CHECK(readme.find("RoadProto_v0.1.26_20260525_CrossSectionFrameLabelWhite.arx") != std::string::npos);
     CHECK(readme.find("RD_SECTION_PAVEMENT_LAYER_TEMPLATE_CREATE") != std::string::npos);
     CHECK(readme.find("运行创建命令后先打开路面结构层创建向导") != std::string::npos);
+    CHECK(readme.find("绘制横断面") != std::string::npos);
 
     const auto moduleIndex = readTextFileForTests(root / "docs" / "modules" / "module_index.md");
     CHECK(moduleIndex.find("路面结构层模板") != std::string::npos);
     CHECK(moduleIndex.find(".rpavement.xml") != std::string::npos);
     CHECK(moduleIndex.find("结构层三维边界线和弱化填充面") != std::string::npos);
     CHECK(moduleIndex.find("路面结构层创建向导") != std::string::npos);
+    CHECK(moduleIndex.find("批量绘制横断面") != std::string::npos);
 
     const auto testsReadme = readTextFileForTests(root / "tests" / "README.md");
     CHECK(testsReadme.find("历史 V0.1.6 Core Console 验证记录") != std::string::npos);
-    CHECK(testsReadme.find("当前 v0.1.24 已完成路面结构层创建向导自动化验证") != std::string::npos);
+    CHECK(testsReadme.find("v0.1.26") != std::string::npos);
+    CHECK(testsReadme.find("DnRoadModelSectionDrawingEntity") != std::string::npos);
 
     const auto startupSource = readTextFileForTests(root / "src" / "app" / "startup" / "Startup.cpp");
     CHECK(startupSource.find("version.arxFileName") != std::string::npos);
@@ -3213,6 +3219,16 @@ void crossSectionModuleRegistersSubgradeTemplateCommandsAndRibbonPanel()
         CHECK(sectionViewerCommand->reusable);
     }
 
+    const auto sectionViewerApplyCommand = commands.find(L"RD_SECTION_ROAD_MODEL_VIEW_SECTION_APPLY_DIALOG_FILE");
+    CHECK(sectionViewerApplyCommand.has_value());
+    if (sectionViewerApplyCommand.has_value()) {
+        CHECK(sectionViewerApplyCommand->moduleCode == L"CROSS_SECTION");
+        CHECK(sectionViewerApplyCommand->businessDocPath == L"docs/business/cross_section/查看横断面.md");
+        CHECK(!sectionViewerApplyCommand->ribbonAttachable);
+        CHECK(sectionViewerApplyCommand->isPrototype);
+        CHECK(!sectionViewerApplyCommand->reusable);
+    }
+
     checkBusinessDocExistsForTests(L"docs/business/cross_section/横断面戴帽_道路模型创建.md");
     checkBusinessDocExistsForTests(L"docs/business/cross_section/横断面戴帽_边坡模板.md");
     checkBusinessDocExistsForTests(L"docs/business/cross_section/道路模型_编辑.md");
@@ -3260,6 +3276,7 @@ void startupRegistrationIncludesCrossSectionModule()
     CHECK(commands.contains(L"RD_SECTION_ROAD_MODEL_EDIT_HANDLE"));
     CHECK(commands.contains(L"RD_SECTION_ROAD_MODEL_APPLY_DIALOG_FILE"));
     CHECK(commands.contains(L"RD_SECTION_ROAD_MODEL_VIEW_SECTION"));
+    CHECK(commands.contains(L"RD_SECTION_ROAD_MODEL_VIEW_SECTION_APPLY_DIALOG_FILE"));
     CHECK(ribbon.tab().panels.size() == 1);
     CHECK(ribbon.tab().panels.front().moduleCode == L"CROSS_SECTION");
 }
@@ -3361,9 +3378,14 @@ void roadModelSectionViewerNativeBridgeSourceContainsRequiredFields()
 
     CHECK(header.find("RoadModelSectionViewerRequest") != std::string::npos);
     CHECK(header.find("RoadModelSectionViewerPreview") != std::string::npos);
+    CHECK(header.find("RoadModelSectionViewerAction") != std::string::npos);
+    CHECK(header.find("RoadModelSectionViewerResponse") != std::string::npos);
     CHECK(header.find("queueRoadModelSectionViewerWpfDialog") != std::string::npos);
+    CHECK(header.find("readRoadModelSectionViewerResponse") != std::string::npos);
     CHECK(bridge.find("RoadProtoRoadModelSectionViewer_") != std::string::npos);
     CHECK(bridge.find("RD_SECTION_ROAD_MODEL_VIEW_SECTION_SHOW_WPF_DIALOG") != std::string::npos);
+    CHECK(bridge.find("responsePath") != std::string::npos);
+    CHECK(bridge.find("drawSections") != std::string::npos);
     CHECK(bridge.find("previewCount") != std::string::npos);
     CHECK(bridge.find("segmentCount") != std::string::npos);
     CHECK(bridge.find("pointCount") != std::string::npos);
@@ -3371,14 +3393,72 @@ void roadModelSectionViewerNativeBridgeSourceContainsRequiredFields()
     CHECK(bridge.find("RoadModelSectionPreviewSegmentKind::PavementLayer") != std::string::npos);
     CHECK(bridge.find("return L\"PavementLayer\"") != std::string::npos);
     CHECK(commandHeader.find("roadModelViewSectionCommandProcedure") != std::string::npos);
+    CHECK(commandHeader.find("roadModelViewSectionApplyDialogFileCommandProcedure") != std::string::npos);
     CHECK(command.find("RoadModelSectionViewerBridge.h") != std::string::npos);
     CHECK(command.find("runRoadModelViewSectionCommand") != std::string::npos);
+    CHECK(command.find("runRoadModelViewSectionApplyDialogFileCommand") != std::string::npos);
+    CHECK(command.find("RoadModelSectionViewerAction::DrawSections") != std::string::npos);
     CHECK(command.find("selectTypedEntity<DnRoadModelEntity>") != std::string::npos);
     CHECK(command.find("needsTerrainSurfaceForSectionPreview") != std::string::npos);
     CHECK(command.find("hasUsableGroundSnapshot") != std::string::npos);
     CHECK(command.find("RoadModelSectionPreviewRequest previewRequest") != std::string::npos);
     CHECK(command.find("RoadModelSectionPreviewBuilder::build") != std::string::npos);
     CHECK(command.find("queueRoadModelSectionViewerWpfDialog") != std::string::npos);
+}
+
+void roadModelSectionDrawingEntitySourceContractsExist()
+{
+    const auto root = findRepositoryRootForTests();
+    const auto headerPath = root
+        / "src"
+        / "cad_adapter"
+        / "objectarx"
+        / "cross_section"
+        / "DnRoadModelSectionDrawingEntity.h";
+    const auto sourcePath = root
+        / "src"
+        / "cad_adapter"
+        / "objectarx"
+        / "cross_section"
+        / "DnRoadModelSectionDrawingEntity.cpp";
+    const auto appEntryPath = root / "src" / "app" / "arx_entry" / "RoadProtoArxEntry.cpp";
+    const auto projectPath = root / "src" / "app" / "RoadProtoArx.vcxproj";
+    const auto commandPath = root
+        / "src"
+        / "cad_adapter"
+        / "objectarx"
+        / "cross_section"
+        / "ObjectArxRoadModelCommand.cpp";
+
+    CHECK(std::filesystem::exists(headerPath));
+    CHECK(std::filesystem::exists(sourcePath));
+    CHECK(std::filesystem::exists(appEntryPath));
+    CHECK(std::filesystem::exists(projectPath));
+    CHECK(std::filesystem::exists(commandPath));
+
+    const auto header = readTextFileForTests(headerPath);
+    const auto source = readTextFileForTests(sourcePath);
+    const auto appEntry = readTextFileForTests(appEntryPath);
+    const auto project = readTextFileForTests(projectPath);
+    const auto command = readTextFileForTests(commandPath);
+
+    CHECK(header.find("DnRoadModelSectionDrawingEntity") != std::string::npos);
+    CHECK(header.find("RoadModelSectionDrawingData") != std::string::npos);
+    CHECK(header.find("RoadModelSectionDrawingFace") != std::string::npos);
+    CHECK(source.find("DNROADMODELSECTIONDRAWINGENTITY") != std::string::npos);
+    CHECK(source.find("hatchPattern") != std::string::npos);
+    CHECK(source.find("hatchAngle") != std::string::npos);
+    CHECK(source.find("hatchScale") != std::string::npos);
+    CHECK(source.find("geometry().polygon") != std::string::npos);
+    CHECK(source.find("worldDraw->geometry().text") != std::string::npos);
+    CHECK(source.find("setWhiteFrameAndStationLabelTraits") != std::string::npos);
+    CHECK(source.find("worldDraw->subEntityTraits().setColor(7)") != std::string::npos);
+    CHECK(appEntry.find("initializeRoadModelSectionDrawingEntityClass") != std::string::npos);
+    CHECK(appEntry.find("uninitializeRoadModelSectionDrawingEntityClass") != std::string::npos);
+    CHECK(project.find("DnRoadModelSectionDrawingEntity.cpp") != std::string::npos);
+    CHECK(command.find("DnRoadModelSectionDrawingEntity.h") != std::string::npos);
+    CHECK(command.find("acedGetPoint") != std::string::npos);
+    CHECK(command.find("appendRoadModelSectionDrawingEntities") != std::string::npos);
 }
 
 void roadModelWpfBridgeSourceContainsRequiredFields()
@@ -6186,6 +6266,7 @@ int main()
     roadModelWpfBridgeSourceContainsRequiredFields();
     roadModelNativeDialogBridgeSourceContainsRequiredFields();
     roadModelSectionViewerNativeBridgeSourceContainsRequiredFields();
+    roadModelSectionDrawingEntitySourceContractsExist();
     roadModelCommandSourceContainsCompleteObjectArxFlow();
     roadModelCommandSourceCollectsPavementTemplateSources();
     pavementLayerTemplateNativeSourcesContainRequiredContracts();

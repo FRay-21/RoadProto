@@ -643,6 +643,7 @@ static void RoadModelSectionViewerRequestReadsPreviewsUsingInvariantCultureAndEs
         {
             "handle=RM%251",
             "roadCenterlineHandle=CL%0A1",
+            "responsePath=C:/Temp/road-model-section-viewer.response",
             "previewCount=1",
             "preview.0.station=10.5",
             "preview.0.stationLabel=K0+010.5",
@@ -686,6 +687,7 @@ static void RoadModelSectionViewerRequestReadsPreviewsUsingInvariantCultureAndEs
             var request = RoadModelSectionViewerFile.ReadRequest(path);
             Check(request.Handle == "RM%1", "section viewer request should unescape handle percent");
             Check(request.RoadCenterlineHandle == "CL\n1", "section viewer request should unescape centerline newline");
+            Check(request.ResponsePath == "C:/Temp/road-model-section-viewer.response", "section viewer request should read response path");
             Check(request.Previews.Count == 1, "section viewer request should read preview count");
             Check(Math.Abs(request.Previews[0].Station - 10.5) < 1.0e-9, "section viewer station should parse invariant decimal");
             Check(request.Previews[0].StatusMessage == "已生成\n预览", "section viewer status should unescape newline");
@@ -698,6 +700,32 @@ static void RoadModelSectionViewerRequestReadsPreviewsUsingInvariantCultureAndEs
             Check(request.Previews[0].Segments[0].Points.Count == 2, "section viewer should read segment points");
             Check(Math.Abs(request.Previews[0].Segments[0].Points[1].Offset + 3.5) < 1.0e-9, "section viewer point offset should parse invariant decimal");
         });
+    }
+    finally
+    {
+        if (File.Exists(path))
+        {
+            File.Delete(path);
+        }
+    }
+}
+
+static void RoadModelSectionViewerResponseWritesDrawSectionsAction()
+{
+    var path = NewTempFile();
+    try
+    {
+        RoadModelSectionViewerFile.WriteResponse(path, new RoadModelSectionViewerResponse
+        {
+            Action = RoadModelSectionViewerAction.DrawSections,
+            Accepted = true,
+            Handle = "RM-1",
+        });
+
+        var text = File.ReadAllText(path, Encoding.UTF8);
+        Check(text.Contains("action=drawSections"), "section viewer response should write drawSections action");
+        Check(text.Contains("accepted=1"), "section viewer response should write accepted flag");
+        Check(text.Contains("handle=RM-1"), "section viewer response should write road model handle");
     }
     finally
     {
@@ -721,6 +749,10 @@ static void RoadModelSectionViewerWindowContainsStationListPreviewAndLegend()
     Check(xaml.Contains("Title=\"查看横断面\""), "section viewer window title should be 查看横断面");
     Check(xaml.Contains("x:Name=\"StationListBox\""), "section viewer should include station selector");
     Check(xaml.Contains("x:Name=\"PreviewCanvas\""), "section viewer should include preview canvas");
+    Check(xaml.Contains("绘制横断面"), "section viewer should expose draw sections action");
+    Check(xaml.Contains("MouseWheel=\"PreviewCanvas_MouseWheel\""), "section viewer preview should handle mouse wheel zoom");
+    Check(xaml.Contains("MouseMove=\"PreviewCanvas_MouseMove\""), "section viewer preview should handle drag pan");
+    Check(xaml.Contains("ClipToBounds=\"True\""), "section viewer preview should clip panned content");
     Check(xaml.Contains("路基模板") && xaml.Contains("边坡模板") && xaml.Contains("地面线") && xaml.Contains("结构层"), "section viewer should show layer legend");
 
     var sourcePath = Path.Combine(
@@ -732,6 +764,20 @@ static void RoadModelSectionViewerWindowContainsStationListPreviewAndLegend()
         "RoadModelSectionViewerWindow.xaml.cs");
     var source = File.ReadAllText(sourcePath, Encoding.UTF8);
     Check(source.Contains("RoadModelSectionViewerSegmentKind.PavementLayer"), "section viewer draw path should handle pavement layer segments");
+    Check(source.Contains("_previewZoom") && source.Contains("_previewPan"), "section viewer should keep zoom and pan state");
+    Check(source.Contains("DrawPavementLayerFills"), "section viewer should draw pavement layer fill before linework");
+    Check(source.Contains("RoadModelSectionViewerAction.DrawSections"), "section viewer should set draw sections response action");
+
+    var commandPath = Path.Combine(
+        FindRepoRoot(),
+        "src",
+        "ui",
+        "wpf",
+        "RoadProto.Terrain.UI",
+        "AutoCad",
+        "RoadModelSectionViewerCommands.cs");
+    var command = File.ReadAllText(commandPath, Encoding.UTF8);
+    Check(command.Contains("RD_SECTION_ROAD_MODEL_VIEW_SECTION_APPLY_DIALOG_FILE"), "section viewer managed command should forward draw action to native apply command");
 }
 
 static void RoadModelWindowReadOnlyHandleBindingIsOneWay()
@@ -1430,6 +1476,7 @@ RoadModelSlopeGroupsRoundTripUsingInvariantCultureAndEscaping();
 RoadModelRequestReadsSelectedAssignmentIndex();
 RoadModelRequestRejectsMissingOrEmptyResponsePath();
 RoadModelSectionViewerRequestReadsPreviewsUsingInvariantCultureAndEscaping();
+RoadModelSectionViewerResponseWritesDrawSectionsAction();
 RoadModelSectionViewerWindowContainsStationListPreviewAndLegend();
 RoadModelWindowReadOnlyHandleBindingIsOneWay();
 PavementLayerTemplateDialogFileReadsRequestUsingInvariantCultureAndEscaping();

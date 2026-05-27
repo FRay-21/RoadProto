@@ -1,5 +1,44 @@
 # 版本记录
 
+## v0.1.26 - 2026-05-25
+
+- 版本标识：`v0.1.26_20260525_CrossSectionFrameLabelWhite`。
+- ARX 文件：`RoadProto_v0.1.26_20260525_CrossSectionFrameLabelWhite.arx`。
+- 阶段：查看横断面落图外框与桩号颜色调整。
+- 是否可作为稳定测试版本：是。核心测试 Debug/Release、托管 bridge 测试和 `RoadProto.sln` Debug/Release 构建已验证。
+
+### 修改内容
+
+- `DnRoadModelSectionDrawingEntity` 绘制横断面外框和下方桩号文字时统一使用 AutoCAD ACI 7 白色。
+- 路面结构层面域、填充线和断面内部线段继续使用原有路面结构层模板颜色与填充参数，不随外框/桩号颜色变化。
+- 更新查看横断面业务文档、复用说明、README、测试说明和核心 source-contract，确保新版本产物可追踪。
+
+### 验证状态
+
+- 自动化验证：托管 bridge 测试通过；核心测试 Debug/Release 构建与运行通过；`RoadProto.sln` Debug/Release 构建通过，生成 `RoadProto_v0.1.26_20260525_CrossSectionFrameLabelWhite.arx` 和 `RoadProto.Terrain.UI.dll`。
+- 图形界面验证：本轮未在 AutoCAD 2021 图形界面完整点验；建议加载 Release 产物后验证 `绘制横断面` 落图的外框和桩号文字显示为白色。
+
+## v0.1.25 - 2026-05-25
+
+- 版本标识：`v0.1.25_20260525_CrossSectionViewDrawing`。
+- ARX 文件：`RoadProto_v0.1.25_20260525_CrossSectionViewDrawing.arx`。
+- 阶段：查看横断面预览交互与模型空间批量落图。
+- 是否可作为稳定测试版本：是。核心测试 Debug、托管 bridge 测试和 `RoadProto.sln` Debug 构建已验证。
+
+### 修改内容
+
+- 优化 `查看横断面` WPF 预览图，参考路面结构层模板预览，支持鼠标拖动平移和滚轮缩放。
+- 预览图先绘制结构层半透明填充面，再绘制结构层边线、路基线、边坡线和地面线。
+- 在查看横断面对话框新增 `绘制横断面` 按钮，点击后通过响应文件触发 ObjectARX 内部命令回到模型空间点取插入基点。
+- 新增内部命令 `RD_SECTION_ROAD_MODEL_VIEW_SECTION_APPLY_DIALOG_FILE`，负责读取 WPF 响应、重建所有桩号断面预览并按基点向上批量绘制。
+- 新增 `DnRoadModelSectionDrawingEntity` 自定义实体，每个桩号生成一个实体，保存道路模型 handle、中线 handle、桩号、外框尺寸、线段、结构层面域和结构层模板填充信息。
+- 横断面落图中的结构层颜色和填充优先按道路模型结构层线引用的路面结构层模板匹配；无法匹配时保留预览颜色并使用实体填充，避免落图失败。
+
+### 验证状态
+
+- 自动化验证：托管 bridge 测试通过；核心测试 Debug 构建与运行通过；`RoadProto.sln` Debug 构建通过，生成 `RoadProto_v0.1.25_20260525_CrossSectionViewDrawing.arx` 和 `RoadProto.Terrain.UI.dll`。
+- 图形界面验证：本轮未在 AutoCAD 2021 图形界面完整点验；建议加载 Debug 或 Release 产物后验证预览拖动缩放、绘制横断面基点点取、批量落图间距、桩号文字、外框实体和结构层填充效果。
+
 ## v0.1.24 - 2026-05-25
 
 - 版本标识：`v0.1.24_20260525_PavementLayerTemplateWizard`。

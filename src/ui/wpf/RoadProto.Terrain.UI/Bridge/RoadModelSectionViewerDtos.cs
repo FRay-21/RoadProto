@@ -11,6 +11,12 @@ public enum RoadModelSectionViewerSegmentKind
     PavementLayer,
 }
 
+public enum RoadModelSectionViewerAction
+{
+    None,
+    DrawSections,
+}
+
 public sealed class RoadModelSectionViewerPointDto
 {
     public double Offset { get; set; }
@@ -44,6 +50,14 @@ public sealed class RoadModelSectionViewerPreviewDto
 public sealed class RoadModelSectionViewerRequest
 {
     public string Handle { get; set; } = string.Empty;
+    public string ResponsePath { get; set; } = string.Empty;
     public string RoadCenterlineHandle { get; set; } = string.Empty;
     public List<RoadModelSectionViewerPreviewDto> Previews { get; set; } = new();
+}
+
+public sealed class RoadModelSectionViewerResponse
+{
+    public RoadModelSectionViewerAction Action { get; set; } = RoadModelSectionViewerAction.None;
+    public bool Accepted { get; set; }
+    public string Handle { get; set; } = string.Empty;
 }

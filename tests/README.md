@@ -25,14 +25,14 @@ artifacts\x64\Debug\RoadProtoCoreTests.exe
 - 纵断面竖曲线领域规则：默认设计线创建、PVI 对称二次抛物线、BVC/EVC、高低点、任意桩号高程和坡度、PVI 增删、半径更新和命令元数据。
 - 横断面边坡模板领域规则：填方/挖方默认预设、坡率/坡高/宽度三选二约束、重复最后一组识别、编码转换和模板组优先级解析。
 - 横断面路面结构层模板规则：上面层/中面层/下面层/沥青封层/基层/底基层/垫层/搭板层编码、结构代号、路基干湿类型、路面类型、路基土组、设计弯沉、累计轴次、等厚/内外侧非等厚、内外侧正/负加宽、顶边沿上一层底边所在直线延长或收回、四边形/梯形轮廓定义、`1:n` 正/负坡度驱动当前层顶边到底边的侧边水平移动、路面结构层创建向导、文档预设初始值、`.rpavement.xml` 流转、路基部件点选绑定和模板实体源码契约。
-- 横断面道路模型边坡和线框规则：从路基模板最外侧生成边坡线、读取部件绑定的路面结构层模板并生成结构层边界线和弱化填充面、TIN 地面剖切交地、断面地面快照、边坡模板戴帽结果、生成进度回调、采样桩号保存、断面节点链、三维网格线框和查看横断面预览。
-- 文档和版本 source-contract：检查 `build/RoadProto.Build.props`、README、版本记录和 `docs/reuse/pavement_layer_template.md` 的 v0.1.24 路面结构层模板创建向导发布信息。
+- 横断面道路模型边坡和线框规则：从路基模板最外侧生成边坡线、读取部件绑定的路面结构层模板并生成结构层边界线和弱化填充面、TIN 地面剖切交地、断面地面快照、边坡模板戴帽结果、生成进度回调、采样桩号保存、断面节点链、三维网格线框、查看横断面预览、预览拖动缩放和批量绘制横断面自定义实体源码契约。
+- 文档和版本 source-contract：检查 `build/RoadProto.Build.props`、README、版本记录和复用文档的 v0.1.26 查看横断面外框与桩号白色发布信息。
 
 V0.1.6 继续保留 `TerrainMeshFile` 领域层测试，用于保证 `DN_TERRAIN_TIN_EXPORT` / `DN_TERRAIN_TIN_IMPORT` 依赖的跨 DWG 数模文件数据不会在读写中丢失。
 
-历史 V0.1.6 Core Console 验证记录：当时已用 Core Console 验证 `DN_TERRAIN_TIN_CREATE` 的样例对象选择、同图层同类型提取、源对象隐藏、TIN 生成、`DN_TERRAIN_TIN_EDIT` 非 UI 编辑路径、`DN_TERRAIN_TIN_EDIT_HANDLE` 按 handle 编辑路径、`DN_TERRAIN_TIN_IMPORT` 的 `.rmesh` 导入、DWG 保存后重新打开和 `REGEN`；托管 Ribbon 插件当时已验证 Release 构建。该段是历史记录，不代表当前 v0.1.24 的完整 AutoCAD 验证。
+历史 V0.1.6 Core Console 验证记录：当时已用 Core Console 验证 `DN_TERRAIN_TIN_CREATE` 的样例对象选择、同图层同类型提取、源对象隐藏、TIN 生成、`DN_TERRAIN_TIN_EDIT` 非 UI 编辑路径、`DN_TERRAIN_TIN_EDIT_HANDLE` 按 handle 编辑路径、`DN_TERRAIN_TIN_IMPORT` 的 `.rmesh` 导入、DWG 保存后重新打开和 `REGEN`；托管 Ribbon 插件当时已验证 Release 构建。该段是历史记录，不代表当前 v0.1.26 的完整 AutoCAD 验证。
 
-当前 v0.1.24 已完成路面结构层创建向导自动化验证：核心测试 Debug/Release、托管 bridge 测试、WPF Release 构建和 ARX Release 构建均通过。AutoCAD 图形界面的完整 Ribbon 点击、创建向导、向导确认后旧参数窗口、双击编辑不显示向导、`.rpavement.xml` 文件对话框、预览图点击选层、索引颜色弹窗、填充角度/比例、显示全部通用参数折叠区、DWG 模板名称居中显示、路基模板绑定、道路模型结构层颜色显示和查看横断面结构层显示仍建议加载 Release 产物后人工点验。
+当前 v0.1.26 已完成查看横断面外框与桩号白色显示的自动化验证：核心测试 Debug/Release、托管 bridge 测试和 `RoadProto.sln` Debug/Release 构建均通过。AutoCAD 图形界面的完整 Ribbon 点击、预览拖动缩放、`绘制横断面` 基点点取、`DnRoadModelSectionDrawingEntity` 外框/桩号/结构层颜色/填充显示仍建议加载 Debug 或 Release 产物后人工点验。
 
 ## V0.1.8 平面布线验证范围
 

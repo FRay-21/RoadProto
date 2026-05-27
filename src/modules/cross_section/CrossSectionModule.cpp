@@ -164,6 +164,17 @@ void registerCrossSectionCommands(core::CommandRegistry& commandRegistry)
         true,
         L"docs/business/cross_section/查看横断面.md",
         true});
+
+    commandRegistry.registerCommand(core::CommandDefinition{
+        L"RD_SECTION_ROAD_MODEL_VIEW_SECTION_APPLY_DIALOG_FILE",
+        L"应用查看横断面对话框结果",
+        L"CROSS_SECTION",
+        L"Internal WPF bridge command that draws model-space road model section previews.",
+        cad_adapter::objectarx::cross_section::roadModelViewSectionApplyDialogFileCommandProcedure(),
+        true,
+        false,
+        L"docs/business/cross_section/查看横断面.md",
+        false});
 }
 
 void registerCrossSectionRibbon(ui::RibbonModel& ribbonModel)

@@ -8,6 +8,7 @@
 #include "cad_adapter/objectarx/alignment/DnRoadCenterlineEntity.h"
 #include "cad_adapter/objectarx/cross_section/DnPavementLayerTemplateEntity.h"
 #include "cad_adapter/objectarx/cross_section/DnRoadModelEntity.h"
+#include "cad_adapter/objectarx/cross_section/DnRoadModelSectionDrawingEntity.h"
 #include "cad_adapter/objectarx/cross_section/DnSlopeTemplateEntity.h"
 #include "cad_adapter/objectarx/cross_section/DnSubgradeTemplateEntity.h"
 #include "cad_adapter/objectarx/cross_section/RoadModelDialogBridge.h"
@@ -15,6 +16,8 @@
 #include "cad_adapter/objectarx/profile/DnProfileGradeGraphEntity.h"
 #include "cad_adapter/objectarx/profile/DnProfileVerticalCurveEntity.h"
 #include "cad_adapter/objectarx/terrain/DnTerrainTinEntity.h"
+
+#include "domain/alignment/StationFormatter.h"
 
 #include "aced.h"
 #include "adscodes.h"
@@ -27,6 +30,8 @@
 #include <limits>
 #include <sstream>
 #include <string>
+#include <unordered_map>
+#include <unordered_set>
 #include <utility>
 #include <vector>
 #endif
@@ -52,6 +57,8 @@ using roadproto::domain::cross_section::RoadModelPavementLayerTemplateSource;
 using roadproto::domain::cross_section::RoadModelSection;
 using roadproto::domain::cross_section::RoadModelSectionPreviewBuilder;
 using roadproto::domain::cross_section::RoadModelSectionPreviewRequest;
+using roadproto::domain::cross_section::RoadModelSectionPreviewSegment;
+using roadproto::domain::cross_section::RoadModelSectionPreviewSegmentKind;
 using roadproto::domain::cross_section::RoadModelSlopeTemplateGroup;
 using roadproto::domain::cross_section::RoadModelSlopeTemplateReference;
 using roadproto::domain::cross_section::RoadModelSlopeTemplateSource;
@@ -61,6 +68,9 @@ using roadproto::domain::cross_section::RoadModelTerrainSurface;
 using roadproto::domain::profile::ProfileVerticalCurveData;
 
 constexpr double kStationEpsilon = 1e-8;
+constexpr double kSectionDrawingPadding = 2.0;
+constexpr double kSectionDrawingStationLabelBand = 4.0;
+constexpr double kSectionDrawingSpacing = 6.0;
 
 class StatusProgressMeter {
 public:
@@ -393,6 +403,271 @@ bool collectPavementLayerTemplates(
         }
     }
 
+    return true;
+}
+
+struct PavementLayerDrawingStyle {
+    int colorR = 0;
+    int colorG = 0;
+    int colorB = 0;
+    std::wstring hatchPattern = L"SOLID";
+    double hatchAngle = 0.0;
+    double hatchScale = 1.0;
+};
+
+std::wstring pavementLayerColorKey(int colorR, int colorG, int colorB)
+{
+    return std::to_wstring(std::clamp(colorR, 0, 255))
+        + L"," + std::to_wstring(std::clamp(colorG, 0, 255))
+        + L"," + std::to_wstring(std::clamp(colorB, 0, 255));
+}
+
+std::unordered_map<std::wstring, PavementLayerDrawingStyle> collectPavementLayerDrawingStyles(
+    const RoadModelData& data)
+{
+    std::unordered_set<std::wstring> handles;
+    for (const auto& line : data.pavementLayerLines) {
+        if (!line.key.pavementLayerTemplateHandle.empty()) {
+            handles.insert(line.key.pavementLayerTemplateHandle);
+        }
+    }
+
+    std::unordered_map<std::wstring, PavementLayerDrawingStyle> styles;
+    for (const auto& handle : handles) {
+        RoadModelPavementLayerTemplateSource source;
+        if (!readPavementLayerTemplate(handle, source)) {
+            continue;
+        }
+
+        for (const auto& layer : source.data.layers) {
+            const auto key = pavementLayerColorKey(layer.color.r, layer.color.g, layer.color.b);
+            if (styles.find(key) != styles.end()) {
+                continue;
+            }
+            styles[key] = PavementLayerDrawingStyle{
+                layer.color.r,
+                layer.color.g,
+                layer.color.b,
+                layer.hatchPattern,
+                layer.hatchAngle,
+                layer.hatchScale};
+        }
+    }
+    return styles;
+}
+
+PavementLayerDrawingStyle styleForPavementSegment(
+    const RoadModelSectionPreviewSegment& segment,
+    const std::unordered_map<std::wstring, PavementLayerDrawingStyle>& styles)
+{
+    const auto found = styles.find(pavementLayerColorKey(segment.color.r, segment.color.g, segment.color.b));
+    if (found != styles.end()) {
+        return found->second;
+    }
+    return PavementLayerDrawingStyle{
+        segment.color.r,
+        segment.color.g,
+        segment.color.b,
+        L"SOLID",
+        0.0,
+        1.0};
+}
+
+int drawingKindForPreviewSegment(RoadModelSectionPreviewSegmentKind kind)
+{
+    switch (kind) {
+    case RoadModelSectionPreviewSegmentKind::Slope:
+        return 1;
+    case RoadModelSectionPreviewSegmentKind::Ground:
+        return 2;
+    case RoadModelSectionPreviewSegmentKind::PavementLayer:
+        return 3;
+    case RoadModelSectionPreviewSegmentKind::Subgrade:
+    default:
+        return 0;
+    }
+}
+
+RoadModelSectionDrawingPoint drawingPoint(
+    const roadproto::domain::cross_section::RoadModelSectionPreviewPoint& point,
+    double minOffset,
+    double minElevation)
+{
+    return RoadModelSectionDrawingPoint{
+        point.offset - minOffset + kSectionDrawingPadding,
+        point.elevation - minElevation + kSectionDrawingStationLabelBand + kSectionDrawingPadding};
+}
+
+bool samePreviewPoint(
+    const roadproto::domain::cross_section::RoadModelSectionPreviewPoint& lhs,
+    const roadproto::domain::cross_section::RoadModelSectionPreviewPoint& rhs)
+{
+    return std::fabs(lhs.offset - rhs.offset) <= 1.0e-6
+        && std::fabs(lhs.elevation - rhs.elevation) <= 1.0e-6;
+}
+
+bool isPavementLayerFace(
+    const RoadModelSectionPreviewSegment& first,
+    const RoadModelSectionPreviewSegment& second,
+    const RoadModelSectionPreviewSegment& third,
+    const RoadModelSectionPreviewSegment& fourth)
+{
+    return first.kind == RoadModelSectionPreviewSegmentKind::PavementLayer
+        && second.kind == RoadModelSectionPreviewSegmentKind::PavementLayer
+        && third.kind == RoadModelSectionPreviewSegmentKind::PavementLayer
+        && fourth.kind == RoadModelSectionPreviewSegmentKind::PavementLayer
+        && first.points.size() >= 2
+        && second.points.size() >= 2
+        && third.points.size() >= 2
+        && fourth.points.size() >= 2
+        && samePreviewPoint(first.points.back(), second.points.front())
+        && samePreviewPoint(second.points.back(), third.points.front())
+        && samePreviewPoint(third.points.back(), fourth.points.front())
+        && samePreviewPoint(fourth.points.back(), first.points.front());
+}
+
+bool buildRoadModelSectionDrawingData(
+    const RoadModelSectionViewerPreview& previewWrapper,
+    const std::wstring& roadModelHandle,
+    const std::wstring& roadCenterlineHandle,
+    const AcGePoint3d& insertionPoint,
+    const std::unordered_map<std::wstring, PavementLayerDrawingStyle>& pavementStyles,
+    RoadModelSectionDrawingData& drawingData)
+{
+    const auto& preview = previewWrapper.data;
+    std::vector<roadproto::domain::cross_section::RoadModelSectionPreviewPoint> points;
+    for (const auto& segment : preview.segments) {
+        points.insert(points.end(), segment.points.begin(), segment.points.end());
+    }
+    if (points.empty()) {
+        return false;
+    }
+
+    auto minOffset = points.front().offset;
+    auto maxOffset = points.front().offset;
+    auto minElevation = points.front().elevation;
+    auto maxElevation = points.front().elevation;
+    for (const auto& point : points) {
+        if (!std::isfinite(point.offset) || !std::isfinite(point.elevation)) {
+            return false;
+        }
+        minOffset = std::min(minOffset, point.offset);
+        maxOffset = std::max(maxOffset, point.offset);
+        minElevation = std::min(minElevation, point.elevation);
+        maxElevation = std::max(maxElevation, point.elevation);
+    }
+    if (maxOffset - minOffset < 1.0e-6) {
+        minOffset -= 1.0;
+        maxOffset += 1.0;
+    }
+    if (maxElevation - minElevation < 1.0e-6) {
+        minElevation -= 1.0;
+        maxElevation += 1.0;
+    }
+
+    drawingData = RoadModelSectionDrawingData{};
+    drawingData.roadModelHandle = roadModelHandle;
+    drawingData.roadCenterlineHandle = roadCenterlineHandle;
+    drawingData.station = preview.station;
+    drawingData.stationLabel = roadproto::domain::alignment::StationFormatter::format(preview.station);
+    drawingData.insertionPoint = insertionPoint;
+    drawingData.width = (maxOffset - minOffset) + kSectionDrawingPadding * 2.0;
+    drawingData.height = (maxElevation - minElevation) + kSectionDrawingStationLabelBand + kSectionDrawingPadding * 2.0;
+
+    for (const auto& segment : preview.segments) {
+        if (segment.points.size() < 2) {
+            continue;
+        }
+        RoadModelSectionDrawingLine line;
+        line.kind = drawingKindForPreviewSegment(segment.kind);
+        line.colorR = segment.color.r;
+        line.colorG = segment.color.g;
+        line.colorB = segment.color.b;
+        line.points.reserve(segment.points.size());
+        for (const auto& point : segment.points) {
+            line.points.push_back(drawingPoint(point, minOffset, minElevation));
+        }
+        drawingData.lines.push_back(std::move(line));
+    }
+
+    for (std::size_t i = 0; i + 3 < preview.segments.size(); ++i) {
+        const auto& first = preview.segments[i];
+        const auto& second = preview.segments[i + 1];
+        const auto& third = preview.segments[i + 2];
+        const auto& fourth = preview.segments[i + 3];
+        if (!isPavementLayerFace(first, second, third, fourth)) {
+            continue;
+        }
+
+        const auto style = styleForPavementSegment(first, pavementStyles);
+        RoadModelSectionDrawingFace face;
+        face.colorR = style.colorR;
+        face.colorG = style.colorG;
+        face.colorB = style.colorB;
+        face.hatchPattern = style.hatchPattern;
+        face.hatchAngle = style.hatchAngle;
+        face.hatchScale = style.hatchScale;
+        face.points = {
+            drawingPoint(first.points.front(), minOffset, minElevation),
+            drawingPoint(first.points.back(), minOffset, minElevation),
+            drawingPoint(second.points.back(), minOffset, minElevation),
+            drawingPoint(third.points.back(), minOffset, minElevation)};
+        drawingData.faces.push_back(std::move(face));
+        i += 3;
+    }
+
+    return !drawingData.lines.empty();
+}
+
+bool appendRoadModelSectionDrawingEntities(
+    roadproto::cad_adapter::IEditor& editor,
+    const std::vector<RoadModelSectionViewerPreview>& previews,
+    const RoadModelData& data,
+    const std::wstring& roadModelHandle,
+    const std::wstring& roadCenterlineHandle,
+    const AcGePoint3d& basePoint)
+{
+    const auto pavementStyles = collectPavementLayerDrawingStyles(data);
+    auto insertionPoint = basePoint;
+    int appendedCount = 0;
+    for (const auto& preview : previews) {
+        RoadModelSectionDrawingData drawingData;
+        if (!buildRoadModelSectionDrawingData(
+                preview,
+                roadModelHandle,
+                roadCenterlineHandle,
+                insertionPoint,
+                pavementStyles,
+                drawingData)) {
+            continue;
+        }
+
+        auto* entity = new DnRoadModelSectionDrawingEntity();
+        if (entity->setDrawingData(drawingData) != Acad::eOk) {
+            delete entity;
+            continue;
+        }
+
+        AcDbObjectId entityId;
+        if (!appendEntityToModelSpace(entity, entityId)) {
+            delete entity;
+            editor.writeError(L"Failed to append DnRoadModelSectionDrawingEntity to model space.");
+            return false;
+        }
+
+        entity->recordGraphicsModified(true);
+        entity->close();
+        insertionPoint.y += drawingData.height + kSectionDrawingSpacing;
+        ++appendedCount;
+    }
+
+    if (appendedCount == 0) {
+        editor.writeWarning(L"No road model section drawing entities were created.");
+        return false;
+    }
+
+    acedUpdateDisplay();
+    editor.writeMessage(L"Road model section drawings created: " + std::to_wstring(appendedCount));
     return true;
 }
 
@@ -1007,6 +1282,125 @@ void runRoadModelViewSectionCommand()
     }
 }
 
+void runRoadModelViewSectionApplyDialogFileCommand()
+{
+    auto& editor = app::ApplicationContext::instance().editor();
+    ACHAR pathBuffer[1024] = {};
+    if (acedGetString(Adesk::kTrue, L"\nRoadProto road model section viewer response file: ", pathBuffer) != RTNORM) {
+        return;
+    }
+
+    RoadModelSectionViewerResponse response;
+    std::wstring errorMessage;
+    const auto responsePath = trimDialogCommandPath(pathBuffer);
+    if (!readRoadModelSectionViewerResponse(responsePath, response, errorMessage)) {
+        editor.writeError(L"Failed to read road model section viewer response: " + errorMessage);
+        return;
+    }
+
+    if (!response.accepted || response.action != RoadModelSectionViewerAction::DrawSections) {
+        return;
+    }
+
+    AcDbObjectId roadModelId;
+    if (!resolveObjectIdFromHandle(response.handle, roadModelId)) {
+        editor.writeWarning(L"No road model entity was found for the section viewer response.");
+        return;
+    }
+
+    DnRoadModelEntity* entity = nullptr;
+    if (acdbOpenObject(entity, roadModelId, AcDb::kForRead) != Acad::eOk || entity == nullptr) {
+        editor.writeError(L"Cannot open road model entity for section drawing.");
+        return;
+    }
+    if (!entity->isKindOf(DnRoadModelEntity::desc())) {
+        entity->close();
+        editor.writeWarning(L"The section viewer response handle does not reference a road model entity.");
+        return;
+    }
+
+    const auto roadModelHandle = entityHandleText(entity);
+    RoadModelData data = entity->roadModelData();
+    entity->close();
+
+    AcDbObjectId centerlineId;
+    if (!resolveObjectIdFromHandle(data.config.roadCenterlineHandle, centerlineId)) {
+        editor.writeWarning(L"No road centerline entity was found for the selected road model.");
+        return;
+    }
+
+    std::wstring centerlineHandle;
+    std::vector<AlignmentSamplePoint> alignmentSamples;
+    if (!readRoadCenterline(centerlineId, centerlineHandle, alignmentSamples)) {
+        editor.writeError(L"Cannot read road centerline data for section drawing.");
+        return;
+    }
+
+    ProfileVerticalCurveData verticalCurve;
+    if (!data.config.profileVerticalCurveHandle.empty()) {
+        AcDbObjectId verticalCurveId;
+        std::wstring verticalCurveHandle;
+        if (resolveObjectIdFromHandle(data.config.profileVerticalCurveHandle, verticalCurveId)) {
+            readVerticalCurve(verticalCurveId, verticalCurveHandle, verticalCurve);
+        }
+    }
+
+    auto stations = data.sampledStations;
+    if (stations.empty() && !alignmentSamples.empty()) {
+        stations = roadproto::domain::cross_section::RoadModelStationSampler::collectStations(
+            alignmentSamples.front().station,
+            alignmentSamples.back().station,
+            verticalCurve,
+            data.config.assignments,
+            data.config.sampleInterval);
+    }
+    if (stations.empty()) {
+        editor.writeWarning(L"The selected road model has no sampled station data for section drawing.");
+        return;
+    }
+
+    RoadModelTerrainSurface terrainSurface;
+    if (needsTerrainSurfaceForSectionPreview(data, stations)) {
+        const auto terrainHandle = terrainTinHandleForProfileGraph(verticalCurve.profileGraphHandle);
+        if (!terrainHandle.empty()) {
+            readTerrainSurface(terrainHandle, terrainSurface);
+        }
+    }
+
+    std::vector<RoadModelSectionViewerPreview> previews;
+    previews.reserve(stations.size());
+    RoadModelSectionPreviewRequest previewRequest;
+    previewRequest.data = data;
+    previewRequest.alignmentSamples = alignmentSamples;
+    previewRequest.terrainSurface = terrainSurface;
+    for (const auto station : stations) {
+        previewRequest.station = station;
+        auto preview = RoadModelSectionPreviewBuilder::build(previewRequest);
+        if (preview.succeeded) {
+            previews.push_back(RoadModelSectionViewerPreview{std::move(preview)});
+        }
+    }
+
+    if (previews.empty()) {
+        editor.writeWarning(L"No section preview could be generated for drawing.");
+        return;
+    }
+
+    ads_point point;
+    if (acedGetPoint(nullptr, L"\n选择横断面绘制基点: ", point) != RTNORM) {
+        return;
+    }
+
+    const AcGePoint3d basePoint(point[0], point[1], point[2]);
+    appendRoadModelSectionDrawingEntities(
+        editor,
+        previews,
+        data,
+        roadModelHandle,
+        centerlineHandle,
+        basePoint);
+}
+
 void runRoadModelApplyDialogFileCommand()
 {
     auto& editor = app::ApplicationContext::instance().editor();
@@ -1239,6 +1633,10 @@ void runRoadModelViewSectionCommand()
 {
 }
 
+void runRoadModelViewSectionApplyDialogFileCommand()
+{
+}
+
 #endif
 
 } // namespace
@@ -1266,6 +1664,11 @@ core::CommandProcedure roadModelApplyDialogFileCommandProcedure()
 core::CommandProcedure roadModelViewSectionCommandProcedure()
 {
     return &runRoadModelViewSectionCommand;
+}
+
+core::CommandProcedure roadModelViewSectionApplyDialogFileCommandProcedure()
+{
+    return &runRoadModelViewSectionApplyDialogFileCommand;
 }
 
 } // namespace roadproto::cad_adapter::objectarx::cross_section

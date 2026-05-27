@@ -13,9 +13,10 @@
 - 源码路径：`src/domain/cross_section/RoadModel.*`
 - 源码路径：`src/application/cross_section/RoadModelBuildService.*`
 - 源码路径：`src/cad_adapter/objectarx/cross_section/DnRoadModelEntity.*`
+- 源码路径：`src/cad_adapter/objectarx/cross_section/DnRoadModelSectionDrawingEntity.*`
 - 源码路径：`src/cad_adapter/objectarx/cross_section/RoadModelSectionViewerBridge.*`
-- 对外类型/函数：`RoadModelBuilder`、`RoadModelStationSampler`、`RoadModelTemplateResolver`、`RoadModelSlopeTemplateGroupResolver`、`RoadModelSectionPreviewBuilder`、`RoadModelPavementLayerTemplateSource`、`RoadModelBuildService`、`RoadModelDialogBridge`、`RoadModelSectionViewerBridge`
-- 当前使用该能力的命令：`RD_SECTION_ROAD_MODEL_CREATE`、`RD_SECTION_ROAD_MODEL_EDIT`、`RD_SECTION_ROAD_MODEL_VIEW_SECTION`
+- 对外类型/函数：`RoadModelBuilder`、`RoadModelStationSampler`、`RoadModelTemplateResolver`、`RoadModelSlopeTemplateGroupResolver`、`RoadModelSectionPreviewBuilder`、`RoadModelPavementLayerTemplateSource`、`RoadModelBuildService`、`RoadModelDialogBridge`、`RoadModelSectionViewerBridge`、`DnRoadModelSectionDrawingEntity`
+- 当前使用该能力的命令：`RD_SECTION_ROAD_MODEL_CREATE`、`RD_SECTION_ROAD_MODEL_EDIT`、`RD_SECTION_ROAD_MODEL_VIEW_SECTION`、`RD_SECTION_ROAD_MODEL_VIEW_SECTION_APPLY_DIALOG_FILE`
 
 ## 可复用内容
 
@@ -33,6 +34,7 @@
 - 构建进度回调，供 AutoCAD 状态栏或后续替换 UI 展示生成进度。
 - `RoadModelData` 的 CAD 实体持久化和显示表达，其中包含生成时采样桩号、断面节点链、地面剖面快照、三维网格线框和结构层弱化填充面显示数据。
 - 已生成道路模型的横断面预览构建，按桩号输出路基模板线、结构层线、边坡模板线和生成时地面线快照；旧模型没有快照时可回退读取 TIN。
+- 已生成道路模型的横断面模型空间落图能力，按桩号批量生成 `DnRoadModelSectionDrawingEntity`，并在实体内保存外框、桩号、线段、结构层面域、结构层颜色和模板填充参数；外框和桩号文字绘制为白色。
 - WPF 表格行与 CAD 模板实体点选之间的桥接动作。
 
 ## 不可复用或临时内容
@@ -61,4 +63,4 @@
 
 - 测试路径：`tests/core_tests.cpp`
 - 测试路径：`tests/RoadProtoManagedBridgeTests/`
-- AutoCAD 手工验证：创建道路中线、竖曲线、路基模板和路面结构层模板后运行 `RD_SECTION_ROAD_MODEL_CREATE`，在路基模板部件中点选绑定结构层模板，在道路模型表格行内点选图中模板、在边坡模板组内管理多个模板，并确认生成时状态栏显示进度且最终创建 `DnRoadModelEntity`；道路模型中的结构层应与模板预览保持同一四边形/梯形形状、弱化填充和层 RGB 边线；双击道路模型或运行 `RD_SECTION_ROAD_MODEL_EDIT` 后可调整模板范围并刷新实体；运行 `RD_SECTION_ROAD_MODEL_VIEW_SECTION` 后选择道路模型，应能按采样桩号切换并预览路基模板线、结构层线、边坡模板线和生成时地面线快照。
+- AutoCAD 手工验证：创建道路中线、竖曲线、路基模板和路面结构层模板后运行 `RD_SECTION_ROAD_MODEL_CREATE`，在路基模板部件中点选绑定结构层模板，在道路模型表格行内点选图中模板、在边坡模板组内管理多个模板，并确认生成时状态栏显示进度且最终创建 `DnRoadModelEntity`；道路模型中的结构层应与模板预览保持同一四边形/梯形形状、弱化填充和层 RGB 边线；双击道路模型或运行 `RD_SECTION_ROAD_MODEL_EDIT` 后可调整模板范围并刷新实体；运行 `RD_SECTION_ROAD_MODEL_VIEW_SECTION` 后选择道路模型，应能按采样桩号切换、拖动缩放预览，并可点击 `绘制横断面` 后选择模型空间基点，批量生成不重叠的 `DnRoadModelSectionDrawingEntity` 横断面图，外框和桩号文字为白色。

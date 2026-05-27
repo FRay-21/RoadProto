@@ -1,5 +1,7 @@
 #pragma once
 
+#include "domain/cross_section/SectionDrawingConfigModel.h"
+
 #include "dbents.h"
 #include "dbmain.h"
 #include "gept3dar.h"
@@ -25,6 +27,12 @@ struct RoadModelSectionDrawingLine {
 };
 
 struct RoadModelSectionDrawingFace {
+    std::wstring layerName;
+    std::wstring componentName;
+    std::wstring faceId;
+    std::wstring sourceTemplateHandle;
+    int sourceConfigRowIndex = -1;
+    bool manualEdited = false;
     int colorR = 0;
     int colorG = 0;
     int colorB = 0;
@@ -44,6 +52,7 @@ struct RoadModelSectionDrawingData {
     double height = 0.0;
     std::vector<RoadModelSectionDrawingLine> lines;
     std::vector<RoadModelSectionDrawingFace> faces;
+    roadproto::domain::cross_section::SectionDrawingConfigData config;
 };
 
 } // namespace roadproto::cad_adapter::objectarx::cross_section
@@ -57,6 +66,10 @@ public:
     Acad::ErrorStatus setDrawingData(
         const roadproto::cad_adapter::objectarx::cross_section::RoadModelSectionDrawingData& data);
     const roadproto::cad_adapter::objectarx::cross_section::RoadModelSectionDrawingData& drawingData() const;
+    Acad::ErrorStatus setSectionDrawingConfig(
+        const roadproto::domain::cross_section::SectionDrawingConfigData& config);
+    Acad::ErrorStatus replaceFaces(
+        std::vector<roadproto::cad_adapter::objectarx::cross_section::RoadModelSectionDrawingFace> faces);
 
     Acad::ErrorStatus dwgInFields(AcDbDwgFiler* filer) override;
     Acad::ErrorStatus dwgOutFields(AcDbDwgFiler* filer) const override;
@@ -65,6 +78,11 @@ protected:
     Adesk::Boolean subWorldDraw(AcGiWorldDraw* worldDraw) override;
     Acad::ErrorStatus subGetGeomExtents(AcDbExtents& extents) const override;
     Acad::ErrorStatus subTransformBy(const AcGeMatrix3d& transform) override;
+    Acad::ErrorStatus subGetGripPoints(
+        AcGePoint3dArray& gripPoints,
+        AcDbIntArray& osnapModes,
+        AcDbIntArray& geomIds) const override;
+    Acad::ErrorStatus subMoveGripPointsAt(const AcDbIntArray& indices, const AcGeVector3d& offset) override;
 
 private:
     roadproto::cad_adapter::objectarx::cross_section::RoadModelSectionDrawingData data_;

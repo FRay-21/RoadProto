@@ -9,8 +9,15 @@
 #include <algorithm>
 #include <cmath>
 #include <limits>
+#include <optional>
 #include <utility>
 
+using roadproto::domain::cross_section::SectionDrawingComponentTypeSelection;
+using roadproto::domain::cross_section::SectionDrawingConfigData;
+using roadproto::domain::cross_section::SectionDrawingConfigRules;
+using roadproto::domain::cross_section::SectionPavementLayerConfigRow;
+using roadproto::domain::cross_section::SubgradeComponentType;
+using roadproto::domain::cross_section::SubgradeSide;
 using roadproto::cad_adapter::objectarx::cross_section::RoadModelSectionDrawingData;
 using roadproto::cad_adapter::objectarx::cross_section::RoadModelSectionDrawingFace;
 using roadproto::cad_adapter::objectarx::cross_section::RoadModelSectionDrawingLine;
@@ -27,10 +34,12 @@ ACRX_DXF_DEFINE_MEMBERS(
 
 namespace {
 
-constexpr Adesk::Int16 kEntityVersion = 1;
+constexpr Adesk::Int16 kEntityVersion = 4;
 constexpr Adesk::Int32 kMaxLines = 10000;
 constexpr Adesk::Int32 kMaxFaces = 10000;
 constexpr Adesk::Int32 kMaxPointsPerItem = 1000;
+constexpr Adesk::Int32 kMaxConfigRows = 10000;
+constexpr Adesk::Int32 kMaxConfigComponents = 1000;
 constexpr double kPi = 3.14159265358979323846;
 constexpr double kStationLabelBand = 4.0;
 constexpr double kTextHeight = 2.0;
@@ -50,11 +59,89 @@ void writeWideString(AcDbDwgFiler* filer, const std::wstring& value)
     filer->writeString(value.c_str());
 }
 
+void writeSectionDrawingConfig(AcDbDwgFiler* filer, const SectionDrawingConfigData& config)
+{
+    filer->writeInt32(static_cast<Adesk::Int32>(config.version));
+    writeWideString(filer, config.configPath);
+    filer->writeInt32(static_cast<Adesk::Int32>(config.pavementRows.size()));
+    for (const auto& row : config.pavementRows) {
+        filer->writeDouble(row.startStation);
+        filer->writeDouble(row.endStation);
+        filer->writeInt32(static_cast<Adesk::Int32>(row.componentTypes.size()));
+        for (const auto& component : row.componentTypes) {
+            filer->writeInt32(static_cast<Adesk::Int32>(component.side));
+            filer->writeInt32(static_cast<Adesk::Int32>(component.componentType));
+        }
+        writeWideString(filer, row.templateHandle);
+        writeWideString(filer, row.templateName);
+    }
+}
+
 bool readCount(AcDbDwgFiler* filer, Adesk::Int32 maxValue, Adesk::Int32& count)
 {
     count = 0;
     filer->readInt32(&count);
     return count >= 0 && count <= maxValue;
+}
+
+bool isValidSubgradeSide(Adesk::Int32 value)
+{
+    return value == static_cast<Adesk::Int32>(SubgradeSide::Left)
+        || value == static_cast<Adesk::Int32>(SubgradeSide::Right);
+}
+
+bool isValidSubgradeComponentType(Adesk::Int32 value)
+{
+    return value >= static_cast<Adesk::Int32>(SubgradeComponentType::Median)
+        && value <= static_cast<Adesk::Int32>(SubgradeComponentType::CurbStrip);
+}
+
+bool readSectionDrawingConfig(AcDbDwgFiler* filer, SectionDrawingConfigData& config, std::wstring& errorMessage)
+{
+    SectionDrawingConfigData data;
+    Adesk::Int32 version = 1;
+    filer->readInt32(&version);
+    data.version = static_cast<int>(version);
+    data.configPath = readWideString(filer);
+
+    Adesk::Int32 rowCount = 0;
+    if (!readCount(filer, kMaxConfigRows, rowCount)) {
+        return false;
+    }
+    data.pavementRows.reserve(static_cast<std::size_t>(rowCount));
+    for (Adesk::Int32 i = 0; i < rowCount; ++i) {
+        SectionPavementLayerConfigRow row;
+        filer->readDouble(&row.startStation);
+        filer->readDouble(&row.endStation);
+
+        Adesk::Int32 componentCount = 0;
+        if (!readCount(filer, kMaxConfigComponents, componentCount)) {
+            return false;
+        }
+        row.componentTypes.reserve(static_cast<std::size_t>(componentCount));
+        for (Adesk::Int32 j = 0; j < componentCount; ++j) {
+            Adesk::Int32 side = 0;
+            Adesk::Int32 componentType = 0;
+            filer->readInt32(&side);
+            filer->readInt32(&componentType);
+            if (!isValidSubgradeSide(side) || !isValidSubgradeComponentType(componentType)) {
+                return false;
+            }
+            row.componentTypes.push_back(
+                SectionDrawingComponentTypeSelection{
+                    static_cast<SubgradeSide>(side),
+                    static_cast<SubgradeComponentType>(componentType)});
+        }
+        row.templateHandle = readWideString(filer);
+        row.templateName = readWideString(filer);
+        data.pavementRows.push_back(std::move(row));
+    }
+
+    if (!SectionDrawingConfigRules::normalize(data, errorMessage)) {
+        return false;
+    }
+    config = std::move(data);
+    return true;
 }
 
 bool canWriteInt32(std::size_t value)
@@ -141,6 +228,27 @@ AcGePoint3d sectionPoint(
     double y)
 {
     return origin + xAxis * x + yAxis * y;
+}
+
+struct FaceGripIndex {
+    std::size_t faceIndex = 0;
+    std::size_t pointIndex = 0;
+};
+
+std::optional<FaceGripIndex> faceGripIndex(int gripIndex, const RoadModelSectionDrawingData& data)
+{
+    if (gripIndex < 0) {
+        return std::nullopt;
+    }
+    auto remaining = static_cast<std::size_t>(gripIndex);
+    for (std::size_t faceIndex = 0; faceIndex < data.faces.size(); ++faceIndex) {
+        const auto count = data.faces[faceIndex].points.size();
+        if (remaining < count) {
+            return FaceGripIndex{faceIndex, remaining};
+        }
+        remaining -= count;
+    }
+    return std::nullopt;
 }
 
 AcGeVector3d textNormal(const AcGeVector3d& xAxis, const AcGeVector3d& yAxis)
@@ -512,11 +620,13 @@ DnRoadModelSectionDrawingEntity::DnRoadModelSectionDrawingEntity()
 Acad::ErrorStatus DnRoadModelSectionDrawingEntity::setDrawingData(const RoadModelSectionDrawingData& data)
 {
     assertWriteEnabled();
-    if (!validateDrawingData(data)) {
+    auto updated = data;
+    std::wstring errorMessage;
+    if (!SectionDrawingConfigRules::normalize(updated.config, errorMessage) || !validateDrawingData(updated)) {
         return Acad::eInvalidInput;
     }
 
-    data_ = data;
+    data_ = std::move(updated);
     xAxis_ = AcGeVector3d::kXAxis;
     yAxis_ = AcGeVector3d::kYAxis;
     recordGraphicsModified(true);
@@ -529,6 +639,35 @@ const RoadModelSectionDrawingData& DnRoadModelSectionDrawingEntity::drawingData(
     return data_;
 }
 
+Acad::ErrorStatus DnRoadModelSectionDrawingEntity::setSectionDrawingConfig(const SectionDrawingConfigData& config)
+{
+    assertWriteEnabled();
+    auto updated = data_;
+    updated.config = config;
+    std::wstring errorMessage;
+    if (!SectionDrawingConfigRules::normalize(updated.config, errorMessage)) {
+        return Acad::eInvalidInput;
+    }
+
+    data_ = std::move(updated);
+    recordGraphicsModified(true);
+    return Acad::eOk;
+}
+
+Acad::ErrorStatus DnRoadModelSectionDrawingEntity::replaceFaces(std::vector<RoadModelSectionDrawingFace> faces)
+{
+    assertWriteEnabled();
+    auto updated = data_;
+    updated.faces = std::move(faces);
+    if (!validateDrawingData(updated)) {
+        return Acad::eInvalidInput;
+    }
+
+    data_ = std::move(updated);
+    recordGraphicsModified(true);
+    return Acad::eOk;
+}
+
 Acad::ErrorStatus DnRoadModelSectionDrawingEntity::dwgInFields(AcDbDwgFiler* filer)
 {
     assertWriteEnabled();
@@ -539,7 +678,7 @@ Acad::ErrorStatus DnRoadModelSectionDrawingEntity::dwgInFields(AcDbDwgFiler* fil
 
     Adesk::Int16 version = 0;
     filer->readInt16(&version);
-    if (version != kEntityVersion) {
+    if (version < 1 || version > kEntityVersion) {
         return Acad::eMakeMeProxy;
     }
 
@@ -559,6 +698,22 @@ Acad::ErrorStatus DnRoadModelSectionDrawingEntity::dwgInFields(AcDbDwgFiler* fil
     data.faces.reserve(static_cast<std::size_t>(faceCount));
     for (Adesk::Int32 i = 0; i < faceCount; ++i) {
         RoadModelSectionDrawingFace face;
+        if (version >= 2) {
+            face.layerName = readWideString(filer);
+        }
+        if (version >= 3) {
+            face.componentName = readWideString(filer);
+        }
+        if (version >= 4) {
+            face.faceId = readWideString(filer);
+            face.sourceTemplateHandle = readWideString(filer);
+            Adesk::Int32 rowIndex = -1;
+            filer->readInt32(&rowIndex);
+            face.sourceConfigRowIndex = static_cast<int>(rowIndex);
+            Adesk::Int32 manualEdited = 0;
+            filer->readInt32(&manualEdited);
+            face.manualEdited = manualEdited != 0;
+        }
         Adesk::Int32 colorValue = 0;
         filer->readInt32(&colorValue);
         face.colorR = static_cast<int>(colorValue);
@@ -615,6 +770,13 @@ Acad::ErrorStatus DnRoadModelSectionDrawingEntity::dwgInFields(AcDbDwgFiler* fil
         data.lines.push_back(std::move(line));
     }
 
+    if (version >= 4) {
+        std::wstring configError;
+        if (!readSectionDrawingConfig(filer, data.config, configError)) {
+            return Acad::eInvalidInput;
+        }
+    }
+
     filer->readVector3d(&xAxis_);
     filer->readVector3d(&yAxis_);
     if (!validateDrawingData(data) || !areAxesUsable(xAxis_, yAxis_)) {
@@ -644,6 +806,12 @@ Acad::ErrorStatus DnRoadModelSectionDrawingEntity::dwgOutFields(AcDbDwgFiler* fi
 
     filer->writeInt32(static_cast<Adesk::Int32>(data_.faces.size()));
     for (const auto& face : data_.faces) {
+        writeWideString(filer, face.layerName);
+        writeWideString(filer, face.componentName);
+        writeWideString(filer, face.faceId);
+        writeWideString(filer, face.sourceTemplateHandle);
+        filer->writeInt32(static_cast<Adesk::Int32>(face.sourceConfigRowIndex));
+        filer->writeInt32(face.manualEdited ? 1 : 0);
         filer->writeInt32(static_cast<Adesk::Int32>(face.colorR));
         filer->writeInt32(static_cast<Adesk::Int32>(face.colorG));
         filer->writeInt32(static_cast<Adesk::Int32>(face.colorB));
@@ -669,6 +837,8 @@ Acad::ErrorStatus DnRoadModelSectionDrawingEntity::dwgOutFields(AcDbDwgFiler* fi
             filer->writeDouble(point.y);
         }
     }
+
+    writeSectionDrawingConfig(filer, data_.config);
 
     filer->writeVector3d(xAxis_);
     filer->writeVector3d(yAxis_);
@@ -727,6 +897,66 @@ Acad::ErrorStatus DnRoadModelSectionDrawingEntity::subTransformBy(const AcGeMatr
     xAxis_ = newXAxis;
     yAxis_ = newYAxis;
     recordGraphicsModified(true);
+    return Acad::eOk;
+}
+
+Acad::ErrorStatus DnRoadModelSectionDrawingEntity::subGetGripPoints(
+    AcGePoint3dArray& gripPoints,
+    AcDbIntArray&,
+    AcDbIntArray&) const
+{
+    assertReadEnabled();
+    if (!validateDrawingData(data_) || !areAxesUsable(xAxis_, yAxis_)) {
+        return Acad::eOk;
+    }
+
+    for (const auto& face : data_.faces) {
+        for (const auto& point : face.points) {
+            gripPoints.append(sectionPoint(data_.insertionPoint, xAxis_, yAxis_, point.x, point.y));
+        }
+    }
+    return Acad::eOk;
+}
+
+Acad::ErrorStatus DnRoadModelSectionDrawingEntity::subMoveGripPointsAt(
+    const AcDbIntArray& indices,
+    const AcGeVector3d& offset)
+{
+    assertWriteEnabled();
+    if (indices.length() == 0 || offset.isZeroLength() || !validateDrawingData(data_) || !areAxesUsable(xAxis_, yAxis_)) {
+        return Acad::eOk;
+    }
+
+    const auto localDx = offset.dotProduct(xAxis_) / xAxis_.lengthSqrd();
+    const auto localDy = offset.dotProduct(yAxis_) / yAxis_.lengthSqrd();
+    if (!std::isfinite(localDx) || !std::isfinite(localDy)) {
+        return Acad::eInvalidInput;
+    }
+
+    bool moved = false;
+    for (int i = 0; i < indices.length(); ++i) {
+        const auto grip = faceGripIndex(indices.at(i), data_);
+        if (!grip.has_value()) {
+            continue;
+        }
+
+        auto& face = data_.faces[grip->faceIndex];
+        auto& point = face.points[grip->pointIndex];
+        const auto nextX = point.x + localDx;
+        const auto nextY = point.y + localDy;
+        if (!std::isfinite(nextX) || !std::isfinite(nextY)) {
+            continue;
+        }
+
+        point.x = nextX;
+        point.y = nextY;
+        face.manualEdited = true;
+        moved = true;
+    }
+
+    if (moved) {
+        recordGraphicsModified(true);
+    }
     return Acad::eOk;
 }
 

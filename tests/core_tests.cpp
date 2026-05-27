@@ -3922,6 +3922,38 @@ void roadModelSectionDrawingEntitySourceContractsExist()
     CHECK(command.find("appendRoadModelSectionDrawingEntities") != std::string::npos);
 }
 
+void sectionDrawingEntityPersistsConfigAndEditableFaceContracts()
+{
+    const auto root = findRepositoryRootForTests();
+    const auto header = readTextFileForTests(
+        root / "src" / "cad_adapter" / "objectarx" / "cross_section" / "DnRoadModelSectionDrawingEntity.h");
+    const auto source = readTextFileForTests(
+        root / "src" / "cad_adapter" / "objectarx" / "cross_section" / "DnRoadModelSectionDrawingEntity.cpp");
+
+    CHECK(header.find("SectionDrawingConfigModel.h") != std::string::npos);
+    CHECK(header.find("SectionDrawingConfigData") != std::string::npos);
+    CHECK(header.find("faceId") != std::string::npos);
+    CHECK(header.find("sourceTemplateHandle") != std::string::npos);
+    CHECK(header.find("sourceConfigRowIndex") != std::string::npos);
+    CHECK(header.find("manualEdited") != std::string::npos);
+    CHECK(header.find("setSectionDrawingConfig") != std::string::npos);
+    CHECK(header.find("replaceFaces") != std::string::npos);
+    CHECK(header.find("subGetGripPoints") != std::string::npos);
+    CHECK(header.find("subMoveGripPointsAt") != std::string::npos);
+
+    CHECK(source.find("kEntityVersion = 4") != std::string::npos);
+    CHECK(source.find("writeSectionDrawingConfig") != std::string::npos);
+    CHECK(source.find("readSectionDrawingConfig") != std::string::npos);
+    CHECK(source.find("version >= 4") != std::string::npos);
+    CHECK(source.find("face.faceId") != std::string::npos);
+    CHECK(source.find("face.sourceTemplateHandle") != std::string::npos);
+    CHECK(source.find("face.sourceConfigRowIndex") != std::string::npos);
+    CHECK(source.find("face.manualEdited") != std::string::npos);
+    CHECK(source.find("manualEdited = true") != std::string::npos);
+    CHECK(source.find("faceGripIndex") != std::string::npos);
+    CHECK(source.find("recordGraphicsModified(true)") != std::string::npos);
+}
+
 void roadModelWpfBridgeSourceContainsRequiredFields()
 {
     const auto root = findRepositoryRootForTests();
@@ -6743,6 +6775,7 @@ int main()
     roadModelNativeDialogBridgeSourceContainsRequiredFields();
     roadModelSectionViewerNativeBridgeSourceContainsRequiredFields();
     roadModelSectionDrawingEntitySourceContractsExist();
+    sectionDrawingEntityPersistsConfigAndEditableFaceContracts();
     roadModelCommandSourceContainsCompleteObjectArxFlow();
     roadModelCommandSourceCollectsPavementTemplateSources();
     pavementLayerTemplateNativeSourcesContainRequiredContracts();

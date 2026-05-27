@@ -59,6 +59,57 @@ void writeWideString(AcDbDwgFiler* filer, const std::wstring& value)
     filer->writeString(value.c_str());
 }
 
+bool canWriteInt32(std::size_t value)
+{
+    return value <= static_cast<std::size_t>(std::numeric_limits<Adesk::Int32>::max());
+}
+
+bool readCount(AcDbDwgFiler* filer, Adesk::Int32 maxValue, Adesk::Int32& count)
+{
+    count = 0;
+    filer->readInt32(&count);
+    return filer->filerStatus() == Acad::eOk && count >= 0 && count <= maxValue;
+}
+
+bool isValidSubgradeSide(Adesk::Int32 value)
+{
+    return value == static_cast<Adesk::Int32>(SubgradeSide::Left)
+        || value == static_cast<Adesk::Int32>(SubgradeSide::Right);
+}
+
+bool isValidSubgradeComponentType(Adesk::Int32 value)
+{
+    return value >= static_cast<Adesk::Int32>(SubgradeComponentType::Median)
+        && value <= static_cast<Adesk::Int32>(SubgradeComponentType::CurbStrip);
+}
+
+bool validateSectionDrawingConfig(const SectionDrawingConfigData& config)
+{
+    if (!canWriteInt32(config.pavementRows.size())
+        || config.pavementRows.size() > static_cast<std::size_t>(kMaxConfigRows)) {
+        return false;
+    }
+
+    for (const auto& row : config.pavementRows) {
+        if (!std::isfinite(row.startStation)
+            || !std::isfinite(row.endStation)
+            || !canWriteInt32(row.componentTypes.size())
+            || row.componentTypes.size() > static_cast<std::size_t>(kMaxConfigComponents)) {
+            return false;
+        }
+
+        for (const auto& component : row.componentTypes) {
+            const auto side = static_cast<Adesk::Int32>(component.side);
+            const auto componentType = static_cast<Adesk::Int32>(component.componentType);
+            if (!isValidSubgradeSide(side) || !isValidSubgradeComponentType(componentType)) {
+                return false;
+            }
+        }
+    }
+
+    return true;
+}
+
 void writeSectionDrawingConfig(AcDbDwgFiler* filer, const SectionDrawingConfigData& config)
 {
     filer->writeInt32(static_cast<Adesk::Int32>(config.version));
@@ -75,25 +126,6 @@ void writeSectionDrawingConfig(AcDbDwgFiler* filer, const SectionDrawingConfigDa
         writeWideString(filer, row.templateHandle);
         writeWideString(filer, row.templateName);
     }
-}
-
-bool readCount(AcDbDwgFiler* filer, Adesk::Int32 maxValue, Adesk::Int32& count)
-{
-    count = 0;
-    filer->readInt32(&count);
-    return count >= 0 && count <= maxValue;
-}
-
-bool isValidSubgradeSide(Adesk::Int32 value)
-{
-    return value == static_cast<Adesk::Int32>(SubgradeSide::Left)
-        || value == static_cast<Adesk::Int32>(SubgradeSide::Right);
-}
-
-bool isValidSubgradeComponentType(Adesk::Int32 value)
-{
-    return value >= static_cast<Adesk::Int32>(SubgradeComponentType::Median)
-        && value <= static_cast<Adesk::Int32>(SubgradeComponentType::CurbStrip);
 }
 
 bool readSectionDrawingConfig(AcDbDwgFiler* filer, SectionDrawingConfigData& config, std::wstring& errorMessage)
@@ -140,13 +172,11 @@ bool readSectionDrawingConfig(AcDbDwgFiler* filer, SectionDrawingConfigData& con
     if (!SectionDrawingConfigRules::normalize(data, errorMessage)) {
         return false;
     }
+    if (!validateSectionDrawingConfig(data)) {
+        return false;
+    }
     config = std::move(data);
     return true;
-}
-
-bool canWriteInt32(std::size_t value)
-{
-    return value <= static_cast<std::size_t>(std::numeric_limits<Adesk::Int32>::max());
 }
 
 bool isFinitePoint(const RoadModelSectionDrawingPoint& point)
@@ -622,7 +652,9 @@ Acad::ErrorStatus DnRoadModelSectionDrawingEntity::setDrawingData(const RoadMode
     assertWriteEnabled();
     auto updated = data;
     std::wstring errorMessage;
-    if (!SectionDrawingConfigRules::normalize(updated.config, errorMessage) || !validateDrawingData(updated)) {
+    if (!SectionDrawingConfigRules::normalize(updated.config, errorMessage)
+        || !validateSectionDrawingConfig(updated.config)
+        || !validateDrawingData(updated)) {
         return Acad::eInvalidInput;
     }
 
@@ -645,7 +677,9 @@ Acad::ErrorStatus DnRoadModelSectionDrawingEntity::setSectionDrawingConfig(const
     auto updated = data_;
     updated.config = config;
     std::wstring errorMessage;
-    if (!SectionDrawingConfigRules::normalize(updated.config, errorMessage)) {
+    if (!SectionDrawingConfigRules::normalize(updated.config, errorMessage)
+        || !validateSectionDrawingConfig(updated.config)
+        || !validateDrawingData(updated)) {
         return Acad::eInvalidInput;
     }
 
@@ -777,14 +811,23 @@ Acad::ErrorStatus DnRoadModelSectionDrawingEntity::dwgInFields(AcDbDwgFiler* fil
         }
     }
 
-    filer->readVector3d(&xAxis_);
-    filer->readVector3d(&yAxis_);
-    if (!validateDrawingData(data) || !areAxesUsable(xAxis_, yAxis_)) {
+    AcGeVector3d xAxis = AcGeVector3d::kXAxis;
+    AcGeVector3d yAxis = AcGeVector3d::kYAxis;
+    filer->readVector3d(&xAxis);
+    filer->readVector3d(&yAxis);
+
+    const auto finalStatus = filer->filerStatus();
+    if (finalStatus != Acad::eOk) {
+        return finalStatus;
+    }
+    if (!validateSectionDrawingConfig(data.config) || !validateDrawingData(data) || !areAxesUsable(xAxis, yAxis)) {
         return Acad::eInvalidInput;
     }
 
+    xAxis_ = xAxis;
+    yAxis_ = yAxis;
     data_ = std::move(data);
-    return filer->filerStatus();
+    return Acad::eOk;
 }
 
 Acad::ErrorStatus DnRoadModelSectionDrawingEntity::dwgOutFields(AcDbDwgFiler* filer) const
@@ -793,6 +836,11 @@ Acad::ErrorStatus DnRoadModelSectionDrawingEntity::dwgOutFields(AcDbDwgFiler* fi
     const auto status = AcDbEntity::dwgOutFields(filer);
     if (status != Acad::eOk) {
         return status;
+    }
+    if (!validateSectionDrawingConfig(data_.config)
+        || !validateDrawingData(data_)
+        || !areAxesUsable(xAxis_, yAxis_)) {
+        return Acad::eInvalidInput;
     }
 
     filer->writeInt16(kEntityVersion);

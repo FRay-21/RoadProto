@@ -3944,6 +3944,12 @@ void sectionDrawingEntityPersistsConfigAndEditableFaceContracts()
     CHECK(source.find("kEntityVersion = 4") != std::string::npos);
     CHECK(source.find("writeSectionDrawingConfig") != std::string::npos);
     CHECK(source.find("readSectionDrawingConfig") != std::string::npos);
+    CHECK(source.find("validateSectionDrawingConfig") != std::string::npos);
+    CHECK(source.find("kMaxConfigRows") != std::string::npos);
+    CHECK(source.find("kMaxConfigComponents") != std::string::npos);
+    CHECK(source.find("canWriteInt32(config.pavementRows.size())") != std::string::npos);
+    CHECK(source.find("canWriteInt32(row.componentTypes.size())") != std::string::npos);
+    CHECK(source.find("filer->filerStatus() == Acad::eOk") != std::string::npos);
     CHECK(source.find("version >= 4") != std::string::npos);
     CHECK(source.find("face.faceId") != std::string::npos);
     CHECK(source.find("face.sourceTemplateHandle") != std::string::npos);
@@ -3952,6 +3958,12 @@ void sectionDrawingEntityPersistsConfigAndEditableFaceContracts()
     CHECK(source.find("manualEdited = true") != std::string::npos);
     CHECK(source.find("faceGripIndex") != std::string::npos);
     CHECK(source.find("recordGraphicsModified(true)") != std::string::npos);
+
+    const auto finalStatusCheck = source.find("finalStatus != Acad::eOk");
+    const auto dataAssign = source.find("data_ = std::move(data)");
+    CHECK(finalStatusCheck != std::string::npos);
+    CHECK(dataAssign != std::string::npos);
+    CHECK(finalStatusCheck < dataAssign);
 }
 
 void roadModelWpfBridgeSourceContainsRequiredFields()

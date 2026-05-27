@@ -20,6 +20,7 @@ using CoreApplication = Autodesk.AutoCAD.ApplicationServices.Core.Application;
 [assembly: CommandClass(typeof(RoadProto.Terrain.UI.AutoCad.SlopeTemplateDialogCommands))]
 [assembly: CommandClass(typeof(RoadProto.Terrain.UI.AutoCad.RoadModelDialogCommands))]
 [assembly: CommandClass(typeof(RoadProto.Terrain.UI.AutoCad.RoadModelSectionViewerCommands))]
+[assembly: CommandClass(typeof(RoadProto.Terrain.UI.AutoCad.SectionDrawingConfigDialogCommands))]
 
 namespace RoadProto.Terrain.UI.AutoCad;
 

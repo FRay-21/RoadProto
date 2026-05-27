@@ -4020,6 +4020,50 @@ void sectionDrawingConfigBridgeSourceContracts()
     CHECK(arxProject.find("SectionDrawingConfigDialogBridge.cpp") != std::string::npos);
 }
 
+void sectionDrawingConfigWpfWindowSourceContracts()
+{
+    const auto root = findRepositoryRootForTests();
+    const auto xaml = readTextFileForTests(
+        root / "src" / "ui" / "wpf" / "RoadProto.Terrain.UI" / "SectionDrawingConfigWindow.xaml");
+    const auto code = readTextFileForTests(
+        root / "src" / "ui" / "wpf" / "RoadProto.Terrain.UI" / "SectionDrawingConfigWindow.xaml.cs");
+    const auto commands = readTextFileForTests(
+        root / "src" / "ui" / "wpf" / "RoadProto.Terrain.UI" / "AutoCad" / "SectionDrawingConfigDialogCommands.cs");
+    const auto ribbon = readTextFileForTests(
+        root / "src" / "ui" / "wpf" / "RoadProto.Terrain.UI" / "AutoCad" / "RoadProtoRibbonExtension.cs");
+
+    CHECK(xaml.find("横断面图配置") != std::string::npos);
+    CHECK(xaml.find("路面结构层") != std::string::npos);
+    CHECK(xaml.find("导入") != std::string::npos);
+    CHECK(xaml.find("导出") != std::string::npos);
+    CHECK(xaml.find("绘制") != std::string::npos);
+    CHECK(xaml.find("取消") != std::string::npos);
+    CHECK(xaml.find("起点桩号") != std::string::npos);
+    CHECK(xaml.find("终点桩号") != std::string::npos);
+    CHECK(xaml.find("路基类型") != std::string::npos);
+    CHECK(xaml.find("模板") != std::string::npos);
+    CHECK(xaml.find("选择") != std::string::npos);
+    CHECK(xaml.find("ComponentDisplayText") != std::string::npos);
+    CHECK(xaml.find("TemplateName") != std::string::npos);
+
+    CHECK(code.find("ImportCsv") != std::string::npos);
+    CHECK(code.find("ExportCsv") != std::string::npos);
+    CHECK(code.find("PickTemplate") != std::string::npos);
+    CHECK(code.find("Draw") != std::string::npos);
+    CHECK(code.find("DrawingHandle = _request.DrawingHandle") != std::string::npos);
+    CHECK(code.find("RoadModelHandle = _request.RoadModelHandle") != std::string::npos);
+    CHECK(code.find("ResponsePath = _request.ResponsePath") != std::string::npos);
+    CHECK(code.find("ComponentOptions = ComponentOptions.ToList()") != std::string::npos);
+    CHECK(code.find("PavementRows = PavementRows.ToList()") != std::string::npos);
+
+    CHECK(commands.find("RoadProtoSectionDrawingConfig_") != std::string::npos);
+    CHECK(commands.find("RD_SECTION_DRAWING_CONFIG_SHOW_WPF_DIALOG") != std::string::npos);
+    CHECK(commands.find("RD_SECTION_DRAWING_CONFIG_APPLY_DIALOG_FILE") != std::string::npos);
+    CHECK(commands.find("SectionDrawingConfigDialogFile.ReadRequest") != std::string::npos);
+    CHECK(commands.find("SectionDrawingConfigDialogFile.WriteResponse") != std::string::npos);
+    CHECK(ribbon.find("CommandClass(typeof(RoadProto.Terrain.UI.AutoCad.SectionDrawingConfigDialogCommands))") != std::string::npos);
+}
+
 void roadModelWpfBridgeSourceContainsRequiredFields()
 {
     const auto root = findRepositoryRootForTests();
@@ -6843,6 +6887,7 @@ int main()
     roadModelSectionDrawingEntitySourceContractsExist();
     sectionDrawingEntityPersistsConfigAndEditableFaceContracts();
     sectionDrawingConfigBridgeSourceContracts();
+    sectionDrawingConfigWpfWindowSourceContracts();
     roadModelCommandSourceContainsCompleteObjectArxFlow();
     roadModelCommandSourceCollectsPavementTemplateSources();
     pavementLayerTemplateNativeSourcesContainRequiredContracts();

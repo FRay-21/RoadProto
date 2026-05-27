@@ -47,11 +47,13 @@ public sealed class RoadProtoRibbonExtension : IExtensionApplication
     private const string RoadModelCreateButtonId = "ROADPROTO_RD_SECTION_ROAD_MODEL_CREATE";
     private const string RoadModelEditButtonId = "ROADPROTO_RD_SECTION_ROAD_MODEL_EDIT";
     private const string RoadModelSectionViewerButtonId = "ROADPROTO_RD_SECTION_ROAD_MODEL_VIEW_SECTION";
+    private const string SectionDrawingConfigButtonId = "ROADPROTO_RD_SECTION_DRAWING_CONFIG";
     private const string TerrainTinDxfName = "DNTERRAINTINENTITY";
     private const string RoadCenterlineDxfName = "DNROADCENTERLINEENTITY";
     private const string ProfileGradeGraphDxfName = "DNPROFILEGRADEGRAPHENTITY";
     private const string ProfileVerticalCurveDxfName = "DNPROFILEVERTICALCURVEENTITY";
     private const string RoadModelDxfName = "DNROADMODELENTITY";
+    private const string SectionDrawingDxfName = "DNROADMODELSECTIONDRAWINGENTITY";
     private const string SubgradeTemplateDxfName = "DNSUBGRADETEMPLATEENTITY";
     private const string SlopeTemplateDxfName = "DNSLOPETEMPLATEENTITY";
     private const string PavementLayerTemplateDxfName = "DNPAVEMENTLAYERTEMPLATEENTITY";
@@ -321,6 +323,14 @@ public sealed class RoadProtoRibbonExtension : IExtensionApplication
                 "RD_SECTION_ROAD_MODEL_VIEW_SECTION "));
         }
 
+        if (!crossSectionPanel.Source.Items.OfType<RibbonButton>().Any(item => item.Id == SectionDrawingConfigButtonId))
+        {
+            crossSectionPanel.Source.Items.Add(CreateCrossSectionCommandButton(
+                SectionDrawingConfigButtonId,
+                "横断面图配置",
+                "配置已绘制横断面图的路面结构层",
+                "RD_SECTION_DRAWING_CONFIG "));
+        }
         tab.IsActive = true;
 
         return true;
@@ -487,6 +497,14 @@ public sealed class RoadProtoRibbonExtension : IExtensionApplication
                 return;
             }
 
+            if (TryFindEntityByDxfName(document, e.Location, SectionDrawingDxfName, out var sectionDrawingId))
+            {
+                if (!SuppressDuplicateDoubleClick(sectionDrawingId))
+                {
+                    QueueSectionDrawingConfigEditByHandle(document, sectionDrawingId);
+                }
+                return;
+            }
             if (TryFindEntityByDxfName(document, e.Location, SubgradeTemplateDxfName, out var subgradeTemplateId))
             {
                 if (!SuppressDuplicateDoubleClick(subgradeTemplateId))
@@ -747,6 +765,16 @@ public sealed class RoadProtoRibbonExtension : IExtensionApplication
         document.SendStringToExecute($"RD_SECTION_ROAD_MODEL_EDIT_HANDLE {handle}\n", true, false, true);
     }
 
+    private static void QueueSectionDrawingConfigEditByHandle(Document document, ObjectId entityId)
+    {
+        var handle = entityId.Handle.ToString();
+        if (string.IsNullOrWhiteSpace(handle))
+        {
+            return;
+        }
+
+        document.SendStringToExecute($"RD_SECTION_DRAWING_CONFIG_EDIT_HANDLE {handle}\n", true, false, true);
+    }
     private static void SendActiveDocumentCommand(string command)
     {
         CoreApplication.DocumentManager.MdiActiveDocument?

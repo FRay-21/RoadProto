@@ -3742,6 +3742,46 @@ void startupRegistrationIncludesCrossSectionModule()
     CHECK(ribbon.tab().panels.front().moduleCode == L"CROSS_SECTION");
 }
 
+void crossSectionModuleRegistersSectionDrawingConfigCommands()
+{
+    roadproto::core::CommandRegistry commands;
+    roadproto::ui::RibbonModel ribbon;
+
+    auto module = roadproto::modules::cross_section::createCrossSectionModule();
+    module.registerCommands(commands);
+    module.registerRibbon(ribbon);
+
+    const auto configCommand = commands.find(L"RD_SECTION_DRAWING_CONFIG");
+    CHECK(configCommand.has_value());
+    if (configCommand.has_value()) {
+        CHECK(configCommand->moduleCode == L"CROSS_SECTION");
+        CHECK(configCommand->displayName == L"\u6a2a\u65ad\u9762\u56fe\u914d\u7f6e");
+        CHECK(configCommand->businessDocPath == L"docs/business/cross_section/\u6a2a\u65ad\u9762\u56fe\u914d\u7f6e.md");
+        CHECK(configCommand->ribbonAttachable);
+        CHECK(configCommand->isPrototype);
+        CHECK(configCommand->reusable);
+    }
+
+    const auto editCommand = commands.find(L"RD_SECTION_DRAWING_CONFIG_EDIT_HANDLE");
+    CHECK(editCommand.has_value());
+    if (editCommand.has_value()) {
+        CHECK(editCommand->moduleCode == L"CROSS_SECTION");
+        CHECK(editCommand->businessDocPath == L"docs/business/cross_section/\u6a2a\u65ad\u9762\u56fe\u914d\u7f6e.md");
+        CHECK(!editCommand->ribbonAttachable);
+        CHECK(editCommand->isPrototype);
+        CHECK(!editCommand->reusable);
+    }
+
+    const auto applyCommand = commands.find(L"RD_SECTION_DRAWING_CONFIG_APPLY_DIALOG_FILE");
+    CHECK(applyCommand.has_value());
+    if (applyCommand.has_value()) {
+        CHECK(applyCommand->moduleCode == L"CROSS_SECTION");
+        CHECK(applyCommand->businessDocPath == L"docs/business/cross_section/\u6a2a\u65ad\u9762\u56fe\u914d\u7f6e.md");
+        CHECK(!applyCommand->ribbonAttachable);
+        CHECK(applyCommand->isPrototype);
+        CHECK(!applyCommand->reusable);
+    }
+}
 void managedRibbonExtensionRegistersSubgradeTemplateEntryPoints()
 {
     const auto sourcePath = findRepositoryRootForTests()
@@ -4020,6 +4060,54 @@ void sectionDrawingConfigBridgeSourceContracts()
     CHECK(arxProject.find("SectionDrawingConfigDialogBridge.cpp") != std::string::npos);
 }
 
+void sectionDrawingConfigObjectArxCommandSourceContracts()
+{
+    const auto root = findRepositoryRootForTests();
+    const auto header = readTextFileForTests(
+        root / "src" / "cad_adapter" / "objectarx" / "cross_section" / "ObjectArxSectionDrawingConfigCommand.h");
+    const auto source = readTextFileForTests(
+        root / "src" / "cad_adapter" / "objectarx" / "cross_section" / "ObjectArxSectionDrawingConfigCommand.cpp");
+    const auto module = readTextFileForTests(root / "src" / "modules" / "cross_section" / "CrossSectionModule.cpp");
+    const auto ribbon = readTextFileForTests(
+        root / "src" / "ui" / "wpf" / "RoadProto.Terrain.UI" / "AutoCad" / "RoadProtoRibbonExtension.cs");
+    const auto arxProject = readTextFileForTests(root / "src" / "app" / "RoadProtoArx.vcxproj");
+
+    CHECK(header.find("sectionDrawingConfigCommandProcedure") != std::string::npos);
+    CHECK(header.find("sectionDrawingConfigEditHandleCommandProcedure") != std::string::npos);
+    CHECK(header.find("sectionDrawingConfigApplyDialogFileCommandProcedure") != std::string::npos);
+
+    CHECK(source.find("collectSectionDrawingsForRoadModel") != std::string::npos);
+    CHECK(source.find("collectComponentOptions") != std::string::npos);
+    CHECK(source.find("promptPavementLayerTemplate") != std::string::npos);
+    CHECK(source.find("applySectionDrawingConfigToAllDrawings") != std::string::npos);
+    CHECK(source.find("buildConfiguredPavementFaces") != std::string::npos);
+    CHECK(source.find("preserveManualEditedFaces") != std::string::npos);
+    CHECK(source.find("manualEdited") != std::string::npos);
+    CHECK(source.find("PavementLayerTemplateRules::buildSection") != std::string::npos);
+    CHECK(source.find("SectionDrawingConfigRules::resolvePavementRow") != std::string::npos);
+    CHECK(source.find("SectionDrawingConfigRules::matchesComponent") != std::string::npos);
+    CHECK(source.find("sourceTemplateHandle") != std::string::npos);
+    CHECK(source.find("sourceConfigRowIndex") != std::string::npos);
+    CHECK(source.find("setSectionDrawingConfig") != std::string::npos);
+    CHECK(source.find("replaceFaces") != std::string::npos);
+    CHECK(source.find("queueSectionDrawingConfigWpfDialog") != std::string::npos);
+    CHECK(source.find("readSectionDrawingConfigDialogResponse") != std::string::npos);
+    CHECK(source.find("SectionDrawingConfigDialogAction::PickTemplate") != std::string::npos);
+    CHECK(source.find("SectionDrawingConfigDialogAction::Draw") != std::string::npos);
+
+    CHECK(module.find("RD_SECTION_DRAWING_CONFIG") != std::string::npos);
+    CHECK(module.find("RD_SECTION_DRAWING_CONFIG_EDIT_HANDLE") != std::string::npos);
+    CHECK(module.find("RD_SECTION_DRAWING_CONFIG_APPLY_DIALOG_FILE") != std::string::npos);
+    CHECK(module.find("sectionDrawingConfigCommandProcedure") != std::string::npos);
+    CHECK(module.find("sectionDrawingConfigEditHandleCommandProcedure") != std::string::npos);
+    CHECK(module.find("sectionDrawingConfigApplyDialogFileCommandProcedure") != std::string::npos);
+
+    CHECK(ribbon.find("SectionDrawingConfigButtonId") != std::string::npos);
+    CHECK(ribbon.find("DNROADMODELSECTIONDRAWINGENTITY") != std::string::npos);
+    CHECK(ribbon.find("RD_SECTION_DRAWING_CONFIG_EDIT_HANDLE") != std::string::npos);
+    CHECK(ribbon.find("RD_SECTION_DRAWING_CONFIG ") != std::string::npos);
+    CHECK(arxProject.find("ObjectArxSectionDrawingConfigCommand.cpp") != std::string::npos);
+}
 void sectionDrawingConfigWpfWindowSourceContracts()
 {
     const auto root = findRepositoryRootForTests();
@@ -6889,6 +6977,7 @@ int main()
     roadModelBuilderRejectsInvalidTemplateSource();
     roadModelBuildServiceRejectsMissingHandlesAndDelegatesBuild();
     crossSectionModuleRegistersSubgradeTemplateCommandsAndRibbonPanel();
+    crossSectionModuleRegistersSectionDrawingConfigCommands();
     pavementLayerTemplateDocumentationAndVersionContracts();
     startupRegistrationIncludesCrossSectionModule();
     managedRibbonExtensionRegistersSubgradeTemplateEntryPoints();
@@ -6899,6 +6988,7 @@ int main()
     roadModelSectionDrawingEntitySourceContractsExist();
     sectionDrawingEntityPersistsConfigAndEditableFaceContracts();
     sectionDrawingConfigBridgeSourceContracts();
+    sectionDrawingConfigObjectArxCommandSourceContracts();
     sectionDrawingConfigWpfWindowSourceContracts();
     roadModelCommandSourceContainsCompleteObjectArxFlow();
     roadModelCommandSourceCollectsPavementTemplateSources();

@@ -2,6 +2,7 @@
 
 #include "cad_adapter/objectarx/cross_section/ObjectArxPavementLayerTemplateCommand.h"
 #include "cad_adapter/objectarx/cross_section/ObjectArxRoadModelCommand.h"
+#include "cad_adapter/objectarx/cross_section/ObjectArxSectionDrawingConfigCommand.h"
 #include "cad_adapter/objectarx/cross_section/ObjectArxSlopeTemplateCommand.h"
 #include "cad_adapter/objectarx/cross_section/ObjectArxSubgradeTemplateCommand.h"
 #include "ui/ribbon/RibbonModel.h"
@@ -174,6 +175,39 @@ void registerCrossSectionCommands(core::CommandRegistry& commandRegistry)
         true,
         false,
         L"docs/business/cross_section/查看横断面.md",
+        false});
+
+    commandRegistry.registerCommand(core::CommandDefinition{
+        L"RD_SECTION_DRAWING_CONFIG",
+        L"\u6a2a\u65ad\u9762\u56fe\u914d\u7f6e",
+        L"CROSS_SECTION",
+        L"Configures pavement layer faces for existing section drawing entities.",
+        cad_adapter::objectarx::cross_section::sectionDrawingConfigCommandProcedure(),
+        true,
+        true,
+        L"docs/business/cross_section/\u6a2a\u65ad\u9762\u56fe\u914d\u7f6e.md",
+        true});
+
+    commandRegistry.registerCommand(core::CommandDefinition{
+        L"RD_SECTION_DRAWING_CONFIG_EDIT_HANDLE",
+        L"\u6309 handle \u7f16\u8f91\u6a2a\u65ad\u9762\u56fe\u914d\u7f6e",
+        L"CROSS_SECTION",
+        L"Internal double-click bridge command that opens section drawing config by handle.",
+        cad_adapter::objectarx::cross_section::sectionDrawingConfigEditHandleCommandProcedure(),
+        true,
+        false,
+        L"docs/business/cross_section/\u6a2a\u65ad\u9762\u56fe\u914d\u7f6e.md",
+        false});
+
+    commandRegistry.registerCommand(core::CommandDefinition{
+        L"RD_SECTION_DRAWING_CONFIG_APPLY_DIALOG_FILE",
+        L"\u5e94\u7528\u6a2a\u65ad\u9762\u56fe\u914d\u7f6e\u5bf9\u8bdd\u6846\u7ed3\u679c",
+        L"CROSS_SECTION",
+        L"Internal WPF bridge command that applies section drawing config response files.",
+        cad_adapter::objectarx::cross_section::sectionDrawingConfigApplyDialogFileCommandProcedure(),
+        true,
+        false,
+        L"docs/business/cross_section/\u6a2a\u65ad\u9762\u56fe\u914d\u7f6e.md",
         false});
 }
 

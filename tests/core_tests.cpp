@@ -4078,22 +4078,34 @@ void sectionDrawingConfigObjectArxCommandSourceContracts()
 
     CHECK(source.find("collectSectionDrawingsForRoadModel") != std::string::npos);
     CHECK(source.find("collectComponentOptions") != std::string::npos);
+    CHECK(source.find("collectDrawnSectionStationsForRoadModel") != std::string::npos);
+    CHECK(source.find("collectComponentOptions(roadModel, drawnStations)") != std::string::npos);
     CHECK(source.find("promptPavementLayerTemplate") != std::string::npos);
     CHECK(source.find("applySectionDrawingConfigToAllDrawings") != std::string::npos);
     CHECK(source.find("buildConfiguredPavementFaces") != std::string::npos);
+    CHECK(source.find("drawingBasisForSection") != std::string::npos);
     CHECK(source.find("preserveManualEditedFaces") != std::string::npos);
     CHECK(source.find("manualEdited") != std::string::npos);
     CHECK(source.find("PavementLayerTemplateRules::buildSection") != std::string::npos);
     CHECK(source.find("SectionDrawingConfigRules::resolvePavementRow") != std::string::npos);
     CHECK(source.find("SectionDrawingConfigRules::matchesComponent") != std::string::npos);
+    CHECK(source.find("std::min(component.key.componentIndex") == std::string::npos);
+    CHECK(source.find("component.key.componentIndex, nodes.size") == std::string::npos);
     CHECK(source.find("sourceTemplateHandle") != std::string::npos);
     CHECK(source.find("sourceConfigRowIndex") != std::string::npos);
-    CHECK(source.find("setSectionDrawingConfig") != std::string::npos);
-    CHECK(source.find("replaceFaces") != std::string::npos);
+    CHECK(source.find("+ std::to_wstring(span.componentIndex)") != std::string::npos);
+    CHECK(source.find("setDrawingData(updatedDrawing)") != std::string::npos);
+    CHECK(source.find("warnings.push_back") != std::string::npos);
+    CHECK(source.find("writeWarnings(editor, warnings)") != std::string::npos);
     CHECK(source.find("queueSectionDrawingConfigWpfDialog") != std::string::npos);
     CHECK(source.find("readSectionDrawingConfigDialogResponse") != std::string::npos);
     CHECK(source.find("SectionDrawingConfigDialogAction::PickTemplate") != std::string::npos);
     CHECK(source.find("SectionDrawingConfigDialogAction::Draw") != std::string::npos);
+    const auto buildFaces = source.find("auto faces = buildConfiguredPavementFaces");
+    const auto assignData = source.find("setDrawingData(updatedDrawing)");
+    CHECK(buildFaces != std::string::npos);
+    CHECK(assignData != std::string::npos);
+    CHECK(buildFaces < assignData);
 
     CHECK(module.find("RD_SECTION_DRAWING_CONFIG") != std::string::npos);
     CHECK(module.find("RD_SECTION_DRAWING_CONFIG_EDIT_HANDLE") != std::string::npos);

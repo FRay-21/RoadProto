@@ -19,10 +19,12 @@
 #include <algorithm>
 #include <cmath>
 #include <cwctype>
+#include <limits>
 #include <map>
 #include <set>
 #include <sstream>
 #include <string>
+#include <tuple>
 #include <unordered_map>
 #include <utility>
 #include <vector>
@@ -39,6 +41,7 @@ using roadproto::domain::cross_section::RoadModelComponentLine;
 using roadproto::domain::cross_section::RoadModelData;
 using roadproto::domain::cross_section::RoadModelSection;
 using roadproto::domain::cross_section::RoadModelSectionNode;
+using roadproto::domain::cross_section::RoadModelSectionNodeKind;
 using roadproto::domain::cross_section::SectionDrawingComponentTypeSelection;
 using roadproto::domain::cross_section::SectionDrawingConfigData;
 using roadproto::domain::cross_section::SectionDrawingConfigRules;
@@ -240,33 +243,6 @@ bool promptPavementLayerTemplate(std::wstring& templateHandle, std::wstring& tem
     return !templateHandle.empty();
 }
 
-std::vector<SectionDrawingConfigComponentOption> collectComponentOptions(const RoadModelData& data)
-{
-    std::map<std::wstring, SectionDrawingConfigComponentOption> unique;
-    for (const auto& line : data.componentLines) {
-        SectionDrawingComponentTypeSelection selection;
-        selection.side = line.key.side;
-        selection.componentType = line.key.componentType;
-        const auto code = SectionDrawingConfigRules::componentSelectionCode(selection);
-        if (code.empty() || unique.find(code) != unique.end()) {
-            continue;
-        }
-
-        SectionDrawingConfigComponentOption option;
-        option.code = code;
-        option.displayName = SectionDrawingConfigRules::componentSelectionDisplayName(selection);
-        option.selection = selection;
-        unique.emplace(code, std::move(option));
-    }
-
-    std::vector<SectionDrawingConfigComponentOption> options;
-    options.reserve(unique.size());
-    for (auto& pair : unique) {
-        options.push_back(std::move(pair.second));
-    }
-    return options;
-}
-
 std::vector<AcDbObjectId> collectSectionDrawingsForRoadModel(const std::wstring& roadModelHandle)
 {
     std::vector<AcDbObjectId> drawingIds;
@@ -316,6 +292,30 @@ std::vector<AcDbObjectId> collectSectionDrawingsForRoadModel(const std::wstring&
     return drawingIds;
 }
 
+std::vector<double> collectDrawnSectionStationsForRoadModel(const std::wstring& roadModelHandle)
+{
+    std::vector<double> stations;
+    for (const auto& drawingId : collectSectionDrawingsForRoadModel(roadModelHandle)) {
+        DnRoadModelSectionDrawingEntity* entity = nullptr;
+        if (acdbOpenObject(entity, drawingId, AcDb::kForRead) != Acad::eOk || entity == nullptr) {
+            continue;
+        }
+        if (entity->isKindOf(DnRoadModelSectionDrawingEntity::desc())
+            && std::isfinite(entity->drawingData().station)) {
+            stations.push_back(entity->drawingData().station);
+        }
+        entity->close();
+    }
+
+    std::sort(stations.begin(), stations.end());
+    stations.erase(
+        std::unique(stations.begin(), stations.end(), [](double left, double right) {
+            return std::fabs(left - right) <= kStationEpsilon;
+        }),
+        stations.end());
+    return stations;
+}
+
 const RoadModelSection* findRoadModelSectionAtStation(const RoadModelData& data, double station)
 {
     const RoadModelSection* best = nullptr;
@@ -351,7 +351,9 @@ std::vector<RoadModelSectionNode> sortedFiniteNodesForSide(
     const auto& source = side == SubgradeSide::Left ? section.leftNodes : section.rightNodes;
     std::vector<RoadModelSectionNode> nodes;
     for (const auto& node : source) {
-        if (std::isfinite(node.offset) && std::isfinite(node.elevation)) {
+        if (node.kind == RoadModelSectionNodeKind::Subgrade
+            && std::isfinite(node.offset)
+            && std::isfinite(node.elevation)) {
             nodes.push_back(node);
         }
     }
@@ -359,6 +361,113 @@ std::vector<RoadModelSectionNode> sortedFiniteNodesForSide(
         return std::fabs(left.offset) < std::fabs(right.offset);
     });
     return nodes;
+}
+
+struct SectionComponentSpan {
+    SubgradeSide side = SubgradeSide::Right;
+    SubgradeComponentType componentType = SubgradeComponentType::TravelLane;
+    std::size_t componentIndex = 0;
+    RoadModelSectionNode inner;
+    RoadModelSectionNode outer;
+};
+
+struct ComponentBoundaryPresence {
+    bool hasInner = false;
+    bool hasOuter = false;
+};
+
+std::vector<SectionComponentSpan> collectSectionComponentSpans(
+    const RoadModelData& roadModel,
+    const RoadModelSection& section,
+    const SectionPavementLayerConfigRow* row)
+{
+    std::map<std::tuple<SubgradeSide, SubgradeComponentType, std::size_t>, ComponentBoundaryPresence> boundaries;
+    for (const auto& line : roadModel.componentLines) {
+        if (row != nullptr && !SectionDrawingConfigRules::matchesComponent(*row, line.key.side, line.key.componentType)) {
+            continue;
+        }
+        auto& boundary = boundaries[std::make_tuple(
+            line.key.side,
+            line.key.componentType,
+            line.key.componentIndex)];
+        if (line.key.boundaryIndex == 0) {
+            boundary.hasInner = true;
+        } else if (line.key.boundaryIndex == 1) {
+            boundary.hasOuter = true;
+        }
+    }
+
+    std::vector<SectionComponentSpan> spans;
+    for (const auto& entry : boundaries) {
+        const auto side = std::get<0>(entry.first);
+        const auto componentType = std::get<1>(entry.first);
+        const auto componentIndex = std::get<2>(entry.first);
+        const auto& boundary = entry.second;
+        if (!boundary.hasInner || !boundary.hasOuter) {
+            continue;
+        }
+
+        auto nodes = sortedFiniteNodesForSide(section, side);
+        if (componentIndex + 1 >= nodes.size()) {
+            continue;
+        }
+
+        auto inner = nodes[componentIndex];
+        auto outer = nodes[componentIndex + 1];
+        if (std::fabs(outer.offset) < std::fabs(inner.offset)) {
+            std::swap(inner, outer);
+        }
+
+        const auto width = std::fabs(outer.offset - inner.offset);
+        if (!std::isfinite(width) || width <= 1.0e-6) {
+            continue;
+        }
+
+        SectionComponentSpan span;
+        span.side = side;
+        span.componentType = componentType;
+        span.componentIndex = componentIndex;
+        span.inner = std::move(inner);
+        span.outer = std::move(outer);
+        spans.push_back(std::move(span));
+    }
+    return spans;
+}
+
+std::vector<SectionDrawingConfigComponentOption> collectComponentOptions(
+    const RoadModelData& roadModel,
+    const std::vector<double>& drawnStations)
+{
+    std::map<std::wstring, SectionDrawingConfigComponentOption> unique;
+    for (const auto station : drawnStations) {
+        const auto* section = findRoadModelSectionAtStation(roadModel, station);
+        if (section == nullptr) {
+            continue;
+        }
+
+        for (const auto& span : collectSectionComponentSpans(roadModel, *section, nullptr)) {
+            SectionDrawingComponentTypeSelection selection;
+            selection.side = span.side;
+            selection.componentType = span.componentType;
+            const auto code = SectionDrawingConfigRules::componentSelectionCode(selection);
+            if (code.empty() || unique.find(code) != unique.end()) {
+                continue;
+            }
+
+            SectionDrawingConfigComponentOption option;
+            option.code = code;
+            option.displayName = SectionDrawingConfigRules::componentSelectionDisplayName(selection);
+            option.selection = selection;
+            unique.emplace(code, std::move(option));
+        }
+    }
+
+    std::vector<SectionDrawingConfigComponentOption> options;
+    options.reserve(unique.size());
+    for (auto& pair : unique) {
+        options.push_back(std::move(pair.second));
+    }
+    return options;
 }
 
 bool isFiniteDrawingPoint(const RoadModelSectionDrawingPoint& point)
@@ -377,75 +486,86 @@ RoadModelSectionDrawingPoint mapSectionPointToDrawing(
         elevation - minElevation + kSectionDrawingStationLabelBand + kSectionDrawingPadding};
 }
 
-double minSectionOffset(const RoadModelSection& section)
+struct DrawingBasis {
+    double minOffset = 0.0;
+    double minElevation = 0.0;
+    bool valid = false;
+};
+
+void includeSectionBasisPoint(DrawingBasis& basis, double offset, double elevation)
 {
-    bool initialized = false;
-    double result = 0.0;
-    const auto accumulate = [&](const std::vector<RoadModelSectionNode>& nodes) {
-        for (const auto& node : nodes) {
-            if (!std::isfinite(node.offset)) {
-                continue;
-            }
-            if (!initialized) {
-                result = node.offset;
-                initialized = true;
-            } else {
-                result = std::min(result, node.offset);
-            }
-        }
-    };
-    accumulate(section.leftNodes);
-    accumulate(section.rightNodes);
-    return initialized ? result : 0.0;
+    if (!std::isfinite(offset) || !std::isfinite(elevation)) {
+        return;
+    }
+    if (!basis.valid) {
+        basis.minOffset = offset;
+        basis.minElevation = elevation;
+        basis.valid = true;
+        return;
+    }
+    basis.minOffset = std::min(basis.minOffset, offset);
+    basis.minElevation = std::min(basis.minElevation, elevation);
 }
 
-double minSectionElevation(const RoadModelSection& section)
+void includeSectionBasisNodes(DrawingBasis& basis, const std::vector<RoadModelSectionNode>& nodes)
 {
-    bool initialized = false;
-    double result = 0.0;
-    const auto accumulate = [&](const std::vector<RoadModelSectionNode>& nodes) {
-        for (const auto& node : nodes) {
-            if (!std::isfinite(node.elevation)) {
-                continue;
-            }
-            if (!initialized) {
-                result = node.elevation;
-                initialized = true;
-            } else {
-                result = std::min(result, node.elevation);
-            }
-        }
-    };
-    accumulate(section.leftNodes);
-    accumulate(section.rightNodes);
-    accumulate(section.leftPavementLayerNodes);
-    accumulate(section.rightPavementLayerNodes);
-    return initialized ? result : 0.0;
+    for (const auto& node : nodes) {
+        includeSectionBasisPoint(basis, node.offset, node.elevation);
+    }
 }
 
-std::vector<RoadModelComponentLine> matchingComponentLines(
-    const RoadModelData& data,
-    const SectionPavementLayerConfigRow& row)
+DrawingBasis drawingBasisForSection(
+    const RoadModelSectionDrawingData& drawing,
+    const RoadModelSection& section)
 {
-    std::vector<RoadModelComponentLine> result;
-    std::set<std::tuple<SubgradeSide, SubgradeComponentType, std::size_t>> seen;
-    for (const auto& line : data.componentLines) {
-        if (!SectionDrawingConfigRules::matchesComponent(row, line.key.side, line.key.componentType)) {
-            continue;
+    DrawingBasis basis;
+    includeSectionBasisNodes(basis, section.leftNodes);
+    includeSectionBasisNodes(basis, section.rightNodes);
+    includeSectionBasisNodes(basis, section.leftPavementLayerNodes);
+    includeSectionBasisNodes(basis, section.rightPavementLayerNodes);
+    for (const auto& point : section.leftGroundProfile) {
+        includeSectionBasisPoint(basis, point.offset, point.elevation);
+    }
+    for (const auto& point : section.rightGroundProfile) {
+        includeSectionBasisPoint(basis, point.offset, point.elevation);
+    }
+    if (basis.valid) {
+        return basis;
+    }
+
+    double minLocalX = std::numeric_limits<double>::infinity();
+    double minLocalY = std::numeric_limits<double>::infinity();
+    const auto includeDrawingPoint = [&](const RoadModelSectionDrawingPoint& point) {
+        if (!isFiniteDrawingPoint(point)) {
+            return;
         }
-        const auto key = std::make_tuple(line.key.side, line.key.componentType, line.key.componentIndex);
-        if (seen.insert(key).second) {
-            result.push_back(line);
+        minLocalX = std::min(minLocalX, point.x);
+        minLocalY = std::min(minLocalY, point.y);
+    };
+    for (const auto& line : drawing.lines) {
+        for (const auto& point : line.points) {
+            includeDrawingPoint(point);
         }
     }
-    return result;
+    for (const auto& face : drawing.faces) {
+        for (const auto& point : face.points) {
+            includeDrawingPoint(point);
+        }
+    }
+    if (std::isfinite(minLocalX) && std::isfinite(minLocalY)) {
+        basis.minOffset = kSectionDrawingPadding - minLocalX;
+        basis.minElevation = kSectionDrawingStationLabelBand + kSectionDrawingPadding - minLocalY;
+        basis.valid = true;
+    }
+    return basis;
 }
 
 std::vector<RoadModelSectionDrawingFace> buildConfiguredPavementFaces(
     const RoadModelSectionDrawingData& drawing,
     const RoadModelData& roadModel,
     const std::unordered_map<std::wstring, PavementLayerTemplateData>& templates,
-    std::size_t& preservedManualFaceCount)
+    std::size_t& preservedManualFaceCount,
+    std::vector<std::wstring>& warnings)
 {
     auto faces = preserveManualEditedFaces(drawing.faces, preservedManualFaceCount);
     const auto resolved = SectionDrawingConfigRules::resolvePavementRow(drawing.config, drawing.station);
@@ -455,31 +575,28 @@ std::vector<RoadModelSectionDrawingFace> buildConfiguredPavementFaces(
 
     const auto templateIt = templates.find(resolved->row.templateHandle);
     if (templateIt == templates.end()) {
+        warnings.push_back(L"Missing pavement layer template: " + resolved->row.templateHandle);
         return faces;
     }
 
     const auto* section = findRoadModelSectionAtStation(roadModel, drawing.station);
     if (section == nullptr) {
+        warnings.push_back(L"No road model section exists at station " + std::to_wstring(drawing.station));
         return faces;
     }
 
-    const auto minOffset = minSectionOffset(*section);
-    const auto minElevation = minSectionElevation(*section);
-    const auto components = matchingComponentLines(roadModel, resolved->row);
-    for (const auto& component : components) {
-        auto nodes = sortedFiniteNodesForSide(*section, component.key.side);
-        if (nodes.size() < 2) {
-            continue;
-        }
+    const auto basis = drawingBasisForSection(drawing, *section);
+    if (!basis.valid) {
+        warnings.push_back(L"Cannot derive section drawing basis at station " + std::to_wstring(drawing.station));
+        return faces;
+    }
 
-        const auto index = std::min(component.key.componentIndex, nodes.size() - 2);
-        auto first = nodes[index];
-        auto second = nodes[index + 1];
-        if (std::fabs(second.offset) < std::fabs(first.offset)) {
-            std::swap(first, second);
-        }
-
-        const auto baseWidth = std::fabs(second.offset - first.offset);
+    const auto spans = collectSectionComponentSpans(roadModel, *section, &resolved->row);
+    if (spans.empty()) {
+        warnings.push_back(L"No matching component span exists at station " + std::to_wstring(drawing.station));
+    }
+    for (const auto& span : spans) {
+        const auto baseWidth = std::fabs(span.outer.offset - span.inner.offset);
         if (!std::isfinite(baseWidth) || baseWidth <= 1.0e-6) {
             continue;
         }
@@ -487,35 +604,44 @@ std::vector<RoadModelSectionDrawingFace> buildConfiguredPavementFaces(
         const auto pavementSection = PavementLayerTemplateRules::buildSection(
             templateIt->second,
             baseWidth,
-            component.key.side,
-            first.elevation,
-            second.elevation);
+            span.side,
+            span.inner.elevation,
+            span.outer.elevation);
         if (!pavementSection.succeeded) {
+            warnings.push_back(
+                L"Pavement layer section failed at station "
+                + std::to_wstring(drawing.station)
+                + L", componentIndex "
+                + std::to_wstring(span.componentIndex)
+                + L": "
+                + pavementSection.errorMessage);
             continue;
         }
 
-        const auto direction = (second.offset >= first.offset ? 1.0 : -1.0);
+        const auto direction = (span.outer.offset >= span.inner.offset ? 1.0 : -1.0);
         for (std::size_t layerIndex = 0; layerIndex < pavementSection.layers.size(); ++layerIndex) {
             const auto& layer = pavementSection.layers[layerIndex];
             const auto toDrawing = [&](double layerOffset, double layerElevation) {
                 return mapSectionPointToDrawing(
-                    first.offset + direction * layerOffset,
+                    span.inner.offset + direction * layerOffset,
                     layerElevation,
-                    minOffset,
-                    minElevation);
+                    basis.minOffset,
+                    basis.minElevation);
             };
 
             RoadModelSectionDrawingFace face;
             face.layerName = layer.name.empty() ? L"\u8def\u9762\u7ed3\u6784\u5c42" : layer.name;
-            face.componentName = first.componentName.empty()
+            face.componentName = span.inner.componentName.empty()
                 ? SectionDrawingConfigRules::componentSelectionDisplayName(
-                    SectionDrawingComponentTypeSelection{component.key.side, component.key.componentType})
-                : first.componentName;
+                    SectionDrawingComponentTypeSelection{span.side, span.componentType})
+                : span.inner.componentName;
             face.faceId = L"row"
                 + std::to_wstring(resolved->rowIndex)
                 + L":"
                 + SectionDrawingConfigRules::componentSelectionCode(
-                    SectionDrawingComponentTypeSelection{component.key.side, component.key.componentType})
+                    SectionDrawingComponentTypeSelection{span.side, span.componentType})
+                + L":"
+                + std::to_wstring(span.componentIndex)
                 + L":"
                 + std::to_wstring(layerIndex);
             face.sourceTemplateHandle = resolved->row.templateHandle;
@@ -570,7 +696,8 @@ bool queueDialogForSectionDrawing(AcDbObjectId drawingId, const SectionDrawingCo
     RoadModelData roadModel;
     std::vector<SectionDrawingConfigComponentOption> componentOptions;
     if (readRoadModelDataByHandle(drawingData.roadModelHandle, roadModel)) {
-        componentOptions = collectComponentOptions(roadModel);
+        const auto drawnStations = collectDrawnSectionStationsForRoadModel(drawingData.roadModelHandle);
+        componentOptions = collectComponentOptions(roadModel, drawnStations);
     }
 
     SectionDrawingConfigDialogRequest request;
@@ -614,7 +741,8 @@ bool queueDialogFromResponse(const SectionDrawingConfigDialogResponse& response)
     if (request.componentOptions.empty()) {
         RoadModelData roadModel;
         if (readRoadModelDataByHandle(request.roadModelHandle, roadModel)) {
-            request.componentOptions = collectComponentOptions(roadModel);
+            const auto drawnStations = collectDrawnSectionStationsForRoadModel(request.roadModelHandle);
+            request.componentOptions = collectComponentOptions(roadModel, drawnStations);
         }
     }
 
@@ -627,7 +755,8 @@ bool queueDialogFromResponse(const SectionDrawingConfigDialogResponse& response)
 }
 
 std::unordered_map<std::wstring, PavementLayerTemplateData> collectPavementTemplatesForConfig(
-    const SectionDrawingConfigData& config)
+    const SectionDrawingConfigData& config,
+    std::vector<std::wstring>& warnings)
 {
     std::unordered_map<std::wstring, PavementLayerTemplateData> templates;
     for (const auto& row : config.pavementRows) {
@@ -639,9 +768,24 @@ std::unordered_map<std::wstring, PavementLayerTemplateData> collectPavementTempl
         std::wstring templateName;
         if (readPavementLayerTemplateByHandle(row.templateHandle, data, templateName)) {
             templates.emplace(row.templateHandle, std::move(data));
+        } else {
+            warnings.push_back(L"Cannot read pavement layer template: " + row.templateHandle);
         }
     }
     return templates;
+}
+
+void writeWarnings(roadproto::cad_adapter::IEditor& editor, const std::vector<std::wstring>& warnings)
+{
+    constexpr std::size_t kMaxWarningsToPrint = 12;
+    for (std::size_t i = 0; i < warnings.size() && i < kMaxWarningsToPrint; ++i) {
+        editor.writeWarning(warnings[i]);
+    }
+    if (warnings.size() > kMaxWarningsToPrint) {
+        editor.writeWarning(
+            L"Additional section drawing config warning count: "
+            + std::to_wstring(warnings.size() - kMaxWarningsToPrint));
+    }
 }
 
 bool applySectionDrawingConfigToAllDrawings(
@@ -667,11 +811,12 @@ bool applySectionDrawingConfigToAllDrawings(
         return false;
     }
 
-    const auto templates = collectPavementTemplatesForConfig(normalized);
+    std::vector<std::wstring> warnings;
+    const auto templates = collectPavementTemplatesForConfig(normalized, warnings);
     const auto drawingIds = collectSectionDrawingsForRoadModel(roadModelHandle);
     for (const auto& drawingId : drawingIds) {
         DnRoadModelSectionDrawingEntity* entity = nullptr;
-        if (acdbOpenObject(entity, drawingId, AcDb::kForWrite) != Acad::eOk || entity == nullptr) {
+        if (acdbOpenObject(entity, drawingId, AcDb::kForRead) != Acad::eOk || entity == nullptr) {
             continue;
         }
         if (!entity->isKindOf(DnRoadModelSectionDrawingEntity::desc())) {
@@ -680,22 +825,33 @@ bool applySectionDrawingConfigToAllDrawings(
         }
 
         auto drawing = entity->drawingData();
+        entity->close();
+        entity = nullptr;
         drawing.config = normalized;
         std::size_t manualCountForDrawing = 0;
         auto faces = buildConfiguredPavementFaces(
             drawing,
             roadModel,
             templates,
-            manualCountForDrawing);
-        if (entity->setSectionDrawingConfig(normalized) == Acad::eOk
-            && entity->replaceFaces(std::move(faces)) == Acad::eOk) {
+            manualCountForDrawing,
+            warnings);
+        RoadModelSectionDrawingData updatedDrawing = drawing;
+        updatedDrawing.faces = std::move(faces);
+
+        if (acdbOpenObject(entity, drawingId, AcDb::kForWrite) != Acad::eOk || entity == nullptr) {
+            continue;
+        }
+        if (entity->setDrawingData(updatedDrawing) == Acad::eOk) {
             ++updatedDrawingCount;
             preservedManualFaceCount += manualCountForDrawing;
             entity->recordGraphicsModified(true);
+        } else {
+            warnings.push_back(L"Failed to update section drawing entity at station " + std::to_wstring(drawing.station));
         }
         entity->close();
     }
 
+    writeWarnings(editor, warnings);
     return updatedDrawingCount > 0;
 }
 

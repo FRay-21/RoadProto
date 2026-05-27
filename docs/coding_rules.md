@@ -35,9 +35,11 @@
 
 每个生成的 ARX 版本都要记录到 `docs/dev/version_log.md`。
 
-使用 `.worktrees/<分支名>` 开发时，文档需要双写：在 worktree 内保存正式文档后，收尾前必须把同一份文档按相同相对路径同步到主项目目录 `F:\0_GPT_道路设计原型功能项目`。这条规则适用于 `AGENTS.md`、`README.md`、`docs/business/`、`docs/modules/`、`docs/reuse/`、`docs/dev/`、`docs/architecture/`、`docs/rules/`、`tests/README.md`、`assets/icons/README.md`、`samples/README.md` 和用户明确要求可见的说明文档。源代码不按此规则双写，避免主目录和 worktree 分支代码互相覆盖。
+使用 `.worktrees/<分支名>` 开发时，主项目目录必须同步保留最新文档和所有代码：在 worktree 内保存正式代码或文档后，收尾前必须按相同相对路径同步到主项目目录 `F:\0_GPT_道路设计原型功能项目`。这条规则适用于 `AGENTS.md`、`README.md`、`.gitignore`、`RoadProto.sln`、`build/`、`src/`、`tests/`、`third_party/`、`assets/`、`docs/`、`samples/` 和用户明确要求可见的说明文档或代码文件。
 
-Worktree 内的文档版本必须提交并推送到 Git，作为正式留档；主项目目录必须保留同路径、内容一致的可见副本，方便用户直接查看。
+不同步 `.git/`、`.vs/`、`.worktrees/`、`bin/`、`obj/`、构建缓存和本机私有配置；`artifacts/` 只按构建产物同步规则复制可加载 ARX / DLL / PDB。
+
+Worktree 内提交并推送的版本仍作为正式 Git 留档；主项目目录必须保留同路径、内容一致的最新副本，方便用户直接查看、加载和继续开发。若用户要求后续基于主目录更新，必须先把 worktree 最新文档和所有代码同步回主目录，再继续开发。
 
 ## 测试规则
 

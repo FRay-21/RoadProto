@@ -171,6 +171,7 @@ struct RoadModelSectionNode {
     RoadModelPoint3d point;
     RoadModelWireColor color;
     std::wstring label;
+    std::wstring componentName;
 };
 
 struct RoadModelGroundProfilePoint {
@@ -269,6 +270,7 @@ struct RoadModelSectionPreviewSegment {
     RoadModelSectionPreviewSegmentKind kind = RoadModelSectionPreviewSegmentKind::Subgrade;
     RoadModelSectionPreviewColor color;
     std::wstring label;
+    std::wstring componentName;
     std::vector<RoadModelSectionPreviewPoint> points;
 };
 

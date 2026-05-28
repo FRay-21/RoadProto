@@ -7,6 +7,6 @@
 | 立交设计 | `INTERCHANGE` | `RD_INTERCHANGE_` | 目录已预留 | 待补充 |
 | 平交口设计 | `INTERSECTION` | `RD_INTERSECTION_` | 示例模块已实现 | `docs/modules/intersection.md` |
 | 纵断面设计 | `PROFILE` | `RD_PROFILE_` | 纵断面拉坡图创建、DMX/数模地面线来源、自定义实体、WPF 属性编辑、竖曲线实体、夹点/PVI 编辑和 WPF 编辑入口已实现 | `docs/modules/profile.md` |
-| 横断面设计 | `CROSS_SECTION` | `RD_SECTION_` | 路基模板、边坡模板和路面结构层模板独立实体已实现；路面结构层模板支持路面结构层创建向导、当前层编辑、索引颜色、填充类型/角度/比例、显示全部通用参数折叠区、模板名称居中标题、WPF 编辑、`.rpavement.xml` 导入导出和路基部件绑定；道路模型横断面戴帽已接入结构层三维边界线和弱化填充面、边坡模板组、构造物范围、生成进度、断面地面快照、查看横断面预览、预览拖动缩放、批量绘制横断面、`DnRoadModelSectionDrawingEntity` 自定义实体落图、白色外框/桩号文字、双击编辑入口和 Bridge 回写 | `docs/modules/cross_section.md` |
-| 出图、出表、算量 | `DRAWING_QUANTITY` | `RD_DRAWING_` | 目录已预留 | 待补充 |
+| 横断面设计 | `CROSS_SECTION` | `RD_SECTION_` | 路基模板、边坡模板和路面结构层模板独立实体已实现；路面结构层模板支持路面结构层创建向导、当前层编辑、索引颜色、填充类型/角度/比例、显示全部通用参数折叠区、模板名称居中标题、WPF 编辑、`.rpavement.xml` 导入导出和路基部件绑定；道路模型横断面戴帽已接入结构层三维边界线和弱化填充面、边坡模板组、构造物范围、生成进度、断面地面快照、查看横断面预览、预览拖动缩放、批量绘制横断面、`DnRoadModelSectionDrawingEntity` 自定义实体落图、白色外框/桩号文字、横断面图配置、CSV 导入导出、图上结构层面域夹点编辑、双击编辑入口和 Bridge 回写 | `docs/modules/cross_section.md` |
+| 出图、出表、算量 | `DRAWING_QUANTITY` | `RD_DRAWING_` | 已实现路面工程量统计表原型命令，可优先从横断面图实体当前面域读取修改后的结构层断面数据，按构造物范围切段，并支持按部件+结构层或按结构层类型生成 `.xls` 表格 | `docs/modules/drawing_quantity.md` |
 | 辅助功能 | `UTILS` | `RD_UTIL_` | 目录已预留 | 待补充 |

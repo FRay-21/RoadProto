@@ -56,6 +56,7 @@
     <ClCompile Include="arx_entry\RoadProtoArxEntry.cpp" />
     <ClCompile Include="startup\ApplicationContext.cpp" />
     <ClCompile Include="startup\CrossSectionStartupRegistration.cpp" />
+    <ClCompile Include="startup\DrawingQuantityStartupRegistration.cpp" />
     <ClCompile Include="startup\ProfileStartupRegistration.cpp" />
     <ClCompile Include="startup\Startup.cpp" />
     <ClCompile Include="..\core\command\CommandRegistry.cpp" />
@@ -81,6 +82,8 @@
     <ClCompile Include="..\domain\profile\ProfileVerticalCurveCalculator.cpp" />
     <ClCompile Include="..\domain\profile\ProfileVerticalCurveDisplayPlanner.cpp" />
     <ClCompile Include="..\domain\quantity\PavementQuantityDrawingFaceSampler.cpp" />
+    <ClCompile Include="..\domain\quantity\PavementQuantityTable.cpp" />
+    <ClCompile Include="..\domain\quantity\RoadModelPavementQuantitySampler.cpp" />
     <ClCompile Include="..\domain\relation\EntityRelationManager.cpp" />
     <ClCompile Include="..\domain\terrain\TerrainMeshFile.cpp" />
     <ClCompile Include="..\domain\terrain\TerrainPointNormalizer.cpp" />
@@ -101,6 +104,7 @@
     <ClCompile Include="..\application\intersection\IntersectionInfoService.cpp" />
     <ClCompile Include="..\modules\alignment\AlignmentModule.cpp" />
     <ClCompile Include="..\modules\cross_section\CrossSectionModule.cpp" />
+    <ClCompile Include="..\modules\drawing_quantity\DrawingQuantityModule.cpp" />
     <ClCompile Include="..\modules\terrain\TerrainModule.cpp" />
     <ClCompile Include="..\modules\intersection\IntersectionModule.cpp" />
     <ClCompile Include="..\modules\profile\ProfileModule.cpp" />
@@ -128,6 +132,7 @@
     <ClCompile Include="..\cad_adapter\objectarx\cross_section\PavementLayerTemplateDialogBridge.cpp" />
     <ClCompile Include="..\cad_adapter\objectarx\cross_section\SlopeTemplateDialogBridge.cpp" />
     <ClCompile Include="..\cad_adapter\objectarx\cross_section\SubgradeTemplateDialogBridge.cpp" />
+    <ClCompile Include="..\cad_adapter\objectarx\drawing_quantity\ObjectArxPavementQuantityTableCommand.cpp" />
     <ClCompile Include="..\cad_adapter\objectarx\profile\DnProfileGradeGraphEntity.cpp" />
     <ClCompile Include="..\cad_adapter\objectarx\profile\DnProfileVerticalCurveEntity.cpp" />
     <ClCompile Include="..\cad_adapter\objectarx\profile\ObjectArxProfileGradeGraphCommand.cpp" />
@@ -141,6 +146,7 @@
   <ItemGroup>
     <ClInclude Include="startup\ApplicationContext.h" />
     <ClInclude Include="startup\CrossSectionStartupRegistration.h" />
+    <ClInclude Include="startup\DrawingQuantityStartupRegistration.h" />
     <ClInclude Include="startup\ProfileStartupRegistration.h" />
     <ClInclude Include="startup\Startup.h" />
   </ItemGroup>

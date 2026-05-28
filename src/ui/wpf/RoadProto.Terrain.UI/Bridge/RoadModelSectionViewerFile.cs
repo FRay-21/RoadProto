@@ -38,6 +38,7 @@ public static class RoadModelSectionViewerFile
                 {
                     Kind = ParseKind(Get(values, $"{segmentPrefix}.kind")),
                     Label = Get(values, $"{segmentPrefix}.label"),
+                    ComponentName = Get(values, $"{segmentPrefix}.componentName"),
                     ColorR = GetInt(values, $"{segmentPrefix}.colorR"),
                     ColorG = GetInt(values, $"{segmentPrefix}.colorG"),
                     ColorB = GetInt(values, $"{segmentPrefix}.colorB"),

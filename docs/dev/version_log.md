@@ -1,5 +1,91 @@
 # 版本记录
 
+## v0.1.31 - 2026-05-27
+
+- 版本标识：`v0.1.31_20260527_SectionDrawingConfig`。
+- ARX 文件：`RoadProto_v0.1.31_20260527_SectionDrawingConfig.arx`。
+- 阶段：横断面图配置与图上结构层手动编辑。
+- 是否可作为稳定测试版本：是。核心测试 Debug/Release、托管 bridge 测试 Debug/Release、WPF Debug/Release 构建和 `RoadProto.sln` Debug/Release 全量构建已验证。
+
+### 修改内容
+
+- 新增 `RD_SECTION_DRAWING_CONFIG` 横断面图配置命令，选择 `查看横断面 / 绘制横断面` 生成的 `DnRoadModelSectionDrawingEntity` 后打开 WPF 配置窗口。
+- 新增 `SectionDrawingConfigModel` 领域模型，支持 CSV 导入导出、起终点桩号范围、路基类型多选、表格行优先级解析和模板 handle 归一化。
+- 横断面图配置窗口上方支持 CSV 路径、导入和导出；当前包含 `路面结构层` tab，表格字段为起点桩号、终点桩号、路基类型和模板。
+- 路基类型从同一道路模型在当前 DWG 中已经绘制出的横断面图提取，按左/右侧和部件类型去重后作为多选项。
+- 点击 `绘制` 后，按配置把路面结构层面域应用到同一道路模型下的所有横断面图；表格上方行优先级高。
+- `DnRoadModelSectionDrawingEntity` 新增横断面图配置持久化、结构层面域来源字段、`faceId`、来源模板 handle、来源配置行号和 `manualEdited` 标记。
+- 横断面图结构层面域新增顶点夹点；用户拖动四边形或梯形顶点后标记 `manualEdited=true`，后续重新绘制时保留手动修改。
+- `RD_DRAWING_PAVEMENT_QUANTITY_TABLE` 优先通过 `PavementQuantityDrawingFaceSampler` 从横断面图实体当前面域采样，工程量统计以图上手动修改后的尺寸为准；缺少可用面域时再回退道路模型断面数据。
+- 更新横断面图配置业务文档、查看横断面文档、路面工程量统计表文档、模块说明、复用说明、README 和测试说明。
+
+### 验证状态
+
+- 自动化验证：核心测试 Debug/Release 构建与运行通过；托管 bridge 测试 Debug/Release 通过；WPF Debug/Release 构建通过；`RoadProto.sln` Debug/Release 全量构建通过，生成 `RoadProto_v0.1.31_20260527_SectionDrawingConfig.arx` 和 `RoadProto.Terrain.UI.dll`。
+- 图形界面验证：待在 AutoCAD 2021 中加载 ARX 和托管 DLL 后验证 Ribbon 入口、横断面图选择、CSV 导入导出、模板点选、图上结构层绘制、顶点夹点编辑、双击横断面图二次编辑和工程量统计结果。
+
+## v0.1.30 - 2026-05-27
+
+- 版本标识：`v0.1.30_20260527_PavementQuantityComponentFormatFix`。
+- ARX 文件：`RoadProto_v0.1.30_20260527_PavementQuantityComponentFormatFix.arx`。
+- 阶段：路面工程量统计表部件名反推与表格格式修正。
+- 是否可作为稳定测试版本：是。核心测试 Debug/Release、WPF Debug/Release 构建和 `RoadProto.sln` Debug/Release 全量构建已验证。
+
+### 修改内容
+
+- 路面工程量统计表从道路模型读取断面数据时，若旧模型结构层节点缺少部件名，不再直接输出 `未分部件`，而是优先从结构层纵向线 `componentIndex` 和路基部件线的部件类型反推 `行车道`、`硬路肩` 等部件名称。
+- 反推失败时再退回路基部件边界范围匹配；仍无法识别时才输出 `未分部件`。
+- `.xls` 写出新增统一表格样式：所有内容水平/垂直居中、自动换行；中文文字使用宋体 10 号；桩号、英文和数字使用 Times New Roman 10 号；面积和体积动态列加宽。
+- 新增领域层 `RoadModelPavementQuantitySampler`，把道路模型断面采样和旧数据部件名反推从 ObjectARX 命令中沉淀为可测试能力。
+
+### 验证状态
+
+- 自动化验证：核心测试 Debug/Release 构建与运行通过；WPF Debug/Release 构建通过；`RoadProto.sln` Debug/Release 全量构建通过，生成 `RoadProto_v0.1.30_20260527_PavementQuantityComponentFormatFix.arx` 和 `RoadProto.Terrain.UI.dll`。
+- 图形界面验证：待在 AutoCAD 2021 中加载 ARX 和托管 DLL 后验证旧道路模型导出的部件拆列、保存对话框统计方式和 `.xls` 打开后的格式效果。
+
+## v0.1.29 - 2026-05-27
+
+- 版本标识：`v0.1.29_20260527_PavementQuantityComponentMode`。
+- ARX 文件：`RoadProto_v0.1.29_20260527_PavementQuantityComponentMode.arx`。
+- 阶段：路面工程量统计表部件聚合模式。
+- 是否可作为稳定测试版本：是。核心测试 Debug/Release、WPF Debug/Release 构建和 `RoadProto.sln` Debug/Release 全量构建已验证。
+
+### 修改内容
+
+- 路面工程量统计表新增统计方式：`按部件和结构层`、`按结构层类型`。
+- `按部件和结构层` 输出 `部件名称-结构层名称面积` 和 `部件名称-结构层名称体积` 动态列，例如 `行车道-上面层面积`。
+- `按结构层类型` 保持上一版按结构层名称合并的输出方式。
+- 道路模型断面节点、查看横断面预览和横断面落图面域新增部件名称传递与持久化；旧实体缺少部件名称时按 `未分部件` 处理。
+- 输出路径选择优先使用带统计方式选项的 Windows 保存文件对话框；不可用时退回默认按部件和结构层统计。
+- 更新业务文档、模块说明、复用说明、README 和测试说明。
+
+### 验证状态
+
+- 自动化验证：核心测试 Debug/Release 构建与运行通过；WPF Debug/Release 构建通过；`RoadProto.sln` Debug/Release 全量构建通过，生成 `RoadProto_v0.1.29_20260527_PavementQuantityComponentMode.arx` 和 `RoadProto.Terrain.UI.dll`。
+- 图形界面验证：待在 AutoCAD 2021 中加载 ARX 和托管 DLL 后验证保存对话框统计方式、按部件拆列、按类型合并和 `.xls` 打开效果。
+
+## v0.1.28 - 2026-05-27
+
+- 版本标识：`v0.1.28_20260527_PavementQuantityTable`。
+- ARX 文件：`RoadProto_v0.1.28_20260527_PavementQuantityTable.arx`。
+- 阶段：出图出表路面工程量统计表。
+- 是否可作为稳定测试版本：是。核心测试 Debug/Release、WPF Debug/Release 构建和 `RoadProto.sln` Debug/Release 全量构建已验证。
+
+### 修改内容
+
+- 新增 `DRAWING_QUANTITY` 出图、出表、算量模块，并通过 `ModuleRegistry` 注册。
+- Ribbon 新增 `出图出表` 面板和 `路面工程量统计表` 按钮，命令为 `RD_DRAWING_PAVEMENT_QUANTITY_TABLE`。
+- 新增路面工程量统计领域能力：按道路模型构造物范围切分普通段、桥梁段和隧道段。
+- 面积按结构层平面投影宽度沿桩号区间累计；体积按相邻断面结构层截面积平均值乘以桩号间距的平均断面法累计。
+- 命令选择 `查看横断面` 绘制的 `DnRoadModelSectionDrawingEntity`，读取对应道路模型结构层断面数据，并提示输出 `.xls` 路径。
+- `DnRoadModelSectionDrawingEntity` 结构层面域新增结构层名称字段，旧版横断面落图读取时名称为空并按通用结构层处理。
+- 更新业务文档、模块说明、复用说明、README 和测试说明。
+
+### 验证状态
+
+- 自动化验证：核心测试 Debug/Release 构建与运行通过；WPF Debug/Release 构建通过；`RoadProto.sln` Debug/Release 全量构建通过，生成 `RoadProto_v0.1.28_20260527_PavementQuantityTable.arx` 和 `RoadProto.Terrain.UI.dll`。
+- 图形界面验证：本轮未在 AutoCAD 2021 图形界面完整点验；建议加载 Debug 或 Release 产物后验证 `出图出表` 面板、`路面工程量统计表` 命令、横断面图选择、输出路径提示、`.xls` 打开和构造物切段结果。
+
 ## v0.1.27 - 2026-05-27
 
 - 版本标识：`v0.1.27_20260527_RoadModelStructures`。

@@ -15,8 +15,10 @@
 - 源码路径：`src/cad_adapter/objectarx/cross_section/DnRoadModelEntity.*`
 - 源码路径：`src/cad_adapter/objectarx/cross_section/DnRoadModelSectionDrawingEntity.*`
 - 源码路径：`src/cad_adapter/objectarx/cross_section/RoadModelSectionViewerBridge.*`
-- 对外类型/函数：`RoadModelBuilder`、`RoadModelStationSampler`、`RoadModelTemplateResolver`、`RoadModelSlopeTemplateGroupResolver`、`RoadModelStructureRange`、`RoadModelSectionPreviewBuilder`、`RoadModelPavementLayerTemplateSource`、`RoadModelBuildService`、`RoadModelDialogBridge`、`RoadModelSectionViewerBridge`、`DnRoadModelSectionDrawingEntity`
-- 当前使用该能力的命令：`RD_SECTION_ROAD_MODEL_CREATE`、`RD_SECTION_ROAD_MODEL_EDIT`、`RD_SECTION_ROAD_MODEL_VIEW_SECTION`、`RD_SECTION_ROAD_MODEL_VIEW_SECTION_APPLY_DIALOG_FILE`
+- 源码路径：`src/domain/cross_section/SectionDrawingConfigModel.*`
+- 源码路径：`src/cad_adapter/objectarx/cross_section/SectionDrawingConfigDialogBridge.*`
+- 对外类型/函数：`RoadModelBuilder`、`RoadModelStationSampler`、`RoadModelTemplateResolver`、`RoadModelSlopeTemplateGroupResolver`、`RoadModelStructureRange`、`RoadModelSectionPreviewBuilder`、`RoadModelPavementLayerTemplateSource`、`SectionDrawingConfigData`、`RoadModelBuildService`、`RoadModelDialogBridge`、`RoadModelSectionViewerBridge`、`SectionDrawingConfigDialogBridge`、`DnRoadModelSectionDrawingEntity`
+- 当前使用该能力的命令：`RD_SECTION_ROAD_MODEL_CREATE`、`RD_SECTION_ROAD_MODEL_EDIT`、`RD_SECTION_ROAD_MODEL_VIEW_SECTION`、`RD_SECTION_ROAD_MODEL_VIEW_SECTION_APPLY_DIALOG_FILE`、`RD_SECTION_DRAWING_CONFIG`
 
 ## 可复用内容
 
@@ -37,12 +39,15 @@
 - `RoadModelData` 的 CAD 实体持久化和显示表达，其中包含生成时采样桩号、断面节点链、地面剖面快照、三维网格线框和结构层弱化填充面显示数据。
 - 已生成道路模型的横断面预览构建，按桩号输出路基模板线、结构层线、边坡模板线和生成时地面线快照；旧模型没有快照时可回退读取 TIN。
 - 已生成道路模型的横断面模型空间落图能力，按桩号批量生成 `DnRoadModelSectionDrawingEntity`，并在实体内保存外框、桩号、线段、结构层面域、结构层颜色和模板填充参数；外框和桩号文字绘制为白色。
+- 横断面图配置能力，按 CSV 和表格行优先级为已绘制横断面图生成图上路面结构层面域；路基类型按左/右侧和部件类型多选匹配。
+- 横断面图结构层面域的来源追踪和手动编辑保护，保存 `faceId`、来源模板 handle、来源配置行号和 `manualEdited`，重新绘制时保留用户夹点修改过的面域。
 - WPF 表格行与 CAD 模板实体点选之间的桥接动作。
 
 ## 不可复用或临时内容
 
 - WPF 与 C++ 之间的临时请求/响应文件 Bridge 属于原型接入方式。
 - 模板 handle 当前可手工输入或从 CAD 图中点选实体回填，后续仍应升级为正式模板库。
+- 横断面图配置 CSV 当前用于原型阶段跨图纸或临时参数流转，后续可替换为项目级配置库。
 - 构造物范围当前由用户在 WPF 表格中手动维护，尚未关联正式桥梁、隧道或通道实体。
 - TIN 剖切索引当前按构建时地形面生成，不作为长期缓存持有；生成后的地面剖面快照随道路模型持久化，避免查看横断面时重复探测地形。
 - 当前路基和边坡只生成三维线框，不生成道路实体面、材质、结构层实体体积或算量结果；路基/道路主体颜色沿用部件颜色，边坡线颜色来自边坡模板部件颜色，结构层填充面和边线按路面结构层模板层保存 RGB 表达。
@@ -59,6 +64,7 @@
 - `RoadModelStructureRange` 随 `RoadModelConfig` 保存，`DnRoadModelEntity` 数据版本 7 起持久化该列表；旧模型读取时列表为空。
 - `RoadModelSection` 保存生成时左右地面剖面快照，边坡放坡、道路模型持久化和查看横断面使用同一份剖面数据。
 - `RoadModelSectionPreviewBuilder` 优先按桩号把断面节点和地面快照转换为二维偏距-高程线段；没有快照的旧实体才读取 TIN 临时剖切。
+- `SectionDrawingConfigModel` 不依赖 ObjectARX，可复用到后续 Palette、MFC 或 Qt UI；CAD 实体点选和批量应用仍由 ObjectARX Adapter 层负责。
 - 后续应接入统一实体关系管理，保存道路模型对中线、竖曲线和模板实体的依赖。
 - 可扩展为道路面、边坡面、结构层实体面、排水构造和算量对象。
 - 可增加模板库、模板组和按道路等级自动选择模板能力。
@@ -67,4 +73,4 @@
 
 - 测试路径：`tests/core_tests.cpp`
 - 测试路径：`tests/RoadProtoManagedBridgeTests/`
-- AutoCAD 手工验证：创建道路中线、竖曲线、路基模板和路面结构层模板后运行 `RD_SECTION_ROAD_MODEL_CREATE`，在路基模板部件中点选绑定结构层模板，在道路模型表格行内点选图中模板、在边坡模板组内管理多个模板，在 `构造物` tab 中配置桥梁或隧道的左侧/右侧/两侧范围，并确认生成时状态栏显示进度且最终创建 `DnRoadModelEntity`；道路模型中的结构层应与模板预览保持同一四边形/梯形形状、弱化填充和层 RGB 边线，命中构造物范围的对应侧不应出现边坡线；双击道路模型或运行 `RD_SECTION_ROAD_MODEL_EDIT` 后可调整模板范围和构造物范围并刷新实体；运行 `RD_SECTION_ROAD_MODEL_VIEW_SECTION` 后选择道路模型，应能按采样桩号切换、拖动缩放预览，并可点击 `绘制横断面` 后选择模型空间基点，批量生成不重叠的 `DnRoadModelSectionDrawingEntity` 横断面图，外框和桩号文字为白色。
+- AutoCAD 手工验证：创建道路中线、竖曲线、路基模板和路面结构层模板后运行 `RD_SECTION_ROAD_MODEL_CREATE`，在路基模板部件中点选绑定结构层模板，在道路模型表格行内点选图中模板、在边坡模板组内管理多个模板，在 `构造物` tab 中配置桥梁或隧道的左侧/右侧/两侧范围，并确认生成时状态栏显示进度且最终创建 `DnRoadModelEntity`；道路模型中的结构层应与模板预览保持同一四边形/梯形形状、弱化填充和层 RGB 边线，命中构造物范围的对应侧不应出现边坡线；双击道路模型或运行 `RD_SECTION_ROAD_MODEL_EDIT` 后可调整模板范围和构造物范围并刷新实体；运行 `RD_SECTION_ROAD_MODEL_VIEW_SECTION` 后选择道路模型，应能按采样桩号切换、拖动缩放预览，并可点击 `绘制横断面` 后选择模型空间基点，批量生成不重叠的 `DnRoadModelSectionDrawingEntity` 横断面图，外框和桩号文字为白色；运行 `RD_SECTION_DRAWING_CONFIG` 后选择横断面图，应能导入导出 CSV、点选路面结构层模板、按路基类型多选绘制图上结构层，并通过顶点夹点修改面域。

@@ -5,7 +5,9 @@
 #include <Windows.h>
 
 #include <chrono>
+#include <cerrno>
 #include <cctype>
+#include <cwctype>
 #include <cmath>
 #include <cstdlib>
 #include <filesystem>
@@ -297,14 +299,20 @@ std::optional<double> doubleValue(
         return std::nullopt;
     }
 
-    std::wistringstream stream(value);
-    stream.imbue(std::locale::classic());
-    double parsed = 0.0;
-    stream >> parsed;
-    stream >> std::ws;
-    if (!stream || !stream.eof() || !std::isfinite(parsed)) {
+    errno = 0;
+    wchar_t* end = nullptr;
+    const double parsed = std::wcstod(value.c_str(), &end);
+    if (end == value.c_str() || errno == ERANGE || !std::isfinite(parsed)) {
         return std::nullopt;
     }
+
+    while (end != nullptr && *end != L'\0') {
+        if (std::iswspace(*end) == 0) {
+            return std::nullopt;
+        }
+        ++end;
+    }
+
     return parsed;
 }
 

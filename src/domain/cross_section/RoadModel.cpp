@@ -70,6 +70,7 @@ struct ActivePavementLayerBoundaryPoint {
     double offset = 0.0;
     double elevation = 0.0;
     std::wstring label;
+    std::wstring componentName;
 };
 
 struct RoadModelLineAccumulator {
@@ -589,7 +590,12 @@ void appendSectionNodePreviewSegment(
     RoadModelSectionPreviewSegment segment;
     segment.kind = previewKindFromSectionNode(end);
     segment.color = toPreviewColor(end.color);
-    segment.label = previewLabelForKind(segment.kind);
+    segment.label = segment.kind == RoadModelSectionPreviewSegmentKind::PavementLayer && !end.label.empty()
+        ? end.label
+        : previewLabelForKind(segment.kind);
+    segment.componentName = segment.kind == RoadModelSectionPreviewSegmentKind::PavementLayer
+        ? end.componentName
+        : L"";
     segment.points = {
         RoadModelSectionPreviewPoint{start.offset, start.elevation},
         RoadModelSectionPreviewPoint{end.offset, end.elevation}};
@@ -1301,7 +1307,8 @@ void appendPavementLayerBoundaryPoint(
     double centerElevation,
     double componentInnerOffset,
     const PavementLayerSectionPoint& sectionPoint,
-    const std::wstring& label)
+    const std::wstring& label,
+    const std::wstring& componentName)
 {
     const double absoluteOffset = componentInnerOffset + sectionPoint.offset;
     points.push_back(
@@ -1323,7 +1330,8 @@ void appendPavementLayerBoundaryPoint(
             frame.station,
             signedOffset(side, absoluteOffset),
             sectionPoint.elevation,
-            label});
+            label,
+            componentName});
 }
 
 bool appendPavementLayerBoundaryPoints(
@@ -1379,6 +1387,7 @@ bool appendPavementLayerBoundaryPoints(
                     const auto& layer = pavementSection.layers[layerIndex];
                     const auto color = toWireColor(layer.color);
                     const auto label = layer.name.empty() ? L"路面结构层" : layer.name;
+                    const auto componentName = subgradeComponentTypeDisplayName(component.type);
                     appendPavementLayerBoundaryPoint(
                         points,
                         assignment,
@@ -1392,7 +1401,8 @@ bool appendPavementLayerBoundaryPoints(
                         centerElevation,
                         offset,
                         layer.topInner,
-                        label);
+                        label,
+                        componentName);
                     appendPavementLayerBoundaryPoint(
                         points,
                         assignment,
@@ -1406,7 +1416,8 @@ bool appendPavementLayerBoundaryPoints(
                         centerElevation,
                         offset,
                         layer.topOuter,
-                        label);
+                        label,
+                        componentName);
                     appendPavementLayerBoundaryPoint(
                         points,
                         assignment,
@@ -1420,7 +1431,8 @@ bool appendPavementLayerBoundaryPoints(
                         centerElevation,
                         offset,
                         layer.bottomInner,
-                        label);
+                        label,
+                        componentName);
                     appendPavementLayerBoundaryPoint(
                         points,
                         assignment,
@@ -1434,7 +1446,8 @@ bool appendPavementLayerBoundaryPoints(
                         centerElevation,
                         offset,
                         layer.bottomOuter,
-                        label);
+                        label,
+                        componentName);
                 }
             }
 
@@ -1850,7 +1863,8 @@ RoadModelSectionNode sectionNodeFromBoundary(const ActiveBoundaryPoint& point)
         point.elevation,
         point.point,
         toWireColor(point.color),
-        L"路基"};
+        L"路基",
+        L""};
 }
 
 RoadModelSectionNode sectionNodeFromSlopeBoundary(const ActiveSlopeBoundaryPoint& point)
@@ -1862,7 +1876,8 @@ RoadModelSectionNode sectionNodeFromSlopeBoundary(const ActiveSlopeBoundaryPoint
         point.elevation,
         point.point,
         toWireColor(point.color),
-        L"边坡"};
+        L"边坡",
+        L""};
 }
 
 RoadModelSectionNode sectionNodeFromPavementLayerBoundary(const ActivePavementLayerBoundaryPoint& point)
@@ -1874,7 +1889,8 @@ RoadModelSectionNode sectionNodeFromPavementLayerBoundary(const ActivePavementLa
         point.elevation,
         point.point,
         point.color,
-        point.label.empty() ? L"路面结构层" : point.label};
+        point.label.empty() ? L"路面结构层" : point.label,
+        point.componentName.empty() ? L"未分部件" : point.componentName};
 }
 
 void appendSectionNode(std::vector<RoadModelSectionNode>& nodes, RoadModelSectionNode node)

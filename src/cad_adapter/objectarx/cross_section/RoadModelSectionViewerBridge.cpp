@@ -207,6 +207,7 @@ bool writeRequestFile(
             const auto segmentPrefix = previewPrefix + L".segment." + std::to_wstring(j);
             writeKeyValue(stream, segmentPrefix + L".kind", segmentKindText(segment.kind));
             writeKeyValue(stream, segmentPrefix + L".label", segment.label);
+            writeKeyValue(stream, segmentPrefix + L".componentName", segment.componentName);
             writeKeyValue(stream, segmentPrefix + L".colorR", segment.color.r);
             writeKeyValue(stream, segmentPrefix + L".colorG", segment.color.g);
             writeKeyValue(stream, segmentPrefix + L".colorB", segment.color.b);

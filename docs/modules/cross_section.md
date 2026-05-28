@@ -5,7 +5,7 @@
 - 模块名称：横断面设计
 - 模块编码：`CROSS_SECTION`
 - 命令前缀：`RD_SECTION_`
-- 当前状态：已实现路基模板独立实体创建、边坡模板独立实体创建、路面结构层模板独立实体创建、路面结构层创建向导、每层 RGB 颜色、每层填充类型/角度/比例、当前层编辑、索引颜色选择、可折叠显示的路面结构层模板高级通用参数、WPF 参数窗口、`.rpavement.xml` 导入导出、二维预览、双击编辑入口、桥接回写、路基部件点选绑定结构层模板和插入点夹点移动；已实现横断面戴帽道路模型创建、编辑、WPF 路基模板范围表、左右边坡模板组、构造物范围表、模板组管理入口、生成进度反馈、构造物范围按左侧/右侧/两侧跳过边坡放坡、`DnRoadModelEntity` 三维道路模型网格线框实体、路面结构层弱化填充面和层色边线、断面地面快照、按采样桩号查看横断面预览、预览拖动缩放、批量绘制横断面和 `DnRoadModelSectionDrawingEntity` 自定义实体落图，落图外框和桩号文字使用白色。
+- 当前状态：已实现路基模板独立实体创建、边坡模板独立实体创建、路面结构层模板独立实体创建、路面结构层创建向导、每层 RGB 颜色、每层填充类型/角度/比例、当前层编辑、索引颜色选择、可折叠显示的路面结构层模板高级通用参数、WPF 参数窗口、`.rpavement.xml` 导入导出、二维预览、双击编辑入口、桥接回写、路基部件点选绑定结构层模板和插入点夹点移动；已实现横断面戴帽道路模型创建、编辑、WPF 路基模板范围表、左右边坡模板组、构造物范围表、模板组管理入口、生成进度反馈、构造物范围按左侧/右侧/两侧跳过边坡放坡、`DnRoadModelEntity` 三维道路模型网格线框实体、路面结构层弱化填充面和层色边线、断面地面快照、按采样桩号查看横断面预览、预览拖动缩放、批量绘制横断面和 `DnRoadModelSectionDrawingEntity` 自定义实体落图，落图外框和桩号文字使用白色；已实现横断面图配置、CSV 导入导出、路基类型多选、按行优先级绘制图上路面结构层、结构层面域顶点夹点手动编辑和双击横断面图二次编辑。
 
 ## 命令清单
 
@@ -24,13 +24,16 @@
 | `RD_SECTION_ROAD_MODEL_EDIT` | 编辑道路模型 | 用户命令 | `docs/business/cross_section/道路模型_编辑.md` |
 | `RD_SECTION_ROAD_MODEL_VIEW_SECTION` | 查看横断面 | 用户命令 | `docs/business/cross_section/查看横断面.md` |
 | `RD_SECTION_ROAD_MODEL_VIEW_SECTION_APPLY_DIALOG_FILE` | 应用查看横断面对话框结果 | 内部桥接命令 | `docs/business/cross_section/查看横断面.md` |
+| `RD_SECTION_DRAWING_CONFIG` | 横断面图配置 | 用户命令 | `docs/business/cross_section/横断面图配置.md` |
+| `RD_SECTION_DRAWING_CONFIG_EDIT_HANDLE` | 按 handle 编辑横断面图配置 | 内部桥接命令 | `docs/business/cross_section/横断面图配置.md` |
+| `RD_SECTION_DRAWING_CONFIG_APPLY_DIALOG_FILE` | 应用横断面图配置对话框结果 | 内部桥接命令 | `docs/business/cross_section/横断面图配置.md` |
 | `RD_SECTION_ROAD_MODEL_EDIT_HANDLE` | 按 handle 编辑道路模型 | 内部桥接命令 | `docs/business/cross_section/道路模型_编辑.md` |
 | `RD_SECTION_ROAD_MODEL_APPLY_DIALOG_FILE` | 应用道路模型对话框结果 | 内部桥接命令 | `docs/business/cross_section/道路模型_WPF桥接回写.md` |
 
 ## Ribbon
 
-- C++ Ribbon model：`RoadProto / 横断面设计 / 创建路基模板`、`RoadProto / 横断面设计 / 创建边坡模板`、`RoadProto / 横断面设计 / 创建路面结构层模板`、`RoadProto / 横断面设计 / 横断面戴帽`、`RoadProto / 横断面设计 / 编辑道路模型`、`RoadProto / 横断面设计 / 查看横断面`
-- 可见 AutoCAD WPF Ribbon：`RoadProto / 横断面设计 / 创建路基模板`、`RoadProto / 横断面设计 / 创建边坡模板`、`RoadProto / 横断面设计 / 创建路面结构层模板`、`RoadProto / 横断面设计 / 横断面戴帽`、`RoadProto / 横断面设计 / 编辑道路模型`、`RoadProto / 横断面设计 / 查看横断面`
+- C++ Ribbon model：`RoadProto / 横断面设计 / 创建路基模板`、`RoadProto / 横断面设计 / 创建边坡模板`、`RoadProto / 横断面设计 / 创建路面结构层模板`、`RoadProto / 横断面设计 / 横断面戴帽`、`RoadProto / 横断面设计 / 编辑道路模型`、`RoadProto / 横断面设计 / 查看横断面`、`RoadProto / 横断面设计 / 横断面图配置`
+- 可见 AutoCAD WPF Ribbon：`RoadProto / 横断面设计 / 创建路基模板`、`RoadProto / 横断面设计 / 创建边坡模板`、`RoadProto / 横断面设计 / 创建路面结构层模板`、`RoadProto / 横断面设计 / 横断面戴帽`、`RoadProto / 横断面设计 / 编辑道路模型`、`RoadProto / 横断面设计 / 查看横断面`、`RoadProto / 横断面设计 / 横断面图配置`
 - 托管 Ribbon 插件文件：`src/ui/wpf/RoadProto.Terrain.UI/AutoCad/RoadProtoRibbonExtension.cs`
 
 ## 代码落点
@@ -41,6 +44,7 @@
 | domain | `src/domain/cross_section/SlopeTemplateModel.*` | 边坡模板枚举、默认值、坡率/坡高/宽度约束、控制条件和重复最后一组规则 |
 | domain | `src/domain/cross_section/PavementLayerTemplateModel.*` | 路面结构层模板枚举、默认值、每层 RGB、每层填充类型/角度/比例、显示方式、结构代号、路基干湿类型、路面类型、路基土组、设计弯沉、累计轴次、等厚/非等厚、内外侧加宽/坡度规则和横断面预览几何构建 |
 | domain | `src/domain/cross_section/RoadModel.*` | 道路模型配置、模板范围、路面结构层模板来源、边坡模板组、构造物范围、采样、TIN 地面剖切、断面节点链、结构层边界线、三维网格线框和横断面预览领域模型 |
+| domain | `src/domain/cross_section/SectionDrawingConfigModel.*` | 横断面图配置数据、CSV 导入导出、桩号优先级解析、路基类型多选和部件匹配 |
 | application | `src/application/cross_section/SubgradeTemplateCreateService.*` | 创建命令默认模板数据生成 |
 | application | `src/application/cross_section/SlopeTemplateCreateService.*` | 创建命令默认边坡模板数据生成 |
 | application | `src/application/cross_section/PavementLayerTemplateCreateService.*` | 创建命令默认路面结构层模板数据生成 |
@@ -51,16 +55,18 @@
 | cad_adapter | `src/cad_adapter/objectarx/cross_section/DnSlopeTemplateEntity.*` | 边坡模板自定义实体线框显示、DWG 持久化、几何范围和变换 |
 | cad_adapter | `src/cad_adapter/objectarx/cross_section/DnPavementLayerTemplateEntity.*` | 路面结构层模板自定义实体预览显示、DWG 持久化、几何范围和变换 |
 | cad_adapter | `src/cad_adapter/objectarx/cross_section/DnRoadModelEntity.*` | 道路模型三维网格线框、结构层弱化填充面显示、构造物范围配置、DWG 持久化、几何范围和变换 |
-| cad_adapter | `src/cad_adapter/objectarx/cross_section/DnRoadModelSectionDrawingEntity.*` | 模型空间横断面落图自定义实体，保存桩号、外框、线段、结构层面域和模板填充信息 |
+| cad_adapter | `src/cad_adapter/objectarx/cross_section/DnRoadModelSectionDrawingEntity.*` | 模型空间横断面落图自定义实体，保存桩号、外框、线段、结构层面域、横断面图配置、模板填充信息、面域来源字段和手动编辑标记 |
 | cad_adapter | `src/cad_adapter/objectarx/cross_section/ObjectArxSubgradeTemplateCommand.*` | 插入点点取、弹窗、实体创建和回写命令 |
 | cad_adapter | `src/cad_adapter/objectarx/cross_section/ObjectArxSlopeTemplateCommand.*` | 边坡模板插入点点取、弹窗、实体创建和回写命令 |
 | cad_adapter | `src/cad_adapter/objectarx/cross_section/ObjectArxPavementLayerTemplateCommand.*` | 路面结构层模板插入点点取、弹窗、实体创建和回写命令 |
 | cad_adapter | `src/cad_adapter/objectarx/cross_section/ObjectArxRoadModelCommand.*` | 道路模型创建、编辑、查看横断面、选择落图基点和 WPF 回写命令入口 |
+| cad_adapter | `src/cad_adapter/objectarx/cross_section/ObjectArxSectionDrawingConfigCommand.*` | 横断面图配置用户命令、双击 handle 编辑、模板点选、按同一道路模型批量绘制图上结构层面域和 WPF 回写命令入口 |
 | cad_adapter | `src/cad_adapter/objectarx/cross_section/SubgradeTemplateDialogBridge.*` | WPF 请求/响应文件桥接 |
 | cad_adapter | `src/cad_adapter/objectarx/cross_section/SlopeTemplateDialogBridge.*` | 边坡模板 WPF 请求/响应文件桥接 |
 | cad_adapter | `src/cad_adapter/objectarx/cross_section/PavementLayerTemplateDialogBridge.*` | 路面结构层模板 WPF 请求/响应文件桥接 |
 | cad_adapter | `src/cad_adapter/objectarx/cross_section/RoadModelDialogBridge.*` | 道路模型 WPF 请求/响应文件桥接 |
 | cad_adapter | `src/cad_adapter/objectarx/cross_section/RoadModelSectionViewerBridge.*` | 查看横断面 WPF 请求/响应文件桥接 |
+| cad_adapter | `src/cad_adapter/objectarx/cross_section/SectionDrawingConfigDialogBridge.*` | 横断面图配置 WPF 请求/响应文件桥接 |
 | WPF | `src/ui/wpf/RoadProto.Terrain.UI/SubgradeTemplateWindow.xaml` | 参数窗口和二维预览 |
 | WPF | `src/ui/wpf/RoadProto.Terrain.UI/SlopeTemplateWindow.xaml` | 边坡模板参数窗口和二维线框预览 |
 | WPF | `src/ui/wpf/RoadProto.Terrain.UI/PavementLayerTemplateWindow.xaml` | 路面结构层模板参数窗口、当前层编辑、预览点击选层、索引颜色、填充显示方式、填充角度/比例、显示全部通用参数折叠区、固定字号标注、二维预览和 `.rpavement.xml` 导入导出 |
@@ -69,11 +75,13 @@
 | WPF | `src/ui/wpf/RoadProto.Terrain.UI/StationValueTableWindow.xaml` | 变宽/变坡二级表格 |
 | WPF | `src/ui/wpf/RoadProto.Terrain.UI/RoadModelWindow.xaml` | 横断面戴帽窗口、路基模板范围表、左右边坡模板组、构造物范围表、组内模板管理和生成入口 |
 | WPF | `src/ui/wpf/RoadProto.Terrain.UI/RoadModelSectionViewerWindow.xaml` | 查看横断面窗口、桩号列表、支持拖动缩放的预览图、图例和绘制横断面按钮 |
+| WPF | `src/ui/wpf/RoadProto.Terrain.UI/SectionDrawingConfigWindow.xaml` | 横断面图配置窗口、CSV 导入导出路径、路面结构层配置表、路基类型多选和模板点选入口 |
 | WPF | `src/ui/wpf/RoadProto.Terrain.UI/AutoCad/SubgradeTemplateDialogCommands.cs` | WPF 弹窗命令和响应转发 |
 | WPF | `src/ui/wpf/RoadProto.Terrain.UI/AutoCad/SlopeTemplateDialogCommands.cs` | 边坡模板 WPF 弹窗命令和响应转发 |
 | WPF | `src/ui/wpf/RoadProto.Terrain.UI/AutoCad/PavementLayerTemplateDialogCommands.cs` | 路面结构层模板 WPF 弹窗命令和响应转发 |
 | WPF | `src/ui/wpf/RoadProto.Terrain.UI/AutoCad/RoadModelDialogCommands.cs` | 道路模型 WPF 弹窗命令和响应转发 |
 | WPF | `src/ui/wpf/RoadProto.Terrain.UI/AutoCad/RoadModelSectionViewerCommands.cs` | 查看横断面 WPF 弹窗命令和绘制动作响应转发 |
+| WPF | `src/ui/wpf/RoadProto.Terrain.UI/AutoCad/SectionDrawingConfigDialogCommands.cs` | 横断面图配置 WPF 弹窗命令和响应转发 |
 | WPF | `src/ui/wpf/RoadProto.Terrain.UI/AutoCad/RoadProtoRibbonExtension.cs` | AutoCAD WPF Ribbon 横断面入口扩展 |
 
 ## 边界
@@ -83,6 +91,7 @@
 - 路基模板、边坡模板和路面结构层模板当前是独立实体，不绑定道路中线。
 - 路基模板部件可通过 handle 绑定路面结构层模板；所有部件类型均允许绑定。
 - 道路模型通过 handle 关联道路中线、竖曲线、路基模板、路面结构层模板和边坡模板；当前版本不自动监听上游实体变更。
+- 横断面图配置保存在 `DnRoadModelSectionDrawingEntity` 内；图上结构层面域允许用户通过夹点手动修改，后续算量以图上当前面域尺寸为准。
 - 统一关系管理机制的自动重建在后续功能中扩展。
 ## 2026-05-13 更新
 
@@ -144,3 +153,7 @@
 - `RoadModelBuilder` 生成边坡前按构造物范围和侧别判断，命中范围内不进行对应侧边坡放坡。
 - `RoadModelDialogBridge` 和 WPF 请求/响应 DTO 新增构造物字段，点选模板往返时保留构造物范围。
 - `DnRoadModelEntity` 数据版本升至 7，保存道路模型配置中的构造物范围；旧模型读取时构造物列表为空。
+- 新增 `RD_SECTION_DRAWING_CONFIG` 横断面图配置命令，选择 `DnRoadModelSectionDrawingEntity` 后打开 WPF 配置窗口。
+- 横断面图配置窗口支持 CSV 导入导出，`路面结构层` tab 以起点桩号、终点桩号、路基类型多选和模板组成配置表。
+- 路基类型从同一道路模型已经绘制出的横断面图中提取并去重；绘制时表格上方行优先级高。
+- `DnRoadModelSectionDrawingEntity` 新增配置持久化、面域来源字段和结构层面域顶点夹点；用户拖动顶点后设置 `manualEdited=true` 并在后续重新绘制时保留。

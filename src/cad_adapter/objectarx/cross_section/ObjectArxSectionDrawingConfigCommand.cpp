@@ -39,6 +39,7 @@ using roadproto::domain::cross_section::PavementLayerTemplateData;
 using roadproto::domain::cross_section::PavementLayerTemplateRules;
 using roadproto::domain::cross_section::RoadModelComponentLine;
 using roadproto::domain::cross_section::RoadModelData;
+using roadproto::domain::cross_section::RoadModelGroundProfilePoint;
 using roadproto::domain::cross_section::RoadModelPoint3d;
 using roadproto::domain::cross_section::RoadModelSection;
 using roadproto::domain::cross_section::RoadModelSectionNode;
@@ -538,6 +539,16 @@ void includeSectionBasisNodes(DrawingBasis& basis, const std::vector<RoadModelSe
     }
 }
 
+void includeSectionGroundBasisPoints(
+    DrawingBasis& basis,
+    const std::vector<RoadModelGroundProfilePoint>& points,
+    double sign)
+{
+    for (const auto& point : points) {
+        includeSectionBasisPoint(basis, sign * point.offset, point.elevation);
+    }
+}
+
 DrawingBasis drawingBasisForSection(
     const RoadModelSectionDrawingData& drawing,
     const RoadModelSection& section)
@@ -547,12 +558,8 @@ DrawingBasis drawingBasisForSection(
     includeSectionBasisNodes(basis, section.rightNodes);
     includeSectionBasisNodes(basis, section.leftPavementLayerNodes);
     includeSectionBasisNodes(basis, section.rightPavementLayerNodes);
-    for (const auto& point : section.leftGroundProfile) {
-        includeSectionBasisPoint(basis, point.offset, point.elevation);
-    }
-    for (const auto& point : section.rightGroundProfile) {
-        includeSectionBasisPoint(basis, point.offset, point.elevation);
-    }
+    includeSectionGroundBasisPoints(basis, section.leftGroundProfile, 1.0);
+    includeSectionGroundBasisPoints(basis, section.rightGroundProfile, -1.0);
     if (basis.valid) {
         return basis;
     }

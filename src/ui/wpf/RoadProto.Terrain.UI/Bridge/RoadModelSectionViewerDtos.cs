@@ -27,6 +27,7 @@ public sealed class RoadModelSectionViewerSegmentDto
 {
     public RoadModelSectionViewerSegmentKind Kind { get; set; } = RoadModelSectionViewerSegmentKind.Subgrade;
     public string Label { get; set; } = string.Empty;
+    public string ComponentName { get; set; } = string.Empty;
     public int ColorR { get; set; }
     public int ColorG { get; set; }
     public int ColorB { get; set; }

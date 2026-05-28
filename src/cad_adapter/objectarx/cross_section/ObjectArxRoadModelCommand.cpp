@@ -601,6 +601,8 @@ bool buildRoadModelSectionDrawingData(
 
         const auto style = styleForPavementSegment(first, pavementStyles);
         RoadModelSectionDrawingFace face;
+        face.layerName = first.label.empty() ? L"路面结构层" : first.label;
+        face.componentName = first.componentName.empty() ? L"未分部件" : first.componentName;
         face.colorR = style.colorR;
         face.colorG = style.colorG;
         face.colorB = style.colorB;

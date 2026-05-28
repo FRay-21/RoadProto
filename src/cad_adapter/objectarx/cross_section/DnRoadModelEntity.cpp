@@ -48,7 +48,7 @@ ACRX_DXF_DEFINE_MEMBERS(
 
 namespace {
 
-constexpr Adesk::Int16 kEntityVersion = 7;
+constexpr Adesk::Int16 kEntityVersion = 8;
 constexpr Adesk::Int32 kMaxAssignments = 10000;
 constexpr Adesk::Int32 kMaxStructureRanges = 10000;
 constexpr Adesk::Int32 kMaxSlopeTemplateGroups = 10000;
@@ -865,6 +865,7 @@ void writePavementLayerLine(AcDbDwgFiler* filer, const RoadModelPavementLayerLin
 
 Acad::ErrorStatus readRoadModelSectionNode(
     AcDbDwgFiler* filer,
+    Adesk::Int16 version,
     SubgradeSide expectedSide,
     RoadModelSectionNode& node,
     Adesk::Int32& totalPointCount)
@@ -878,6 +879,9 @@ Acad::ErrorStatus readRoadModelSectionNode(
     readPoint(filer, node.point);
     readRoadModelWireColor(filer, node.color);
     node.label = readWideString(filer);
+    if (version >= 8) {
+        node.componentName = readWideString(filer);
+    }
 
     if (!isValidRoadModelSectionNodeKindValue(kind)
         || !isValidSubgradeSideValue(side)
@@ -903,6 +907,7 @@ void writeRoadModelSectionNode(AcDbDwgFiler* filer, const RoadModelSectionNode& 
     writePoint(filer, node.point);
     writeRoadModelWireColor(filer, node.color);
     writeWideString(filer, node.label);
+    writeWideString(filer, node.componentName);
 }
 
 Acad::ErrorStatus readRoadModelGroundProfile(
@@ -967,6 +972,7 @@ Acad::ErrorStatus readRoadModelSection(
         RoadModelSectionNode node;
         const auto status = readRoadModelSectionNode(
             filer,
+            version,
             SubgradeSide::Left,
             node,
             totalPointCount);
@@ -986,6 +992,7 @@ Acad::ErrorStatus readRoadModelSection(
         RoadModelSectionNode node;
         const auto status = readRoadModelSectionNode(
             filer,
+            version,
             SubgradeSide::Right,
             node,
             totalPointCount);
@@ -1007,6 +1014,7 @@ Acad::ErrorStatus readRoadModelSection(
             RoadModelSectionNode node;
             const auto status = readRoadModelSectionNode(
                 filer,
+                version,
                 SubgradeSide::Left,
                 node,
                 totalPointCount);
@@ -1025,6 +1033,7 @@ Acad::ErrorStatus readRoadModelSection(
             RoadModelSectionNode node;
             const auto status = readRoadModelSectionNode(
                 filer,
+                version,
                 SubgradeSide::Right,
                 node,
                 totalPointCount);

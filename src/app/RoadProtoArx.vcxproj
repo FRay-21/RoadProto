@@ -82,6 +82,7 @@
     <ClCompile Include="..\domain\profile\ProfileVerticalCurveCalculator.cpp" />
     <ClCompile Include="..\domain\profile\ProfileVerticalCurveDisplayPlanner.cpp" />
     <ClCompile Include="..\domain\quantity\PavementQuantityDrawingFaceSampler.cpp" />
+    <ClCompile Include="..\domain\quantity\PavementStructureLegend.cpp" />
     <ClCompile Include="..\domain\quantity\PavementQuantityTable.cpp" />
     <ClCompile Include="..\domain\quantity\RoadModelPavementQuantitySampler.cpp" />
     <ClCompile Include="..\domain\relation\EntityRelationManager.cpp" />

@@ -21,6 +21,7 @@
 #include "domain/cross_section/SlopeTemplateModel.h"
 #include "domain/cross_section/SubgradeTemplateModel.h"
 #include "domain/quantity/PavementQuantityDrawingFaceSampler.h"
+#include "domain/quantity/PavementStructureLegend.h"
 #include "domain/quantity/PavementQuantityTable.h"
 #include "domain/quantity/RoadModelPavementQuantitySampler.h"
 #include "domain/profile/ProfileDmxFile.h"
@@ -1643,6 +1644,77 @@ void pavementQuantityDrawingFaceSamplerRejectsAllInvalidFaces()
     };
 
     CHECK(!PavementQuantityDrawingFaceSampler::sampleAtStation(75.0, faces).has_value());
+}
+
+void pavementStructureLegendPlannerFormatsTemplateColumnsAndUnmergedLegendItems()
+{
+    using namespace roadproto::domain::cross_section;
+    using namespace roadproto::domain::quantity;
+
+    PavementLayerTemplateData first;
+    first.properties.structureCode = L"I-1";
+    first.properties.subgradeSoilGroups = {PavementSubgradeSoilGroup::Bedrock};
+    first.properties.subgradeMoistureTypes = {PavementSubgradeMoistureType::Dry};
+    first.properties.designDeflection = L"E0>60MPa";
+    first.properties.cumulativeAxleLoads = L"1200万次";
+
+    PavementLayerTemplateLayer upper;
+    upper.type = PavementLayerType::UpperSurface;
+    upper.name = L"SMA-13S";
+    upper.uniformThickness = true;
+    upper.thickness = 0.045;
+    upper.innerThickness = 0.045;
+    upper.outerThickness = 0.045;
+    upper.color = PavementLayerTemplateDisplayColor{255, 0, 0};
+    upper.hatchPattern = L"ANSI31";
+    upper.hatchAngle = 0.0;
+    upper.hatchScale = 1.0;
+    first.layers.push_back(upper);
+
+    PavementLayerTemplateLayer base;
+    base.type = PavementLayerType::Base;
+    base.name = L"基层";
+    base.uniformThickness = false;
+    base.thickness = 0.30;
+    base.innerThickness = 0.28;
+    base.outerThickness = 0.32;
+    base.color = PavementLayerTemplateDisplayColor{0, 255, 0};
+    base.hatchPattern = L"BRICK";
+    base.hatchAngle = 45.0;
+    base.hatchScale = 0.5;
+    first.layers.push_back(base);
+
+    PavementLayerTemplateData second = first;
+    second.properties.structureCode = L"I-2";
+    second.layers[0].name = L"AC-20S";
+    second.layers[0].hatchPattern = L"ANSI31";
+
+    const auto plan = PavementStructureLegendPlanner::build({
+        PavementStructureLegendTemplateSource{L"PV-1", first},
+        PavementStructureLegendTemplateSource{L"PV-1", first},
+        PavementStructureLegendTemplateSource{L"PV-2", second}});
+
+    CHECK(plan.columns.size() == 2);
+    if (plan.columns.size() >= 2) {
+        CHECK(plan.columns[0].structureCode == L"I-1");
+        CHECK(plan.columns[0].subgradeSoilGroupText == L"基岩");
+        CHECK(plan.columns[0].subgradeMoistureText == L"干燥");
+        CHECK(plan.columns[0].designDeflection == L"E0>60MPa");
+        CHECK(plan.columns[0].cumulativeAxleLoads == L"1200万次");
+        CHECK(plan.columns[0].layers.size() == 2);
+        CHECK(plan.columns[0].layers[0].thicknessText == L"4.5");
+        CHECK(plan.columns[0].layers[1].thicknessText == L"28/32");
+        CHECK(std::fabs(plan.columns[0].totalThicknessCm - 34.5) < 1.0e-9);
+        CHECK(plan.columns[1].structureCode == L"I-2");
+    }
+    CHECK(plan.legendItems.size() == 4);
+    if (plan.legendItems.size() == 4) {
+        CHECK(plan.legendItems[0].layerName == L"SMA-13S");
+        CHECK(plan.legendItems[1].layerName == L"基层");
+        CHECK(plan.legendItems[2].layerName == L"AC-20S");
+        CHECK(plan.legendItems[3].layerName == L"基层");
+    }
+    CHECK(std::fabs(plan.layout.structureGraphicWidthCm - 20.0) < 1.0e-9);
 }
 
 void pavementQuantitySamplerInfersComponentNamesFromLinkedSubgradeComponents()
@@ -7516,6 +7588,7 @@ int main()
     pavementQuantityDrawingFaceSamplerUsesEditedPolygonGeometry();
     pavementQuantityDrawingFaceSamplerAggregatesAndSkipsInvalidFaces();
     pavementQuantityDrawingFaceSamplerRejectsAllInvalidFaces();
+    pavementStructureLegendPlannerFormatsTemplateColumnsAndUnmergedLegendItems();
     pavementQuantitySamplerInfersComponentNamesFromLinkedSubgradeComponents();
     pavementQuantityTableWriterCreatesDynamicXlsColumns();
     slopeTemplateDefaultsBuildFillAndCutProfiles();

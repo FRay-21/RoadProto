@@ -4296,6 +4296,17 @@ void drawingQuantityModuleRegistersPavementQuantityCommandAndRibbonPanel()
         CHECK(command->reusable);
     }
 
+    const auto legendCommand = commands.find(L"RD_DRAWING_PAVEMENT_STRUCTURE_LEGEND");
+    CHECK(legendCommand.has_value());
+    if (legendCommand.has_value()) {
+        CHECK(legendCommand->moduleCode == L"DRAWING_QUANTITY");
+        CHECK(legendCommand->displayName == L"路面结构图例");
+        CHECK(legendCommand->businessDocPath == L"docs/business/drawing_quantity/路面结构图例.md");
+        CHECK(legendCommand->ribbonAttachable);
+        CHECK(legendCommand->isPrototype);
+        CHECK(legendCommand->reusable);
+    }
+
     checkBusinessDocExistsForTests(L"docs/business/drawing_quantity/路面工程量统计表.md");
     CHECK(ribbon.tab().panels.size() == 1);
     CHECK(ribbon.tab().panels.front().moduleCode == L"DRAWING_QUANTITY");
@@ -4341,6 +4352,26 @@ void pavementQuantityCommandPrefersDrawingFacesContract()
     CHECK(source.find("sampleFromDrawingFaces") == std::string::npos);
 }
 
+void pavementStructureLegendCommandSourceContainsSelectionAndTemplateContracts()
+{
+    const auto sourcePath = findRepositoryRootForTests()
+        / "src"
+        / "cad_adapter"
+        / "objectarx"
+        / "drawing_quantity"
+        / "ObjectArxPavementStructureLegendCommand.cpp";
+    CHECK(std::filesystem::exists(sourcePath));
+
+    const auto source = readTextFileForTests(sourcePath);
+    CHECK(source.find("DnRoadModelEntity") != std::string::npos);
+    CHECK(source.find("DnRoadModelSectionDrawingEntity") != std::string::npos);
+    CHECK(source.find("DnPavementLayerTemplateEntity") != std::string::npos);
+    CHECK(source.find("collectSectionDrawingsForRoadModel") != std::string::npos);
+    CHECK(source.find("collectTemplateHandlesFromSectionDrawings") != std::string::npos);
+    CHECK(source.find("collectTemplateHandlesFromRoadModel") != std::string::npos);
+    CHECK(source.find("appendOrdinaryLegendEntities") != std::string::npos);
+}
+
 void startupRegistrationIncludesDrawingQuantityModule()
 {
     roadproto::core::ModuleRegistry modules;
@@ -4360,6 +4391,7 @@ void startupRegistrationIncludesDrawingQuantityModule()
     module->registerRibbon(ribbon);
 
     CHECK(commands.contains(L"RD_DRAWING_PAVEMENT_QUANTITY_TABLE"));
+    CHECK(commands.contains(L"RD_DRAWING_PAVEMENT_STRUCTURE_LEGEND"));
     CHECK(ribbon.tab().panels.size() == 1);
     CHECK(ribbon.tab().panels.front().moduleCode == L"DRAWING_QUANTITY");
 }
@@ -4379,6 +4411,9 @@ void managedRibbonExtensionRegistersDrawingQuantityEntryPoint()
     CHECK(source.find("DrawingQuantityPanelId") != std::string::npos);
     CHECK(source.find("RD_DRAWING_PAVEMENT_QUANTITY_TABLE") != std::string::npos);
     CHECK(source.find("路面工程量统计表") != std::string::npos);
+    CHECK(source.find("PavementStructureLegendButtonId") != std::string::npos);
+    CHECK(source.find("RD_DRAWING_PAVEMENT_STRUCTURE_LEGEND ") != std::string::npos);
+    CHECK(source.find("路面结构图例") != std::string::npos);
 }
 
 void managedRibbonExtensionRegistersSubgradeTemplateEntryPoints()
@@ -7636,6 +7671,7 @@ int main()
     drawingQuantityModuleRegistersPavementQuantityCommandAndRibbonPanel();
     pavementQuantityCommandSourceContainsAggregationModeSaveDialog();
     pavementQuantityCommandPrefersDrawingFacesContract();
+    pavementStructureLegendCommandSourceContainsSelectionAndTemplateContracts();
     startupRegistrationIncludesDrawingQuantityModule();
     managedRibbonExtensionRegistersSubgradeTemplateEntryPoints();
     managedRibbonExtensionRegistersDrawingQuantityEntryPoint();

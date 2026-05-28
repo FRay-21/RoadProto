@@ -50,6 +50,7 @@ public sealed class RoadProtoRibbonExtension : IExtensionApplication
     private const string SectionDrawingConfigButtonId = "ROADPROTO_RD_SECTION_DRAWING_CONFIG";
     private const string DrawingQuantityPanelId = "ROADPROTO_DRAWING_QUANTITY_PANEL";
     private const string PavementQuantityTableButtonId = "ROADPROTO_RD_DRAWING_PAVEMENT_QUANTITY_TABLE";
+    private const string PavementStructureLegendButtonId = "ROADPROTO_RD_DRAWING_PAVEMENT_STRUCTURE_LEGEND";
     private const string TerrainTinDxfName = "DNTERRAINTINENTITY";
     private const string RoadCenterlineDxfName = "DNROADCENTERLINEENTITY";
     private const string ProfileGradeGraphDxfName = "DNPROFILEGRADEGRAPHENTITY";
@@ -353,6 +354,15 @@ public sealed class RoadProtoRibbonExtension : IExtensionApplication
                 "路面工程量统计表",
                 "选择已绘制横断面图并生成路面结构层面积和体积统计表",
                 "RD_DRAWING_PAVEMENT_QUANTITY_TABLE "));
+        }
+
+        if (!drawingQuantityPanel.Source.Items.OfType<RibbonButton>().Any(item => item.Id == PavementStructureLegendButtonId))
+        {
+            drawingQuantityPanel.Source.Items.Add(CreateDrawingQuantityCommandButton(
+                PavementStructureLegendButtonId,
+                "路面结构图例",
+                "选择道路模型或横断面图并绘制路面结构层图例",
+                "RD_DRAWING_PAVEMENT_STRUCTURE_LEGEND "));
         }
 
         tab.IsActive = true;

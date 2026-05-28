@@ -1,6 +1,7 @@
 #include "modules/drawing_quantity/DrawingQuantityModule.h"
 
 #include "cad_adapter/objectarx/drawing_quantity/ObjectArxPavementQuantityTableCommand.h"
+#include "cad_adapter/objectarx/drawing_quantity/ObjectArxPavementStructureLegendCommand.h"
 #include "ui/ribbon/RibbonModel.h"
 
 namespace roadproto::modules::drawing_quantity {
@@ -17,6 +18,17 @@ void registerDrawingQuantityCommands(core::CommandRegistry& commandRegistry)
         true,
         true,
         L"docs/business/drawing_quantity/路面工程量统计表.md",
+        true});
+
+    commandRegistry.registerCommand(core::CommandDefinition{
+        L"RD_DRAWING_PAVEMENT_STRUCTURE_LEGEND",
+        L"路面结构图例",
+        L"DRAWING_QUANTITY",
+        L"Draws pavement structure layer template legends from a road model or drawn cross-section entities.",
+        cad_adapter::objectarx::drawing_quantity::pavementStructureLegendCommandProcedure(),
+        true,
+        true,
+        L"docs/business/drawing_quantity/路面结构图例.md",
         true});
 }
 

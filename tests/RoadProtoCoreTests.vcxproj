@@ -95,6 +95,7 @@
     <ClCompile Include="..\src\modules\drawing_quantity\DrawingQuantityModule.cpp" />
     <ClCompile Include="..\src\modules\profile\ProfileModule.cpp" />
     <ClCompile Include="..\src\cad_adapter\objectarx\drawing_quantity\ObjectArxPavementQuantityTableCommand.cpp" />
+    <ClCompile Include="..\src\cad_adapter\objectarx\drawing_quantity\ObjectArxPavementStructureLegendCommand.cpp" />
     <ClCompile Include="..\src\cad_adapter\objectarx\cross_section\ObjectArxRoadModelCommand.cpp" />
     <ClCompile Include="..\src\cad_adapter\objectarx\cross_section\ObjectArxPavementLayerTemplateCommand.cpp" />
     <ClCompile Include="..\src\cad_adapter\objectarx\cross_section\ObjectArxSlopeTemplateCommand.cpp" />

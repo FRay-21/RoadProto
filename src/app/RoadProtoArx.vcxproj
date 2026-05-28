@@ -134,6 +134,7 @@
     <ClCompile Include="..\cad_adapter\objectarx\cross_section\SlopeTemplateDialogBridge.cpp" />
     <ClCompile Include="..\cad_adapter\objectarx\cross_section\SubgradeTemplateDialogBridge.cpp" />
     <ClCompile Include="..\cad_adapter\objectarx\drawing_quantity\ObjectArxPavementQuantityTableCommand.cpp" />
+    <ClCompile Include="..\cad_adapter\objectarx\drawing_quantity\ObjectArxPavementStructureLegendCommand.cpp" />
     <ClCompile Include="..\cad_adapter\objectarx\profile\DnProfileGradeGraphEntity.cpp" />
     <ClCompile Include="..\cad_adapter\objectarx\profile\DnProfileVerticalCurveEntity.cpp" />
     <ClCompile Include="..\cad_adapter\objectarx\profile\ObjectArxProfileGradeGraphCommand.cpp" />

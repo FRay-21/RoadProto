@@ -25,13 +25,13 @@ artifacts\x64\Debug\RoadProtoCoreTests.exe
 - 纵断面竖曲线领域规则：默认设计线创建、PVI 对称二次抛物线、BVC/EVC、高低点、任意桩号高程和坡度、PVI 增删、半径更新和命令元数据。
 - 横断面边坡模板领域规则：填方/挖方默认预设、坡率/坡高/宽度三选二约束、重复最后一组识别、编码转换和模板组优先级解析。
 - 横断面路面结构层模板规则：上面层/中面层/下面层/沥青封层/基层/底基层/垫层/搭板层编码、结构代号、路基干湿类型、路面类型、路基土组、设计弯沉、累计轴次、等厚/内外侧非等厚、内外侧正/负加宽、顶边沿上一层底边所在直线延长或收回、四边形/梯形轮廓定义、`1:n` 正/负坡度驱动当前层顶边到底边的侧边水平移动、路面结构层创建向导、向导内外侧厚度/加宽/坡度输入、文档预设初始值、所有向导预设预览宽度默认 `3`、WPF 白色引线式层名厚度标注贴合顶边且标注文字/引线/下划线/箭头均使用固定模型尺寸、主线路缘带移除、`.rpavement.xml` 流转、路基部件点选绑定和模板实体源码契约。
-- 横断面道路模型边坡和线框规则：从路基模板最外侧生成边坡线、构造物范围按左侧/右侧/两侧跳过边坡放坡、读取部件绑定的路面结构层模板并生成结构层边界线和弱化填充面、TIN 地面剖切交地、断面地面快照、边坡模板戴帽结果、生成进度回调、采样桩号保存、断面节点链、三维网格线框、查看横断面预览、预览拖动缩放、批量绘制横断面 `DnRoadModelSectionDrawingEntity` 自定义实体源码契约、横断面图配置 CSV、路基类型多选、配置行优先级、结构层面域来源字段和 `manualEdited` 夹点编辑契约。
+- 横断面道路模型边坡和线框规则：从路基模板最外侧生成边坡线、构造物范围按左侧/右侧/两侧跳过边坡放坡、读取部件绑定的路面结构层模板并生成结构层边界线和弱化填充面、TIN 地面剖切交地、断面地面快照、边坡模板戴帽结果、生成进度回调、采样桩号保存、断面节点链、三维网格线框、查看横断面预览、预览拖动缩放、批量绘制横断面 `DnRoadModelSectionDrawingEntity` 自定义实体源码契约、横断面图配置 CSV、路基类型多选、同一路基部件配置行优先级、结构层面域来源字段和 `manualEdited` 夹点编辑契约。
 - 出图出表规则：`DRAWING_QUANTITY` 模块命令元数据、Ribbon 入口、横断面图实体当前面域优先采样、构造物范围切段、部件/结构层双模式聚合、结构层平面投影面积、平均断面法体积和 SpreadsheetML `.xls` 动态列写出；路面结构图例覆盖模板列规划、厚度厘米表达、底部图例不合并、道路模型/横断面图选择入口和普通 CAD 图元源码契约。
 - 文档和版本 source-contract：检查 `build/RoadProto.Build.props`、README、版本记录、业务文档和复用文档的 v0.1.31 横断面图配置发布信息，同时保留 v0.1.27 构造物范围和 v0.1.26 查看横断面外框与桩号白色记录。
 
 当前 v0.1.30 新增路面工程量统计表部件名反推和表格格式自动化验证范围：核心测试覆盖普通段/桥梁段/隧道段切分、缺失构造物边界断面时的线性插值、按部件和结构层拆列、按结构层类型合并、旧道路模型缺少结构层节点部件名时从关联路基模板部件反推、面积和体积计算、`.xls` 表头、动态列、居中、自动换行、列宽、宋体/Times New Roman 和 10 号字号，以及模块/Ribbon 元数据。AutoCAD 图形界面仍建议加载 Debug 或 Release 产物后人工验证选择横断面落图、输出路径提示、统计方式选择和 Excel 打开效果。
 
-当前 v0.1.31 新增横断面图配置自动化验证范围：核心测试覆盖 `SectionDrawingConfigModel` 的 CSV 表头校验、UTF-8 往返、路基类型多选解析、起终点桩号归一化、表格行优先级和部件匹配；源码契约覆盖 `DnRoadModelSectionDrawingEntity` 的配置持久化、结构层面域来源字段、顶点夹点和 `manualEdited` 标记，覆盖 `SectionDrawingConfigDialogBridge`、WPF `SectionDrawingConfigWindow`、Ribbon 入口、双击编辑入口和批量应用命令；路面工程量统计表覆盖 `PavementQuantityDrawingFaceSampler` 优先读取横断面图实体当前面域。AutoCAD 图形界面仍建议加载 Debug 或 Release 产物后人工验证 `RD_SECTION_DRAWING_CONFIG`、CSV 导入导出、模板点选、图上结构层绘制、顶点夹点修改、双击横断面图二次编辑和修改后工程量统计。
+当前 v0.1.31 以来横断面图配置自动化验证范围：核心测试覆盖 `SectionDrawingConfigModel` 的 CSV 表头校验、UTF-8 往返、路基类型多选解析、起终点桩号归一化、同一路基部件表格行优先级、不同路基部件同桩号段同时命中和部件匹配；源码契约覆盖 `DnRoadModelSectionDrawingEntity` 的配置持久化、结构层面域来源字段、顶点夹点和 `manualEdited` 标记，覆盖 `SectionDrawingConfigDialogBridge`、WPF `SectionDrawingConfigWindow`、Ribbon 入口、双击编辑入口和批量应用命令；路面工程量统计表覆盖 `PavementQuantityDrawingFaceSampler` 优先读取横断面图实体当前面域。AutoCAD 图形界面仍建议加载 Debug 或 Release 产物后人工验证 `RD_SECTION_DRAWING_CONFIG`、CSV 导入导出、模板点选、图上结构层绘制、顶点夹点修改、双击横断面图二次编辑和修改后工程量统计。
 
 V0.1.6 继续保留 `TerrainMeshFile` 领域层测试，用于保证 `DN_TERRAIN_TIN_EXPORT` / `DN_TERRAIN_TIN_IMPORT` 依赖的跨 DWG 数模文件数据不会在读写中丢失。
 

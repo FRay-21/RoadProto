@@ -5,7 +5,7 @@
 - 模块名称：横断面设计
 - 模块编码：`CROSS_SECTION`
 - 命令前缀：`RD_SECTION_`
-- 当前状态：已实现路基模板独立实体创建、边坡模板独立实体创建、路面结构层模板独立实体创建、路面结构层创建向导、向导内外侧厚度/加宽/坡度编辑、每层 RGB 颜色、每层填充类型/角度/比例、当前层编辑、结构层新增/删除、索引颜色选择、可折叠显示的路面结构层模板高级通用参数、WPF 参数窗口、`.rpavement.xml` 导入导出、二维预览、双击编辑入口、桥接回写、路基部件点选绑定结构层模板和插入点夹点移动；已实现横断面戴帽道路模型创建、编辑、WPF 路基模板范围表、左右边坡模板组、构造物范围表、模板组管理入口、生成进度反馈、构造物范围按左侧/右侧/两侧跳过边坡放坡、`DnRoadModelEntity` 三维道路模型网格线框实体、路面结构层弱化填充面和层色边线、断面地面快照、按采样桩号查看横断面预览、预览拖动缩放、批量绘制横断面和 `DnRoadModelSectionDrawingEntity` 自定义实体落图，落图外框和桩号文字使用白色；已实现横断面图配置、CSV 导入导出、路基类型多选、按行优先级绘制图上路面结构层、结构层面域顶点夹点手动编辑和双击横断面图二次编辑。
+- 当前状态：已实现路基模板独立实体创建、边坡模板独立实体创建、路面结构层模板独立实体创建、路面结构层创建向导、向导内外侧厚度/加宽/坡度编辑、每层 RGB 颜色、每层填充类型/角度/比例、当前层编辑、结构层新增/删除、索引颜色选择、可折叠显示的路面结构层模板高级通用参数、WPF 参数窗口、`.rpavement.xml` 导入导出、二维预览、双击编辑入口、桥接回写、路基部件点选绑定结构层模板和插入点夹点移动；已实现横断面戴帽道路模型创建、编辑、WPF 路基模板范围表、左右边坡模板组、构造物范围表、模板组管理入口、生成进度反馈、构造物范围按左侧/右侧/两侧跳过边坡放坡、`DnRoadModelEntity` 三维道路模型网格线框实体、路面结构层弱化填充面和层色边线、断面地面快照、按采样桩号查看横断面预览、预览拖动缩放、批量绘制横断面和 `DnRoadModelSectionDrawingEntity` 自定义实体落图，落图外框和桩号文字使用白色；已实现横断面图配置、CSV 导入导出、路基类型多选、按同桩号同路基部件行优先级绘制图上路面结构层、结构层面域顶点夹点手动编辑和双击横断面图二次编辑。
 
 ## 命令清单
 
@@ -44,7 +44,7 @@
 | domain | `src/domain/cross_section/SlopeTemplateModel.*` | 边坡模板枚举、默认值、坡率/坡高/宽度约束、控制条件和重复最后一组规则 |
 | domain | `src/domain/cross_section/PavementLayerTemplateModel.*` | 路面结构层模板枚举、默认值、每层 RGB、每层填充类型/角度/比例、显示方式、结构代号、路基干湿类型、路面类型、路基土组、设计弯沉、累计轴次、等厚/非等厚、内外侧加宽/坡度规则和横断面预览几何构建 |
 | domain | `src/domain/cross_section/RoadModel.*` | 道路模型配置、模板范围、路面结构层模板来源、边坡模板组、构造物范围、采样、TIN 地面剖切、断面节点链、结构层边界线、三维网格线框和横断面预览领域模型 |
-| domain | `src/domain/cross_section/SectionDrawingConfigModel.*` | 横断面图配置数据、CSV 导入导出、桩号优先级解析、路基类型多选和部件匹配 |
+| domain | `src/domain/cross_section/SectionDrawingConfigModel.*` | 横断面图配置数据、CSV 导入导出、桩号和路基部件优先级解析、路基类型多选和部件匹配 |
 | application | `src/application/cross_section/SubgradeTemplateCreateService.*` | 创建命令默认模板数据生成 |
 | application | `src/application/cross_section/SlopeTemplateCreateService.*` | 创建命令默认边坡模板数据生成 |
 | application | `src/application/cross_section/PavementLayerTemplateCreateService.*` | 创建命令默认路面结构层模板数据生成 |
@@ -156,5 +156,5 @@
 - `DnRoadModelEntity` 数据版本升至 7，保存道路模型配置中的构造物范围；旧模型读取时构造物列表为空。
 - 新增 `RD_SECTION_DRAWING_CONFIG` 横断面图配置命令，选择 `DnRoadModelSectionDrawingEntity` 后打开 WPF 配置窗口。
 - 横断面图配置窗口支持 CSV 导入导出，`路面结构层` tab 以起点桩号、终点桩号、路基类型多选和模板组成配置表。
-- 路基类型从同一道路模型已经绘制出的横断面图中提取并去重；绘制时表格上方行优先级高。
+- 路基类型从同一道路模型已经绘制出的横断面图中提取并去重；绘制时按桩号、侧别和路基部件类型逐项解析，同一路基部件表格上方行优先，不同部件同桩号段不互相覆盖。
 - `DnRoadModelSectionDrawingEntity` 新增配置持久化、面域来源字段和结构层面域顶点夹点；用户拖动顶点后设置 `manualEdited=true` 并在后续重新绘制时保留。

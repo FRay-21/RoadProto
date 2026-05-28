@@ -145,7 +145,8 @@ void pavementLayerTemplateDocumentationAndVersionContracts()
     CHECK(sectionConfigDoc.find("CSV") != std::string::npos);
     CHECK(sectionConfigDoc.find("起点桩号,终点桩号,路基类型,模板Handle,模板名称") != std::string::npos);
     CHECK(sectionConfigDoc.find("manualEdited") != std::string::npos);
-    CHECK(sectionConfigDoc.find("表格行顺序就是优先级") != std::string::npos);
+    CHECK(sectionConfigDoc.find("同一桩号、同一侧别、同一路基部件类型") != std::string::npos);
+    CHECK(sectionConfigDoc.find("不同路基部件类型不互相覆盖") != std::string::npos);
 
     const auto roadModelReuseDoc = readTextFileForTests(root / "docs" / "reuse" / "road_model.md");
     CHECK(roadModelReuseDoc.find("SectionDrawingConfigModel") != std::string::npos);
@@ -699,6 +700,73 @@ void sectionDrawingConfigRowsResolveByStationAndPriority()
     }
 
     CHECK(!SectionDrawingConfigRules::resolvePavementRow(config, 120.0).has_value());
+}
+
+void sectionDrawingConfigRowsResolvePriorityPerComponent()
+{
+    using namespace roadproto::domain::cross_section;
+
+    SectionDrawingConfigData config;
+    config.pavementRows.push_back(
+        SectionPavementLayerConfigRow{
+            0.0,
+            3000.0,
+            {
+                SectionDrawingComponentTypeSelection{SubgradeSide::Left, SubgradeComponentType::TravelLane},
+                SectionDrawingComponentTypeSelection{SubgradeSide::Right, SubgradeComponentType::TravelLane},
+            },
+            L"LANE",
+            L"\u6c25\u9752\u8def\u9762-\u4e3b\u7ebf\u884c\u8f66\u9053"});
+    config.pavementRows.push_back(
+        SectionPavementLayerConfigRow{
+            0.0,
+            3000.0,
+            {
+                SectionDrawingComponentTypeSelection{SubgradeSide::Left, SubgradeComponentType::HardShoulder},
+                SectionDrawingComponentTypeSelection{SubgradeSide::Right, SubgradeComponentType::HardShoulder},
+            },
+            L"SHOULDER",
+            L"\u8def\u9762\u7ed3\u6784\u5c42\u6a21\u677f111"});
+    config.pavementRows.push_back(
+        SectionPavementLayerConfigRow{
+            0.0,
+            3000.0,
+            {
+                SectionDrawingComponentTypeSelection{SubgradeSide::Left, SubgradeComponentType::HardShoulder},
+            },
+            L"SHOULDER_LOWER",
+            L"LOWER_PRIORITY"});
+
+    std::wstring errorMessage;
+    CHECK(SectionDrawingConfigRules::normalize(config, errorMessage));
+
+    const auto leftLane = SectionDrawingConfigRules::resolvePavementRow(
+        config,
+        1500.0,
+        SubgradeSide::Left,
+        SubgradeComponentType::TravelLane);
+    CHECK(leftLane.has_value());
+    if (leftLane.has_value()) {
+        CHECK(leftLane->rowIndex == 0);
+        CHECK(leftLane->row.templateHandle == L"LANE");
+    }
+
+    const auto leftShoulder = SectionDrawingConfigRules::resolvePavementRow(
+        config,
+        1500.0,
+        SubgradeSide::Left,
+        SubgradeComponentType::HardShoulder);
+    CHECK(leftShoulder.has_value());
+    if (leftShoulder.has_value()) {
+        CHECK(leftShoulder->rowIndex == 1);
+        CHECK(leftShoulder->row.templateHandle == L"SHOULDER");
+    }
+
+    CHECK(!SectionDrawingConfigRules::resolvePavementRow(
+        config,
+        1500.0,
+        SubgradeSide::Left,
+        SubgradeComponentType::EarthShoulder).has_value());
 }
 
 void sectionDrawingConfigRowsHandleBoundaryAndNormalizationEdges()
@@ -4743,6 +4811,8 @@ void sectionDrawingConfigObjectArxCommandSourceContracts()
     CHECK(source.find("manualEdited") != std::string::npos);
     CHECK(source.find("PavementLayerTemplateRules::buildSection") != std::string::npos);
     CHECK(source.find("SectionDrawingConfigRules::resolvePavementRow") != std::string::npos);
+    CHECK(source.find("resolvePavementRow(drawing.config, drawing.station, span.side, span.componentType)") != std::string::npos);
+    CHECK(source.find("collectSectionComponentSpans(roadModel, *section, drawing.station, nullptr)") != std::string::npos);
     CHECK(source.find("SectionDrawingConfigRules::matchesComponent") != std::string::npos);
     CHECK(source.find("linePointMatchesSectionNode") != std::string::npos);
     CHECK(source.find("findBoundaryNodeAtStation") != std::string::npos);
@@ -7604,6 +7674,7 @@ int main()
     subgradeTemplateNormalizeUnlinksEmptyPavementTemplateHandle();
     subgradeTemplateVariableSlopeUsesOnlySlopeTable();
     sectionDrawingConfigRowsResolveByStationAndPriority();
+    sectionDrawingConfigRowsResolvePriorityPerComponent();
     sectionDrawingConfigRowsHandleBoundaryAndNormalizationEdges();
     sectionDrawingConfigComponentMatchingUsesSideAndType();
     sectionDrawingConfigCsvRoundTripsUtf8Rows();

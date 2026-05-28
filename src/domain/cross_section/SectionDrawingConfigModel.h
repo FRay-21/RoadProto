@@ -40,6 +40,11 @@ public:
     static std::optional<SectionDrawingResolvedPavementRow> resolvePavementRow(
         const SectionDrawingConfigData& data,
         double station);
+    static std::optional<SectionDrawingResolvedPavementRow> resolvePavementRow(
+        const SectionDrawingConfigData& data,
+        double station,
+        SubgradeSide side,
+        SubgradeComponentType componentType);
 
     static bool matchesComponent(
         const SectionPavementLayerConfigRow& row,

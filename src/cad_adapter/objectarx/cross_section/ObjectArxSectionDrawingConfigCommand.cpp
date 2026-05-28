@@ -599,17 +599,6 @@ std::vector<RoadModelSectionDrawingFace> buildConfiguredPavementFaces(
     std::vector<std::wstring>& warnings)
 {
     auto faces = preserveManualEditedFaces(drawing.faces, preservedManualFaceCount);
-    const auto resolved = SectionDrawingConfigRules::resolvePavementRow(drawing.config, drawing.station);
-    if (!resolved.has_value() || resolved->row.templateHandle.empty()) {
-        return faces;
-    }
-
-    const auto templateIt = templates.find(resolved->row.templateHandle);
-    if (templateIt == templates.end()) {
-        warnings.push_back(L"Missing pavement layer template: " + resolved->row.templateHandle);
-        return faces;
-    }
-
     const auto* section = findRoadModelSectionAtStation(roadModel, drawing.station);
     if (section == nullptr) {
         warnings.push_back(L"No road model section exists at station " + std::to_wstring(drawing.station));
@@ -622,11 +611,22 @@ std::vector<RoadModelSectionDrawingFace> buildConfiguredPavementFaces(
         return faces;
     }
 
-    const auto spans = collectSectionComponentSpans(roadModel, *section, drawing.station, &resolved->row);
+    const auto spans = collectSectionComponentSpans(roadModel, *section, drawing.station, nullptr);
     if (spans.empty()) {
         warnings.push_back(L"No matching component span exists at station " + std::to_wstring(drawing.station));
     }
     for (const auto& span : spans) {
+        const auto resolved = SectionDrawingConfigRules::resolvePavementRow(drawing.config, drawing.station, span.side, span.componentType);
+        if (!resolved.has_value() || resolved->row.templateHandle.empty()) {
+            continue;
+        }
+
+        const auto templateIt = templates.find(resolved->row.templateHandle);
+        if (templateIt == templates.end()) {
+            warnings.push_back(L"Missing pavement layer template: " + resolved->row.templateHandle);
+            continue;
+        }
+
         const auto baseWidth = std::fabs(span.outer.offset - span.inner.offset);
         if (!std::isfinite(baseWidth) || baseWidth <= 1.0e-6) {
             continue;

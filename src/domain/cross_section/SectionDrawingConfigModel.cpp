@@ -377,6 +377,31 @@ std::optional<SectionDrawingResolvedPavementRow> SectionDrawingConfigRules::reso
     return std::nullopt;
 }
 
+std::optional<SectionDrawingResolvedPavementRow> SectionDrawingConfigRules::resolvePavementRow(
+    const SectionDrawingConfigData& data,
+    double station,
+    SubgradeSide side,
+    SubgradeComponentType componentType)
+{
+    if (!isFinite(station)) {
+        return std::nullopt;
+    }
+
+    for (std::size_t i = 0; i < data.pavementRows.size(); ++i) {
+        const auto& row = data.pavementRows[i];
+        if (trim(row.templateHandle).empty()) {
+            continue;
+        }
+        if (station < row.startStation - kStationTolerance || station > row.endStation + kStationTolerance) {
+            continue;
+        }
+        if (matchesComponent(row, side, componentType)) {
+            return SectionDrawingResolvedPavementRow{i, row};
+        }
+    }
+    return std::nullopt;
+}
+
 bool SectionDrawingConfigRules::matchesComponent(
     const SectionPavementLayerConfigRow& row,
     SubgradeSide side,

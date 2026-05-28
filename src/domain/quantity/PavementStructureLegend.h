@@ -48,7 +48,7 @@ struct PavementStructureLegendItemPlan {
 struct PavementStructureLegendLayoutPlan {
     double structureGraphicWidthCm = 20.0;
     double columnWidth = 36.0;
-    double headerColumnWidth = 16.0;
+    double headerColumnWidth = 24.0;
 };
 
 struct PavementStructureLegendPlan {

@@ -517,7 +517,6 @@ bool appendHatchForBoundary(
 PavementStructureLegendItemPlan styleFromLayer(const PavementStructureLegendLayerPlan& layer)
 {
     PavementStructureLegendItemPlan item;
-    item.layerName = layer.layerName;
     item.colorR = layer.colorR;
     item.colorG = layer.colorG;
     item.colorB = layer.colorB;
@@ -694,14 +693,6 @@ void appendStructureGraphics(
                 layer.thicknessText,
                 kSmallTextHeight,
                 textColor);
-
-            if (layerHeight >= 8.0) {
-                appendText(
-                    AcGePoint3d((graphicLeft + graphicRight) * 0.5, (cursorY + layerBottom) * 0.5, z),
-                    layer.layerName,
-                    kSmallTextHeight,
-                    textColor);
-            }
             cursorY = layerBottom;
         }
     }

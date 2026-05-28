@@ -1783,6 +1783,7 @@ void pavementStructureLegendPlannerFormatsTemplateColumnsAndUnmergedLegendItems(
         CHECK(plan.legendItems[3].layerName == L"基层");
     }
     CHECK(std::fabs(plan.layout.structureGraphicWidthCm - 20.0) < 1.0e-9);
+    CHECK(plan.layout.headerColumnWidth >= 24.0);
 }
 
 void pavementQuantitySamplerInfersComponentNamesFromLinkedSubgradeComponents()
@@ -4444,6 +4445,9 @@ void pavementStructureLegendCommandSourceContainsSelectionAndTemplateContracts()
     CHECK(source.find("new AcDbPolyline") != std::string::npos);
     CHECK(source.find("new AcDbHatch") != std::string::npos);
     CHECK(source.find("new DnPavementStructureLegendEntity") == std::string::npos);
+    CHECK(source.find("if (layerHeight >= 8.0)") == std::string::npos);
+    CHECK(source.find("layer.layerName") == std::string::npos);
+    CHECK(source.find("item.layerName") != std::string::npos);
 }
 
 void startupRegistrationIncludesDrawingQuantityModule()

@@ -8,7 +8,6 @@ public enum PavementLayerTemplateRoadSegmentType
 {
     MainlineLane,
     MainlineShoulder,
-    MainlineEdgeStrip,
     Ramp,
     BridgeTransition,
     BridgeDeck,
@@ -32,6 +31,8 @@ public sealed class PavementLayerTemplatePresetOption<T>
 
 public static class PavementLayerTemplatePresetFactory
 {
+    private const double DefaultPreviewWidth = 3.0;
+
     private static readonly IReadOnlyList<PavementLayerTemplatePresetOption<PavementSurfaceType>> PavementTypes =
         new[]
         {
@@ -44,7 +45,6 @@ public static class PavementLayerTemplatePresetFactory
         {
             Option("主线行车道", PavementLayerTemplateRoadSegmentType.MainlineLane),
             Option("主线硬路肩", PavementLayerTemplateRoadSegmentType.MainlineShoulder),
-            Option("主线路缘带", PavementLayerTemplateRoadSegmentType.MainlineEdgeStrip),
             Option("互通匝道", PavementLayerTemplateRoadSegmentType.Ramp),
             Option("桥头过渡段", PavementLayerTemplateRoadSegmentType.BridgeTransition),
             Option("桥面铺装", PavementLayerTemplateRoadSegmentType.BridgeDeck),
@@ -79,7 +79,7 @@ public static class PavementLayerTemplatePresetFactory
         {
             TemplateName = $"{PavementLayerTemplateLabels.PavementTypeLabel(preset.PavementType)}-{RoadSegmentTypeLabel(preset.RoadSegmentType)}",
             DisplayScale = 10.0,
-            PreviewWidth = preset.PreviewWidth,
+            PreviewWidth = DefaultPreviewWidth,
             DisplayMode = PavementLayerTemplateDisplayMode.HatchAndColor,
             ShowAllGeneralParameters = true,
             StructureCode = preset.StructureCode,
@@ -98,25 +98,19 @@ public static class PavementLayerTemplatePresetFactory
         new Preset(
             PavementSurfaceType.Asphalt,
             PavementLayerTemplateRoadSegmentType.MainlineLane,
-            7.5,
+            DefaultPreviewWidth,
             "Ⅰ-1",
-            MainlineLayers(0.10, 0.10, 0.36)),
+            MainlineLaneLayers()),
         new Preset(
             PavementSurfaceType.Asphalt,
             PavementLayerTemplateRoadSegmentType.MainlineShoulder,
-            3.0,
+            DefaultPreviewWidth,
             "Ⅰ-2",
-            MainlineLayers(0.10, 0.10, 0.36)),
-        new Preset(
-            PavementSurfaceType.Asphalt,
-            PavementLayerTemplateRoadSegmentType.MainlineEdgeStrip,
-            0.75,
-            "Ⅰ-3",
-            MainlineLayers(0.10, 0.10, 0.36)),
+            MainlineShoulderLayers()),
         new Preset(
             PavementSurfaceType.Asphalt,
             PavementLayerTemplateRoadSegmentType.Ramp,
-            3.5,
+            DefaultPreviewWidth,
             "Ⅰ-4",
             new[]
             {
@@ -129,7 +123,7 @@ public static class PavementLayerTemplatePresetFactory
         new Preset(
             PavementSurfaceType.Asphalt,
             PavementLayerTemplateRoadSegmentType.BridgeTransition,
-            7.5,
+            DefaultPreviewWidth,
             "Ⅱ-1",
             new[]
             {
@@ -143,7 +137,7 @@ public static class PavementLayerTemplatePresetFactory
         new Preset(
             PavementSurfaceType.Asphalt,
             PavementLayerTemplateRoadSegmentType.BridgeDeck,
-            7.5,
+            DefaultPreviewWidth,
             "Ⅱ-2",
             new[]
             {
@@ -154,7 +148,7 @@ public static class PavementLayerTemplatePresetFactory
         new Preset(
             PavementSurfaceType.Asphalt,
             PavementLayerTemplateRoadSegmentType.InterchangeCrossroad,
-            7.5,
+            DefaultPreviewWidth,
             "Ⅱ-3",
             new[]
             {
@@ -166,7 +160,7 @@ public static class PavementLayerTemplatePresetFactory
         new Preset(
             PavementSurfaceType.Asphalt,
             PavementLayerTemplateRoadSegmentType.Tunnel,
-            7.5,
+            DefaultPreviewWidth,
             "Ⅱ-4",
             new[]
             {
@@ -179,7 +173,7 @@ public static class PavementLayerTemplatePresetFactory
         new Preset(
             PavementSurfaceType.Concrete,
             PavementLayerTemplateRoadSegmentType.TollPlaza,
-            7.5,
+            DefaultPreviewWidth,
             "Ⅲ-1",
             new[]
             {
@@ -190,7 +184,7 @@ public static class PavementLayerTemplatePresetFactory
         new Preset(
             PavementSurfaceType.Concrete,
             PavementLayerTemplateRoadSegmentType.PassageConnection,
-            7.5,
+            DefaultPreviewWidth,
             "Ⅲ-2",
             new[]
             {
@@ -200,18 +194,26 @@ public static class PavementLayerTemplatePresetFactory
             }),
     };
 
-    private static IReadOnlyList<PavementLayerTemplateLayerDto> MainlineLayers(
-        double baseWidening,
-        double subbaseWidening,
-        double baseThickness)
+    private static IReadOnlyList<PavementLayerTemplateLayerDto> MainlineLaneLayers()
         => new[]
         {
             AsphaltUpper(),
             AsphaltMiddle(),
             Layer(PavementLayerType.LowerSurface, "8cm沥青马蹄脂碎石混合料（SUP-25）", 0.08, 0.0, 0.0, 80, 80, 80, 0.005, "AR-HBONE"),
             AsphaltSeal(),
-            Layer(PavementLayerType.Base, $"{(int)Math.Round(baseThickness * 100.0)}cm水泥稳定碎石", baseThickness, baseWidening, 1.0, 55, 108, 189, 0.04, "GRAVEL"),
-            Layer(PavementLayerType.Subbase, "20cm低剂量水泥稳定碎石", 0.20, subbaseWidening, 1.0, 61, 120, 210, 0.20, "SACNCR"),
+            LayerWithSides(PavementLayerType.Base, "36cm水泥稳定碎石", 0.36, 0.36, 0.10, 0.0, 1.0, 0.0, 55, 108, 189, 0.04, "GRAVEL"),
+            LayerWithSides(PavementLayerType.Subbase, "20cm低剂量水泥稳定碎石", 0.20, 0.20, 0.10, 0.0, 1.0, 0.0, 61, 120, 210, 0.20, "SACNCR"),
+        };
+
+    private static IReadOnlyList<PavementLayerTemplateLayerDto> MainlineShoulderLayers()
+        => new[]
+        {
+            AsphaltUpper(),
+            AsphaltMiddle(),
+            Layer(PavementLayerType.LowerSurface, "8cm沥青马蹄脂碎石混合料（SUP-25）", 0.08, 0.0, 0.0, 80, 80, 80, 0.005, "AR-HBONE"),
+            AsphaltSeal(),
+            LayerWithSides(PavementLayerType.Base, "36cm水泥稳定碎石", 0.36, 0.36, 0.0, 0.10, 0.0, 1.0, 55, 108, 189, 0.04, "GRAVEL"),
+            LayerWithSides(PavementLayerType.Subbase, "20cm低剂量水泥稳定碎石", 0.20, 0.20, 0.0, 0.10, 0.0, 1.0, 61, 120, 210, 0.20, "SACNCR"),
         };
 
     private static PavementLayerTemplateLayerDto AsphaltUpper()
@@ -234,18 +236,47 @@ public static class PavementLayerTemplatePresetFactory
         int colorB,
         double hatchScale,
         string hatchPattern = "SOLID")
+        => LayerWithSides(
+            type,
+            name,
+            thickness,
+            thickness,
+            widening,
+            widening,
+            slope,
+            slope,
+            colorR,
+            colorG,
+            colorB,
+            hatchScale,
+            hatchPattern);
+
+    private static PavementLayerTemplateLayerDto LayerWithSides(
+        PavementLayerType type,
+        string name,
+        double innerThickness,
+        double outerThickness,
+        double innerWidening,
+        double outerWidening,
+        double innerSlope,
+        double outerSlope,
+        int colorR,
+        int colorG,
+        int colorB,
+        double hatchScale,
+        string hatchPattern = "SOLID")
         => new()
         {
             Type = type,
             Name = name,
-            UniformThickness = true,
-            Thickness = thickness,
-            InnerThickness = thickness,
-            OuterThickness = thickness,
-            InnerWidening = widening,
-            OuterWidening = widening,
-            InnerSlope = slope,
-            OuterSlope = slope,
+            UniformThickness = Math.Abs(innerThickness - outerThickness) < 1.0e-9,
+            Thickness = Math.Max(innerThickness, outerThickness),
+            InnerThickness = innerThickness,
+            OuterThickness = outerThickness,
+            InnerWidening = innerWidening,
+            OuterWidening = outerWidening,
+            InnerSlope = innerSlope,
+            OuterSlope = outerSlope,
             ColorR = colorR,
             ColorG = colorG,
             ColorB = colorB,

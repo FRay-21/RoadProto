@@ -99,7 +99,7 @@ public class PavementLayerTemplateDto
 {
     public string TemplateName { get; set; } = "路面结构层模板";
     public double DisplayScale { get; set; } = 10.0;
-    public double PreviewWidth { get; set; } = 3.75;
+    public double PreviewWidth { get; set; } = 3.0;
     public PavementLayerTemplateDisplayMode DisplayMode { get; set; } = PavementLayerTemplateDisplayMode.Color;
     public bool ShowAllGeneralParameters { get; set; }
     public string StructureCode { get; set; } = string.Empty;

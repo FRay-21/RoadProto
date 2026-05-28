@@ -88,12 +88,10 @@ public partial class PavementLayerTemplateCreateWizardWindow : Window
         var grid = new Grid { Margin = new Thickness(0, 0, 0, 8) };
         grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(86) });
         grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(66) });
-        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(88) });
-        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(66) });
-        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(88) });
-        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(66) });
-        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(88) });
+        for (var i = 0; i < 6; i++)
+        {
+            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(82) });
+        }
 
         grid.Children.Add(new TextBlock
         {
@@ -102,32 +100,31 @@ public partial class PavementLayerTemplateCreateWizardWindow : Window
         });
 
         var nameBox = new TextBox { Height = 28, Text = layer.Name, Margin = new Thickness(0, 0, 14, 0) };
-        var thicknessBox = new TextBox { Height = 28, Text = Format(layer.Thickness) };
-        var wideningBox = new TextBox { Height = 28, Text = Format(layer.InnerWidening) };
-        var slopeBox = new TextBox { Height = 28, Text = Format(layer.InnerSlope) };
+        var innerThicknessBox = new TextBox { Height = 28, Text = Format(layer.InnerThickness) };
+        var outerThicknessBox = new TextBox { Height = 28, Text = Format(layer.OuterThickness) };
+        var innerWideningBox = new TextBox { Height = 28, Text = Format(layer.InnerWidening) };
+        var outerWideningBox = new TextBox { Height = 28, Text = Format(layer.OuterWidening) };
+        var innerSlopeBox = new TextBox { Height = 28, Text = Format(layer.InnerSlope) };
+        var outerSlopeBox = new TextBox { Height = 28, Text = Format(layer.OuterSlope) };
 
         AddCell(grid, nameBox, 1);
-        AddLabel(grid, "厚度", 2);
-        AddCell(grid, thicknessBox, 3);
-        AddLabel(grid, "加宽", 4);
-        AddCell(grid, wideningBox, 5);
-        AddLabel(grid, "坡度", 6);
-        AddCell(grid, slopeBox, 7);
+        AddCell(grid, innerThicknessBox, 2);
+        AddCell(grid, outerThicknessBox, 3);
+        AddCell(grid, innerWideningBox, 4);
+        AddCell(grid, outerWideningBox, 5);
+        AddCell(grid, innerSlopeBox, 6);
+        AddCell(grid, outerSlopeBox, 7);
 
-        return new LayerRowControls(layer, grid, nameBox, thicknessBox, wideningBox, slopeBox);
-    }
-
-    private static void AddLabel(Grid grid, string text, int column)
-    {
-        var label = new TextBlock
-        {
-            Text = text,
-            VerticalAlignment = VerticalAlignment.Center,
-            HorizontalAlignment = HorizontalAlignment.Right,
-            Margin = new Thickness(0, 0, 8, 0),
-        };
-        Grid.SetColumn(label, column);
-        grid.Children.Add(label);
+        return new LayerRowControls(
+            layer,
+            grid,
+            nameBox,
+            innerThicknessBox,
+            outerThicknessBox,
+            innerWideningBox,
+            outerWideningBox,
+            innerSlopeBox,
+            outerSlopeBox);
     }
 
     private static void AddCell(Grid grid, Control control, int column)
@@ -157,13 +154,16 @@ public partial class PavementLayerTemplateCreateWizardWindow : Window
             layer.Name = string.IsNullOrWhiteSpace(row.NameBox.Text)
                 ? PavementLayerTemplateLabels.LayerTypeLabel(layer.Type)
                 : row.NameBox.Text.Trim();
-            layer.Thickness = Math.Max(0.001, ReadDouble(row.ThicknessBox.Text, layer.Thickness));
-            layer.InnerThickness = layer.Thickness;
-            layer.OuterThickness = layer.Thickness;
-            layer.InnerWidening = ReadDouble(row.WideningBox.Text, layer.InnerWidening);
-            layer.OuterWidening = layer.InnerWidening;
-            layer.InnerSlope = ReadDouble(row.SlopeBox.Text, layer.InnerSlope);
-            layer.OuterSlope = layer.InnerSlope;
+            layer.InnerThickness = Math.Max(0.001, ReadDouble(row.InnerThicknessBox.Text, layer.InnerThickness));
+            layer.OuterThickness = Math.Max(0.001, ReadDouble(row.OuterThicknessBox.Text, layer.OuterThickness));
+            layer.UniformThickness = NearlyEqual(layer.InnerThickness, layer.OuterThickness);
+            layer.Thickness = layer.UniformThickness
+                ? layer.InnerThickness
+                : Math.Max(layer.InnerThickness, layer.OuterThickness);
+            layer.InnerWidening = ReadDouble(row.InnerWideningBox.Text, layer.InnerWidening);
+            layer.OuterWidening = ReadDouble(row.OuterWideningBox.Text, layer.OuterWidening);
+            layer.InnerSlope = ReadDouble(row.InnerSlopeBox.Text, layer.InnerSlope);
+            layer.OuterSlope = ReadDouble(row.OuterSlopeBox.Text, layer.OuterSlope);
         }
     }
 
@@ -176,6 +176,9 @@ public partial class PavementLayerTemplateCreateWizardWindow : Window
 
     private static string Format(double value)
         => value.ToString("0.###", CultureInfo.InvariantCulture);
+
+    private static bool NearlyEqual(double first, double second)
+        => Math.Abs(first - second) < 1.0e-9;
 
     private static void SelectComboValue<T>(ComboBox comboBox, T value)
     {
@@ -199,23 +202,32 @@ public partial class PavementLayerTemplateCreateWizardWindow : Window
             PavementLayerTemplateLayerDto layer,
             FrameworkElement element,
             TextBox nameBox,
-            TextBox thicknessBox,
-            TextBox wideningBox,
-            TextBox slopeBox)
+            TextBox innerThicknessBox,
+            TextBox outerThicknessBox,
+            TextBox innerWideningBox,
+            TextBox outerWideningBox,
+            TextBox innerSlopeBox,
+            TextBox outerSlopeBox)
         {
             Layer = layer;
             Element = element;
             NameBox = nameBox;
-            ThicknessBox = thicknessBox;
-            WideningBox = wideningBox;
-            SlopeBox = slopeBox;
+            InnerThicknessBox = innerThicknessBox;
+            OuterThicknessBox = outerThicknessBox;
+            InnerWideningBox = innerWideningBox;
+            OuterWideningBox = outerWideningBox;
+            InnerSlopeBox = innerSlopeBox;
+            OuterSlopeBox = outerSlopeBox;
         }
 
         public PavementLayerTemplateLayerDto Layer { get; }
         public FrameworkElement Element { get; }
         public TextBox NameBox { get; }
-        public TextBox ThicknessBox { get; }
-        public TextBox WideningBox { get; }
-        public TextBox SlopeBox { get; }
+        public TextBox InnerThicknessBox { get; }
+        public TextBox OuterThicknessBox { get; }
+        public TextBox InnerWideningBox { get; }
+        public TextBox OuterWideningBox { get; }
+        public TextBox InnerSlopeBox { get; }
+        public TextBox OuterSlopeBox { get; }
     }
 }

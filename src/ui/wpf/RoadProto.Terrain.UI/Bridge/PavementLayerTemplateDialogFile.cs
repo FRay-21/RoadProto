@@ -21,7 +21,7 @@ public static class PavementLayerTemplateDialogFile
             InsertionZ = GetDouble(values, "insertionZ"),
             TemplateName = Get(values, "templateName", "路面结构层模板"),
             DisplayScale = GetDouble(values, "displayScale", 10.0),
-            PreviewWidth = GetDouble(values, "previewWidth", 3.75),
+            PreviewWidth = GetDouble(values, "previewWidth", 3.0),
             DisplayMode = ParseEnum(Get(values, "displayMode", "Color"), PavementLayerTemplateDisplayMode.Color),
             ShowAllGeneralParameters = GetBool(values, "showAllGeneralParameters"),
             ShowCreateWizard = GetBool(values, "showCreateWizard"),

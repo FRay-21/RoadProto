@@ -1316,12 +1316,17 @@ static void PavementLayerTemplatePresetFactoryBuildsDocumentDefaults()
     var mainline = PavementLayerTemplatePresetFactory.Create(
         PavementSurfaceType.Asphalt,
         PavementLayerTemplateRoadSegmentType.MainlineLane);
+    var asphaltSegmentLabels = PavementLayerTemplatePresetFactory
+        .RoadSegmentOptions(PavementSurfaceType.Asphalt)
+        .Select(option => option.Label)
+        .ToList();
+    Check(!asphaltSegmentLabels.Contains("主线路缘带"), "asphalt wizard segment options should remove mainline edge strip");
 
     Check(mainline.TemplateName == "沥青路面-主线行车道", "mainline preset should name the selected pavement and road segment");
     Check(mainline.PavementType == PavementSurfaceType.Asphalt, "mainline preset should use asphalt pavement type");
     Check(mainline.DisplayMode == PavementLayerTemplateDisplayMode.HatchAndColor, "mainline preset should use hatch and color display mode");
     Check(mainline.ShowAllGeneralParameters, "mainline preset should expose populated general parameters in the editor");
-    Check(Math.Abs(mainline.PreviewWidth - 7.5) < 1.0e-9, "mainline preset should use document preview width");
+    Check(Math.Abs(mainline.PreviewWidth - 3.0) < 1.0e-9, "mainline preset should use the unified preview width");
     Check(mainline.StructureCode == "Ⅰ-1", "mainline preset should use document structure code");
     Check(mainline.Layers.Count == 6, "mainline preset should omit empty or zero document layers");
     Check(mainline.Layers[0].Type == PavementLayerType.UpperSurface, "mainline first layer should be upper surface");
@@ -1342,12 +1347,41 @@ static void PavementLayerTemplatePresetFactoryBuildsDocumentDefaults()
     Check(Math.Abs(asphaltSeal.HatchScale - 1.0) < 1.0e-9, "asphalt seal should use document hatch scale");
     var baseLayer = mainline.Layers.Single(layer => layer.Type == PavementLayerType.Base);
     Check(baseLayer.Name == "36cm水泥稳定碎石", "mainline base should use document material name");
-    Check(Math.Abs(baseLayer.InnerWidening - 0.1) < 1.0e-9 && Math.Abs(baseLayer.InnerSlope - 1.0) < 1.0e-9, "mainline base should use document widening and slope");
+    Check(
+        Math.Abs(baseLayer.InnerWidening - 0.1) < 1.0e-9 &&
+        Math.Abs(baseLayer.OuterWidening) < 1.0e-9 &&
+        Math.Abs(baseLayer.InnerSlope - 1.0) < 1.0e-9 &&
+        Math.Abs(baseLayer.OuterSlope) < 1.0e-9,
+        "mainline lane base should use asymmetric inner-side widening and slope");
     Check(baseLayer.HatchPattern == "GRAVEL", "mainline base should use document hatch pattern image");
     Check(Math.Abs(baseLayer.HatchScale - 0.04) < 1.0e-9, "mainline base should use document hatch scale");
     var subbaseLayer = mainline.Layers.Single(layer => layer.Type == PavementLayerType.Subbase);
+    Check(
+        Math.Abs(subbaseLayer.InnerWidening - 0.1) < 1.0e-9 &&
+        Math.Abs(subbaseLayer.OuterWidening) < 1.0e-9 &&
+        Math.Abs(subbaseLayer.InnerSlope - 1.0) < 1.0e-9 &&
+        Math.Abs(subbaseLayer.OuterSlope) < 1.0e-9,
+        "mainline lane subbase should use asymmetric inner-side widening and slope");
     Check(subbaseLayer.HatchPattern == "SACNCR", "mainline subbase should use document hatch pattern image");
     Check(Math.Abs(subbaseLayer.HatchScale - 0.2) < 1.0e-9, "mainline subbase should use document hatch scale");
+
+    var shoulder = PavementLayerTemplatePresetFactory.Create(
+        PavementSurfaceType.Asphalt,
+        PavementLayerTemplateRoadSegmentType.MainlineShoulder);
+    var shoulderBase = shoulder.Layers.Single(layer => layer.Type == PavementLayerType.Base);
+    Check(
+        Math.Abs(shoulderBase.InnerWidening) < 1.0e-9 &&
+        Math.Abs(shoulderBase.OuterWidening - 0.1) < 1.0e-9 &&
+        Math.Abs(shoulderBase.InnerSlope) < 1.0e-9 &&
+        Math.Abs(shoulderBase.OuterSlope - 1.0) < 1.0e-9,
+        "mainline shoulder base should use asymmetric outer-side widening and slope");
+    var shoulderSubbase = shoulder.Layers.Single(layer => layer.Type == PavementLayerType.Subbase);
+    Check(
+        Math.Abs(shoulderSubbase.InnerWidening) < 1.0e-9 &&
+        Math.Abs(shoulderSubbase.OuterWidening - 0.1) < 1.0e-9 &&
+        Math.Abs(shoulderSubbase.InnerSlope) < 1.0e-9 &&
+        Math.Abs(shoulderSubbase.OuterSlope - 1.0) < 1.0e-9,
+        "mainline shoulder subbase should use asymmetric outer-side widening and slope");
 
     var wizardMainline = PavementLayerTemplateLabels.CloneTemplate(mainline);
     Check(wizardMainline.Layers[0].HatchPattern == "NET", "wizard clone should preserve mainline upper surface hatch pattern");
@@ -1358,7 +1392,7 @@ static void PavementLayerTemplatePresetFactoryBuildsDocumentDefaults()
     var bridgeTransition = PavementLayerTemplatePresetFactory.Create(
         PavementSurfaceType.Asphalt,
         PavementLayerTemplateRoadSegmentType.BridgeTransition);
-    Check(Math.Abs(bridgeTransition.PreviewWidth - 7.5) < 1.0e-9, "bridge transition preset should use document preview width");
+    Check(Math.Abs(bridgeTransition.PreviewWidth - 3.0) < 1.0e-9, "bridge transition preset should use the unified preview width");
     Check(bridgeTransition.StructureCode == "Ⅱ-1", "bridge transition preset should use document structure code");
     Check(!bridgeTransition.Layers.Any(layer => layer.Type == PavementLayerType.LowerSurface), "bridge transition should omit blank lower surface");
     var approachSlab = bridgeTransition.Layers.Single(layer => layer.Type == PavementLayerType.ApproachSlab);
@@ -1385,6 +1419,14 @@ static void PavementLayerTemplatePresetFactoryBuildsDocumentDefaults()
     Check(Math.Abs(tollPlaza.Layers[1].HatchScale - 0.04) < 1.0e-9, "toll plaza base should use document hatch scale");
     Check(tollPlaza.Layers[2].HatchPattern == "HEX", "toll plaza graded aggregate should use document hatch pattern image");
     Check(Math.Abs(tollPlaza.Layers[2].HatchScale - 0.5) < 1.0e-9, "toll plaza graded aggregate should use document hatch scale");
+    foreach (var pavementType in PavementLayerTemplatePresetFactory.PavementTypeOptions.Select(option => option.Value))
+    {
+        foreach (var roadSegmentType in PavementLayerTemplatePresetFactory.RoadSegmentOptions(pavementType).Select(option => option.Value))
+        {
+            var preset = PavementLayerTemplatePresetFactory.Create(pavementType, roadSegmentType);
+            Check(Math.Abs(preset.PreviewWidth - 3.0) < 1.0e-9, "all pavement layer wizard presets should default preview width to 3");
+        }
+    }
 }
 
 static void PavementLayerTemplateApplyUsesUniqueResponsePathContract()
@@ -1464,7 +1506,8 @@ static void PavementLayerTemplateWindowContainsRequiredEditorContracts()
     var xaml = File.ReadAllText(Path.Combine(root, "src", "ui", "wpf", "RoadProto.Terrain.UI", "PavementLayerTemplateWindow.xaml"), Encoding.UTF8);
     var source = File.ReadAllText(Path.Combine(root, "src", "ui", "wpf", "RoadProto.Terrain.UI", "PavementLayerTemplateWindow.xaml.cs"), Encoding.UTF8);
     var dtoSource = File.ReadAllText(Path.Combine(root, "src", "ui", "wpf", "RoadProto.Terrain.UI", "Bridge", "PavementLayerTemplateDialogDtos.cs"), Encoding.UTF8);
-    var combined = xaml + "\n" + source + "\n" + dtoSource;
+    var dialogFileSource = File.ReadAllText(Path.Combine(root, "src", "ui", "wpf", "RoadProto.Terrain.UI", "Bridge", "PavementLayerTemplateDialogFile.cs"), Encoding.UTF8);
+    var combined = xaml + "\n" + source + "\n" + dtoSource + "\n" + dialogFileSource;
 
     Check(combined.Contains("PreviewCanvas"), "pavement window should contain PreviewCanvas");
     Check(combined.Contains("LayerCountBox"), "pavement window should contain LayerCountBox");
@@ -1514,7 +1557,30 @@ static void PavementLayerTemplateWindowContainsRequiredEditorContracts()
     Check(source.Contains("DrawHatchPattern"), "pavement preview should draw hatch pattern overlays");
     Check(source.Contains("geometry.Layer.HatchAngle"), "pavement preview hatch pattern should use per-layer hatch angle");
     Check(source.Contains("geometry.Layer.HatchScale"), "pavement preview hatch pattern should use per-layer hatch scale");
-    Check(source.Contains("const double labelFontSize = 9.0"), "pavement preview layer labels should use a fixed font size");
+    Check(source.Contains("const double DefaultPreviewWidth = 3.0"), "pavement editor should use the unified preview width fallback");
+    Check(dtoSource.Contains("PreviewWidth { get; set; } = 3.0"), "pavement dialog DTO should default preview width to 3");
+    Check(dialogFileSource.Contains("GetDouble(values, \"previewWidth\", 3.0)"), "pavement dialog file parser should default preview width to 3");
+    Check(source.Contains("DrawLayerCalloutLabels(geometry, transform)"), "pavement preview should draw one callout label block after layer edges");
+    Check(source.Contains("WorldTextHeightToScreen"), "pavement preview text should convert fixed model text heights through the current preview scale");
+    Check(source.Contains("WorldDistanceToScreen"), "pavement preview annotation offsets and lengths should convert fixed model distances through the current preview scale");
+    Check(source.Contains("fontSize = WorldTextHeightToScreen") && source.Contains("transform.Scale"), "pavement preview labels should scale with preview zoom instead of staying fixed to screen pixels");
+    Check(source.Contains("const double calloutTextHeight = 0.075"), "pavement preview callout labels should use a smaller fixed model text height");
+    Check(source.Contains("const double slopeTextHeight = 0.052"), "pavement preview slope labels should use a smaller fixed model text height");
+    Check(source.Contains("const double wideningTextHeight = 0.052"), "pavement preview widening labels should use a smaller fixed model text height");
+    Check(source.Contains("const double calloutUnderlineLength = 1.85"), "pavement preview callout underlines should be slightly shorter");
+    Check(source.Contains("const double wideningDimensionOffset = 0.085"), "pavement preview widening dimension extension lines should be shorter");
+    Check(source.Contains("const double wideningArrowLength = 0.026"), "pavement preview widening arrowheads should be smaller");
+    Check(source.Contains("const double wideningArrowHalfWidth = 0.011"), "pavement preview widening arrowheads should be narrower");
+    Check(source.Contains("(a.Y + b.Y) * 0.5 - fontSize * 1.25"), "pavement preview widening label should stay just above the dimension arrow center");
+    Check(source.Contains("LayerCalloutLabel"), "pavement preview should format layer callout text separately from geometry dimensions");
+    Check(source.Contains("DrawCalloutUnderline"), "pavement preview should draw an underline for every layer callout row");
+    Check(source.Contains("AddEdge(leaderStart"), "pavement preview should draw a vertical leader line for the label block");
+    Check(source.Contains("leaderStart = new Point(leaderX, TopLineYAtX(topSurfaceStart, topSurfaceEnd, leaderX))") && !source.Contains("minTopY - 8.0"), "pavement preview callout leader should start exactly at the pavement top");
+    Check(source.Contains("SlopeLabelPosition"), "pavement preview slope label should be positioned from the side-edge midpoint");
+    Check(!source.Contains("-dimensionLabelFontSize * 3.5"), "pavement preview slope label should not be pushed far away from the side edge");
+    Check(!source.Contains("var offset = new Vector(0.0, -18.0)"), "pavement preview widening dimension offset should not be fixed in screen pixels");
+    Check(!source.Contains("direction * 8.0") && !source.Contains("normal * 3.5"), "pavement preview arrowheads should not be fixed in screen pixels");
+    Check(!source.Contains("Math.Max(72.0, Math.Min(260.0"), "pavement preview callout underline width should not be fixed in screen pixels");
     Check(!source.Contains("layerHeight * 0.22"), "pavement preview layer labels should not scale with layer thickness");
     Check(source.Contains("DrawWideningDimension"), "pavement preview should use CAD-style widening dimensions");
     Check(source.Contains("FormatSlopeLabel"), "pavement preview should format slope labels as 1:n");
@@ -1538,6 +1604,7 @@ static void PavementLayerTemplateCreateWizardWindowContainsRequiredContracts()
     var xaml = File.ReadAllText(Path.Combine(root, "src", "ui", "wpf", "RoadProto.Terrain.UI", "PavementLayerTemplateCreateWizardWindow.xaml"), Encoding.UTF8);
     var source = File.ReadAllText(Path.Combine(root, "src", "ui", "wpf", "RoadProto.Terrain.UI", "PavementLayerTemplateCreateWizardWindow.xaml.cs"), Encoding.UTF8);
     var command = File.ReadAllText(Path.Combine(root, "src", "ui", "wpf", "RoadProto.Terrain.UI", "AutoCad", "PavementLayerTemplateDialogCommands.cs"), Encoding.UTF8);
+    var editorXaml = File.ReadAllText(Path.Combine(root, "src", "ui", "wpf", "RoadProto.Terrain.UI", "PavementLayerTemplateWindow.xaml"), Encoding.UTF8);
     var editorSource = File.ReadAllText(Path.Combine(root, "src", "ui", "wpf", "RoadProto.Terrain.UI", "PavementLayerTemplateWindow.xaml.cs"), Encoding.UTF8);
     var combined = xaml + "\n" + source + "\n" + command + "\n" + editorSource;
 
@@ -1545,10 +1612,21 @@ static void PavementLayerTemplateCreateWizardWindowContainsRequiredContracts()
     Check(combined.Contains("PavementTypeBox"), "pavement create wizard should expose pavement type selection");
     Check(combined.Contains("RoadSegmentTypeBox"), "pavement create wizard should expose road segment type selection");
     Check(combined.Contains("WizardLayersPanel"), "pavement create wizard should expose editable preset layer rows");
+    Check(combined.Contains("内侧厚度") && combined.Contains("外侧厚度"), "pavement create wizard should expose inner and outer thickness fields");
+    Check(combined.Contains("内侧加宽") && combined.Contains("外侧加宽"), "pavement create wizard should expose inner and outer widening fields");
+    Check(combined.Contains("内侧坡度") && combined.Contains("外侧坡度"), "pavement create wizard should expose inner and outer slope fields");
+    Check(source.Contains("InnerThicknessBox") && source.Contains("OuterThicknessBox"), "pavement create wizard should read inner and outer thickness text boxes");
+    Check(source.Contains("InnerWideningBox") && source.Contains("OuterWideningBox"), "pavement create wizard should read inner and outer widening text boxes");
+    Check(source.Contains("InnerSlopeBox") && source.Contains("OuterSlopeBox"), "pavement create wizard should read inner and outer slope text boxes");
     Check(combined.Contains("PavementLayerTemplatePresetFactory.Create"), "pavement create wizard should build initial values from the preset factory");
     Check(combined.Contains("request.ShowCreateWizard"), "pavement managed command should branch on create-wizard requests");
     Check(combined.Contains("new PavementLayerTemplateWindow(request)"), "pavement managed command should still open the existing editor window after the wizard");
     Check(combined.Contains("ApplyButton.IsEnabled = !string.IsNullOrWhiteSpace(request.Handle)"), "pavement create editor should disable Apply before the new entity has a handle");
+    Check(editorXaml.Contains("Content=\"新增部件\""), "pavement editor should expose add-component button");
+    Check(editorXaml.Contains("Content=\"删除部件\""), "pavement editor should expose delete-component button");
+    Check(editorSource.Contains("ShowInsertLayerDialog"), "pavement editor should ask whether to insert above or below the selected layer");
+    Check(editorSource.Contains("\"上方\"") && editorSource.Contains("\"下方\"") && editorSource.Contains("\"取消\""), "pavement add-component dialog should offer above, below, and cancel");
+    Check(editorSource.Contains("MessageBox.Show(this, \"是否删除选中部件？\""), "pavement editor should confirm deleting the selected component");
 }
 
 static void PavementLayerTemplateRibbonAndCommandSourceContractsExist()

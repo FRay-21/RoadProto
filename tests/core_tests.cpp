@@ -3950,7 +3950,7 @@ void pavementLayerTemplateCreateServiceBuildsDefaultTemplate()
     CHECK(result.errorMessage.empty());
     CHECK(result.templateData.properties.name == L"\u8def\u9762\u7ed3\u6784\u5c42\u6a21\u677f");
     CHECK(std::fabs(result.templateData.properties.displayScale - 10.0) < 1.0e-9);
-    CHECK(std::fabs(result.templateData.properties.previewWidth - 3.75) < 1.0e-9);
+    CHECK(std::fabs(result.templateData.properties.previewWidth - 3.0) < 1.0e-9);
     CHECK(!result.templateData.layers.empty());
 }
 

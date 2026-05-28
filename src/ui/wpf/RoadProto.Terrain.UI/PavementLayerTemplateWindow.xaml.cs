@@ -16,6 +16,8 @@ namespace RoadProto.Terrain.UI;
 
 public partial class PavementLayerTemplateWindow : Window
 {
+    private const double DefaultPreviewWidth = 3.0;
+
     private readonly PavementLayerTemplateDialogRequest _request;
     private readonly ObservableCollection<PavementLayerTemplateLayerDto> _layers = new();
     private readonly System.Collections.Generic.List<LayerControls> _layerControls = new();
@@ -71,7 +73,7 @@ public partial class PavementLayerTemplateWindow : Window
         _loading = true;
         TemplateNameBox.Text = string.IsNullOrWhiteSpace(_request.TemplateName) ? "路面结构层模板" : _request.TemplateName;
         DisplayScaleBox.Text = Format(_request.DisplayScale <= 0 ? 10.0 : _request.DisplayScale);
-        PreviewWidthBox.Text = Format(_request.PreviewWidth <= 0 ? 3.75 : _request.PreviewWidth);
+        PreviewWidthBox.Text = Format(_request.PreviewWidth <= 0 ? DefaultPreviewWidth : _request.PreviewWidth);
         DisplayModeBox.ItemsSource = _displayModeOptions;
         DisplayModeBox.DisplayMemberPath = nameof(ComboOption<PavementLayerTemplateDisplayMode>.Label);
         SelectComboValue(DisplayModeBox, _request.DisplayMode);
@@ -207,19 +209,7 @@ public partial class PavementLayerTemplateWindow : Window
         count = Math.Max(1, Math.Min(100, count));
         while (_layers.Count < count)
         {
-            var type = (PavementLayerType)(Math.Min(_layers.Count, _typeOptions.Count - 1));
-            var color = PavementLayerTemplateLabels.DefaultColorForLayerIndex(_layers.Count);
-            _layers.Add(new PavementLayerTemplateLayerDto
-            {
-                Type = type,
-                Name = PavementLayerTemplateLabels.LayerTypeLabel(type),
-                ColorR = color.R,
-                ColorG = color.G,
-                ColorB = color.B,
-                HatchPattern = "SOLID",
-                HatchAngle = 0.0,
-                HatchScale = 1.0,
-            });
+            _layers.Add(CreateDefaultLayer(_layers.Count));
         }
         while (_layers.Count > count)
         {
@@ -252,6 +242,50 @@ public partial class PavementLayerTemplateWindow : Window
 
     private void NextLayerButton_Click(object sender, RoutedEventArgs e)
         => SelectLayer(_selectedLayerIndex + 1);
+
+    private void AddComponent_Click(object sender, RoutedEventArgs e)
+    {
+        ApplyLayerInputs();
+        if (_layers.Count == 0)
+        {
+            _layers.Add(CreateDefaultLayer(0));
+            _selectedLayerIndex = 0;
+            RefreshAfterLayerMutation();
+            return;
+        }
+
+        var insertPosition = ShowInsertLayerDialog();
+        if (!insertPosition.HasValue)
+        {
+            return;
+        }
+
+        var selectedIndex = Math.Max(0, Math.Min(_selectedLayerIndex, _layers.Count - 1));
+        var insertIndex = insertPosition == InsertLayerPosition.Above ? selectedIndex : selectedIndex + 1;
+        _layers.Insert(insertIndex, CreateDefaultLayer(insertIndex));
+        _selectedLayerIndex = insertIndex;
+        RefreshAfterLayerMutation();
+    }
+
+    private void DeleteComponent_Click(object sender, RoutedEventArgs e)
+    {
+        if (_layers.Count <= 1)
+        {
+            MessageBox.Show(this, "至少保留一个部件。", "删除部件", MessageBoxButton.OK, MessageBoxImage.Information);
+            return;
+        }
+
+        ApplyLayerInputs();
+        if (MessageBox.Show(this, "是否删除选中部件？", "删除部件", MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes)
+        {
+            return;
+        }
+
+        var selectedIndex = Math.Max(0, Math.Min(_selectedLayerIndex, _layers.Count - 1));
+        _layers.RemoveAt(selectedIndex);
+        _selectedLayerIndex = Math.Max(0, Math.Min(selectedIndex, _layers.Count - 1));
+        RefreshAfterLayerMutation();
+    }
 
     private void SelectLayer(int index)
     {
@@ -288,6 +322,99 @@ public partial class PavementLayerTemplateWindow : Window
         {
             _updatingCurrentLayerBox = false;
         }
+    }
+
+    private PavementLayerTemplateLayerDto CreateDefaultLayer(int index)
+    {
+        var type = _typeOptions[Math.Min(Math.Max(index, 0), _typeOptions.Count - 1)].Value;
+        var color = PavementLayerTemplateLabels.DefaultColorForLayerIndex(index);
+        return new PavementLayerTemplateLayerDto
+        {
+            Type = type,
+            Name = PavementLayerTemplateLabels.LayerTypeLabel(type),
+            UniformThickness = true,
+            Thickness = 0.04,
+            InnerThickness = 0.04,
+            OuterThickness = 0.04,
+            ColorR = color.R,
+            ColorG = color.G,
+            ColorB = color.B,
+            HatchPattern = "SOLID",
+            HatchAngle = 0.0,
+            HatchScale = 1.0,
+        };
+    }
+
+    private void RefreshAfterLayerMutation()
+    {
+        var wasLoading = _loading;
+        _loading = true;
+        try
+        {
+            LayerCountBox.Text = _layers.Count.ToString(CultureInfo.InvariantCulture);
+        }
+        finally
+        {
+            _loading = wasLoading;
+        }
+
+        UpdateCurrentLayerBox();
+        RefreshLayerGroups();
+        DrawPreview();
+    }
+
+    private InsertLayerPosition? ShowInsertLayerDialog()
+    {
+        InsertLayerPosition? result = null;
+        var dialog = new Window
+        {
+            Title = "新增部件",
+            Owner = this,
+            WindowStartupLocation = WindowStartupLocation.CenterOwner,
+            ResizeMode = ResizeMode.NoResize,
+            SizeToContent = SizeToContent.WidthAndHeight,
+        };
+
+        var panel = new StackPanel
+        {
+            Margin = new Thickness(18),
+            MinWidth = 260,
+        };
+        panel.Children.Add(new TextBlock
+        {
+            Text = "在当前部件上方还是下方新增？",
+            Margin = new Thickness(0, 0, 0, 14),
+        });
+
+        var buttons = new StackPanel
+        {
+            Orientation = Orientation.Horizontal,
+            HorizontalAlignment = HorizontalAlignment.Right,
+        };
+        var aboveButton = new Button { Content = "上方", Width = 72, Height = 30, Margin = new Thickness(0, 0, 8, 0), IsDefault = true };
+        var belowButton = new Button { Content = "下方", Width = 72, Height = 30, Margin = new Thickness(0, 0, 8, 0) };
+        var cancelButton = new Button { Content = "取消", Width = 72, Height = 30, IsCancel = true };
+        aboveButton.Click += (_, _) =>
+        {
+            result = InsertLayerPosition.Above;
+            dialog.DialogResult = true;
+        };
+        belowButton.Click += (_, _) =>
+        {
+            result = InsertLayerPosition.Below;
+            dialog.DialogResult = true;
+        };
+        cancelButton.Click += (_, _) =>
+        {
+            dialog.DialogResult = false;
+        };
+        buttons.Children.Add(aboveButton);
+        buttons.Children.Add(belowButton);
+        buttons.Children.Add(cancelButton);
+        panel.Children.Add(buttons);
+        dialog.Content = panel;
+
+        return dialog.ShowDialog() == true ? result : null;
     }
 
     private void LayerInput_Changed(object sender, EventArgs e)
@@ -634,7 +761,7 @@ public partial class PavementLayerTemplateWindow : Window
 
         ApplyLayerInputs();
         PreviewCanvas.Children.Clear();
-        var previewWidth = Math.Max(0.1, ReadDouble(PreviewWidthBox.Text, 3.75));
+        var previewWidth = Math.Max(0.1, ReadDouble(PreviewWidthBox.Text, DefaultPreviewWidth));
         var geometry = BuildPreviewGeometry(previewWidth);
         if (geometry.Count == 0)
         {
@@ -659,8 +786,9 @@ public partial class PavementLayerTemplateWindow : Window
         }
         for (var i = 0; i < geometry.Count; i++)
         {
-            DrawLayerEdgesAndLabels(geometry, i, transform.WorldToScreen);
+            DrawLayerEdgesAndLabels(geometry, i, transform);
         }
+        DrawLayerCalloutLabels(geometry, transform);
     }
 
     private PreviewTransform? CreatePreviewTransform(
@@ -681,7 +809,8 @@ public partial class PavementLayerTemplateWindow : Window
         var width = Math.Max(0.1, maxX - minX);
         var height = Math.Max(0.1, maxY - minY);
         var usableWidth = Math.Max(1.0, PreviewCanvas.ActualWidth - pad * 2);
-        var usableHeight = Math.Max(1.0, PreviewCanvas.ActualHeight - pad * 2);
+        var calloutReserve = Math.Min(128.0, Math.Max(48.0, geometry.Count * 16.0));
+        var usableHeight = Math.Max(1.0, PreviewCanvas.ActualHeight - pad * 2 - calloutReserve);
         var baseScale = Math.Max(4.0, Math.Min(usableWidth / width, usableHeight / height));
         return new PreviewTransform(
             PreviewCanvas.ActualWidth,
@@ -928,8 +1057,9 @@ public partial class PavementLayerTemplateWindow : Window
     private void DrawLayerEdgesAndLabels(
         System.Collections.Generic.IReadOnlyList<LayerPreviewGeometry> geometry,
         int index,
-        Func<Point, Point> map)
+        PreviewTransform transform)
     {
+        var map = transform.WorldToScreen;
         var current = geometry[index];
         var color = LayerColor(current.Layer, index);
         var stroke = new SolidColorBrush(color);
@@ -951,40 +1081,135 @@ public partial class PavementLayerTemplateWindow : Window
         AddEdge(bottomInner, topInner, stroke, edgeThickness);
 
         var layer = current.Layer;
-        var midX = (topInner.X + topOuter.X + bottomInner.X + bottomOuter.X) / 4.0;
-        var midY = (topInner.Y + topOuter.Y + bottomInner.Y + bottomOuter.Y) / 4.0;
-        const double labelFontSize = 9.0;
-        AddLabel(LayerLabel(layer), new Point(midX - 42, midY - labelFontSize * 0.7), Brushes.White, labelFontSize);
+        const double slopeTextHeight = 0.052;
+        const double wideningTextHeight = 0.052;
+        var slopeLabelFontSize = WorldTextHeightToScreen(slopeTextHeight, transform.Scale);
+        var wideningLabelFontSize = WorldTextHeightToScreen(wideningTextHeight, transform.Scale);
         if (Math.Abs(layer.InnerWidening) > 1.0e-9)
         {
             var inheritedInner = index == 0
                 ? map(InheritedInnerTop(current))
                 : map(geometry[index - 1].BottomInner);
-            DrawWideningDimension(inheritedInner, topInner, Format(layer.InnerWidening), Brushes.LightSkyBlue);
+            DrawWideningDimension(inheritedInner, topInner, Format(layer.InnerWidening), Brushes.LightSkyBlue, wideningLabelFontSize, transform.Scale);
         }
         if (Math.Abs(layer.OuterWidening) > 1.0e-9)
         {
             var inheritedOuter = index == 0
                 ? map(InheritedOuterTop(current))
                 : map(geometry[index - 1].BottomOuter);
-            DrawWideningDimension(inheritedOuter, topOuter, Format(layer.OuterWidening), Brushes.LightSkyBlue);
+            DrawWideningDimension(inheritedOuter, topOuter, Format(layer.OuterWidening), Brushes.LightSkyBlue, wideningLabelFontSize, transform.Scale);
         }
         if (Math.Abs(layer.InnerSlope) > 1.0e-9)
         {
-            AddLabel(FormatSlopeLabel(layer.InnerSlope), Midpoint(topInner, bottomInner, -28.0), Brushes.Khaki, labelFontSize * 0.9);
+            AddLabel(FormatSlopeLabel(layer.InnerSlope), SlopeLabelPosition(topInner, bottomInner, true, slopeLabelFontSize), Brushes.Khaki, slopeLabelFontSize);
         }
         if (Math.Abs(layer.OuterSlope) > 1.0e-9)
         {
-            AddLabel(FormatSlopeLabel(layer.OuterSlope), Midpoint(topOuter, bottomOuter, 10.0), Brushes.Khaki, labelFontSize * 0.9);
+            AddLabel(FormatSlopeLabel(layer.OuterSlope), SlopeLabelPosition(topOuter, bottomOuter, false, slopeLabelFontSize), Brushes.Khaki, slopeLabelFontSize);
         }
     }
 
-    private static string LayerLabel(PavementLayerTemplateLayerDto layer)
+    private void DrawLayerCalloutLabels(
+        System.Collections.Generic.IReadOnlyList<LayerPreviewGeometry> geometry,
+        PreviewTransform transform)
+    {
+        if (geometry.Count == 0)
+        {
+            return;
+        }
+
+        var map = transform.WorldToScreen;
+        const double calloutTextHeight = 0.075;
+        const double calloutRowSpacing = 0.16;
+        const double calloutTextOffset = 0.09;
+        const double calloutUnderlineOffset = 0.115;
+        const double calloutLabelOffset = 0.28;
+        const double calloutUnderlineLength = 1.85;
+        const double calloutStrokeWidth = 0.006;
+        var fontSize = WorldTextHeightToScreen(calloutTextHeight, transform.Scale);
+        var rowSpacing = WorldDistanceToScreen(calloutRowSpacing, transform.Scale);
+        var textOffsetX = WorldDistanceToScreen(calloutTextOffset, transform.Scale);
+        var underlineOffsetY = WorldDistanceToScreen(calloutUnderlineOffset, transform.Scale);
+        var labelOffsetY = WorldDistanceToScreen(calloutLabelOffset, transform.Scale);
+        var calloutStrokeThickness = WorldDistanceToScreen(calloutStrokeWidth, transform.Scale);
+        var topSurfaceStart = map(geometry[0].TopInner);
+        var topSurfaceEnd = map(geometry[0].TopOuter);
+        var topPoints = geometry.SelectMany(item => new[] { map(item.TopInner), map(item.TopOuter) }).ToList();
+        var bottomPoints = geometry.SelectMany(item => new[] { map(item.BottomInner), map(item.BottomOuter) }).ToList();
+        var allPoints = topPoints.Concat(bottomPoints).ToList();
+        var maxBottomY = bottomPoints.Max(point => point.Y);
+        var minX = allPoints.Min(point => point.X);
+        var maxX = allPoints.Max(point => point.X);
+        var maxLeaderX = Math.Max(16.0, PreviewCanvas.ActualWidth - 96.0);
+        var leaderX = Math.Max(16.0, Math.Min(maxLeaderX, minX + (maxX - minX) * 0.38));
+        var labelStartY = maxBottomY + labelOffsetY;
+        var underlineWidth = WorldDistanceToScreen(calloutUnderlineLength, transform.Scale);
+        var leaderStart = new Point(leaderX, TopLineYAtX(topSurfaceStart, topSurfaceEnd, leaderX));
+        var leaderEnd = new Point(leaderX, labelStartY + (geometry.Count - 1) * rowSpacing + underlineOffsetY);
+        AddEdge(leaderStart, leaderEnd, Brushes.White, calloutStrokeThickness);
+
+        for (var i = 0; i < geometry.Count; i++)
+        {
+            var rowY = labelStartY + i * rowSpacing;
+            var textPoint = new Point(leaderX + textOffsetX, rowY);
+            AddCalloutLabel(LayerCalloutLabel(geometry[i].Layer), textPoint, underlineWidth - textOffsetX, fontSize);
+            DrawCalloutUnderline(new Point(leaderX, rowY + underlineOffsetY), underlineWidth, calloutStrokeThickness);
+        }
+    }
+
+    private void DrawCalloutUnderline(Point start, double width, double strokeThickness)
+        => AddEdge(start, new Point(start.X + width, start.Y), Brushes.White, strokeThickness);
+
+    private void AddCalloutLabel(string text, Point position, double maxWidth, double fontSize)
+    {
+        var label = new TextBlock
+        {
+            Text = text,
+            Foreground = Brushes.White,
+            FontSize = fontSize,
+            FontWeight = FontWeights.Normal,
+            FontFamily = new FontFamily("Microsoft YaHei UI"),
+            MaxWidth = Math.Max(1.0, maxWidth),
+            TextTrimming = TextTrimming.CharacterEllipsis,
+            Padding = new Thickness(1, 0, 1, 0),
+        };
+        Canvas.SetLeft(label, position.X);
+        Canvas.SetTop(label, position.Y);
+        PreviewCanvas.Children.Add(label);
+    }
+
+    private static string LayerCalloutLabel(PavementLayerTemplateLayerDto layer)
     {
         var inner = layer.UniformThickness ? layer.Thickness : layer.InnerThickness;
         var outer = layer.UniformThickness ? layer.Thickness : layer.OuterThickness;
-        var thickness = NearlyEqual(inner, outer) ? Format(inner) : $"{Format(inner)}/{Format(outer)}";
-        return $"{layer.Name}  厚 {thickness}";
+        var thickness = NearlyEqual(inner, outer)
+            ? FormatThicknessCentimeters(inner)
+            : $"内{FormatThicknessCentimeters(inner)}/外{FormatThicknessCentimeters(outer)}";
+        return $"{LayerCalloutName(layer)} {thickness}";
+    }
+
+    private static string LayerCalloutName(PavementLayerTemplateLayerDto layer)
+    {
+        var name = layer.Name.Trim();
+        var index = 0;
+        while (index < name.Length && (char.IsDigit(name[index]) || name[index] is '.' or '．'))
+        {
+            index++;
+        }
+        if (index > 0 && name.Length >= index + 2 && string.Equals(name.Substring(index, 2), "cm", StringComparison.OrdinalIgnoreCase))
+        {
+            name = name.Substring(index + 2).TrimStart();
+        }
+
+        return string.IsNullOrWhiteSpace(name)
+            ? PavementLayerTemplateLabels.LayerTypeLabel(layer.Type)
+            : name;
+    }
+
+    private static string FormatThicknessCentimeters(double thickness)
+    {
+        var centimeters = thickness * 100.0;
+        return $"{centimeters.ToString("0.#", CultureInfo.InvariantCulture)}cm";
     }
 
     private static Point InheritedInnerTop(LayerPreviewGeometry geometry)
@@ -1009,28 +1234,57 @@ public partial class PavementLayerTemplateWindow : Window
         return Math.Abs(width) <= 1.0e-9 ? 0.0 : (geometry.TopOuter.Y - geometry.TopInner.Y) / width;
     }
 
-    private static Point Midpoint(Point a, Point b, double offsetX)
-        => new((a.X + b.X) * 0.5 + offsetX, (a.Y + b.Y) * 0.5 - 8.0);
+    private static double TopLineYAtX(Point start, Point end, double x)
+    {
+        var width = end.X - start.X;
+        if (Math.Abs(width) <= 1.0e-9)
+        {
+            return Math.Min(start.Y, end.Y);
+        }
 
-    private void DrawWideningDimension(Point from, Point to, string text, Brush stroke)
+        var ratio = (x - start.X) / width;
+        return start.Y + (end.Y - start.Y) * ratio;
+    }
+
+    private static double WorldTextHeightToScreen(double textHeight, double scale)
+        => Math.Max(0.5, Math.Abs(textHeight * scale));
+
+    private static double WorldDistanceToScreen(double distance, double scale)
+        => Math.Max(0.5, Math.Abs(distance * scale));
+
+    private static Point SlopeLabelPosition(Point top, Point bottom, bool innerSide, double fontSize)
+    {
+        var midpoint = new Point((top.X + bottom.X) * 0.5, (top.Y + bottom.Y) * 0.5);
+        var xOffset = innerSide ? -fontSize * 1.15 : fontSize * 0.45;
+        return new Point(midpoint.X + xOffset, midpoint.Y - fontSize * 0.55);
+    }
+
+    private void DrawWideningDimension(Point from, Point to, string text, Brush stroke, double fontSize, double scale)
     {
         if (SamePoint(from, to))
         {
             return;
         }
 
-        var offset = new Vector(0.0, -18.0);
+        const double wideningDimensionOffset = 0.085;
+        const double wideningArrowLength = 0.026;
+        const double wideningArrowHalfWidth = 0.011;
+        var dimensionOffset = WorldDistanceToScreen(wideningDimensionOffset, scale);
+        var dimensionStroke = WorldDistanceToScreen(0.006, scale);
+        var arrowLength = WorldDistanceToScreen(wideningArrowLength, scale);
+        var arrowHalfWidth = WorldDistanceToScreen(wideningArrowHalfWidth, scale);
+        var offset = new Vector(0.0, -dimensionOffset);
         var a = from + offset;
         var b = to + offset;
-        AddEdge(from, a, stroke, 0.9);
-        AddEdge(to, b, stroke, 0.9);
-        AddEdge(a, b, stroke, 1.0);
-        DrawArrow(a, b, stroke);
-        DrawArrow(b, a, stroke);
-        AddLabel(text, new Point((a.X + b.X) * 0.5 - 10.0, (a.Y + b.Y) * 0.5 - 18.0), stroke, 9.0);
+        AddEdge(from, a, stroke, dimensionStroke);
+        AddEdge(to, b, stroke, dimensionStroke);
+        AddEdge(a, b, stroke, dimensionStroke);
+        DrawArrow(a, b, stroke, arrowLength, arrowHalfWidth);
+        DrawArrow(b, a, stroke, arrowLength, arrowHalfWidth);
+        AddLabel(text, new Point((a.X + b.X) * 0.5 - fontSize * 1.05, (a.Y + b.Y) * 0.5 - fontSize * 1.25), stroke, fontSize);
     }
 
-    private void DrawArrow(Point tip, Point tail, Brush stroke)
+    private void DrawArrow(Point tip, Point tail, Brush stroke, double arrowLength, double arrowHalfWidth)
     {
         var direction = tail - tip;
         if (direction.Length <= 1.0e-9)
@@ -1040,8 +1294,8 @@ public partial class PavementLayerTemplateWindow : Window
 
         direction.Normalize();
         var normal = new Vector(-direction.Y, direction.X);
-        var p1 = tip + direction * 8.0 + normal * 3.5;
-        var p2 = tip + direction * 8.0 - normal * 3.5;
+        var p1 = tip + direction * arrowLength + normal * arrowHalfWidth;
+        var p2 = tip + direction * arrowLength - normal * arrowHalfWidth;
         PreviewCanvas.Children.Add(new Polygon
         {
             Points = new PointCollection { tip, p1, p2 },
@@ -1094,7 +1348,7 @@ public partial class PavementLayerTemplateWindow : Window
     private void PreviewCanvas_MouseWheel(object sender, MouseWheelEventArgs e)
     {
         ApplyLayerInputs();
-        var previewWidth = Math.Max(0.1, ReadDouble(PreviewWidthBox.Text, 3.75));
+        var previewWidth = Math.Max(0.1, ReadDouble(PreviewWidthBox.Text, DefaultPreviewWidth));
         var geometry = BuildPreviewGeometry(previewWidth);
         var oldTransform = CreatePreviewTransform(geometry, _previewZoom, _previewPan);
         var mouse = e.GetPosition(PreviewCanvas);
@@ -1117,7 +1371,7 @@ public partial class PavementLayerTemplateWindow : Window
     private void PreviewCanvas_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
     {
         ApplyLayerInputs();
-        var previewWidth = Math.Max(0.1, ReadDouble(PreviewWidthBox.Text, 3.75));
+        var previewWidth = Math.Max(0.1, ReadDouble(PreviewWidthBox.Text, DefaultPreviewWidth));
         var geometry = BuildPreviewGeometry(previewWidth);
         var transform = CreatePreviewTransform(geometry, _previewZoom, _previewPan);
         if (transform == null)
@@ -1324,7 +1578,7 @@ public partial class PavementLayerTemplateWindow : Window
         {
             TemplateName = string.IsNullOrWhiteSpace(TemplateNameBox.Text) ? "路面结构层模板" : TemplateNameBox.Text.Trim(),
             DisplayScale = Math.Max(0.1, ReadDouble(DisplayScaleBox.Text, 10.0)),
-            PreviewWidth = Math.Max(0.1, ReadDouble(PreviewWidthBox.Text, 3.75)),
+            PreviewWidth = Math.Max(0.1, ReadDouble(PreviewWidthBox.Text, DefaultPreviewWidth)),
             DisplayMode = CurrentDisplayMode(),
             ShowAllGeneralParameters = ShowAllGeneralParametersBox.IsChecked == true,
             StructureCode = StructureCodeBox.Text.Trim(),
@@ -1503,6 +1757,12 @@ public partial class PavementLayerTemplateWindow : Window
 
     private static byte ToByte(int value)
         => (byte)ClampColor(value);
+
+    private enum InsertLayerPosition
+    {
+        Above,
+        Below,
+    }
 
     private sealed class ComboOption<T>
     {
@@ -1755,6 +2015,8 @@ public partial class PavementLayerTemplateWindow : Window
             => new(
                 _minX + (point.X - _pan.X - (_canvasWidth - _contentWidth) / 2.0) / _scale,
                 _maxY - (point.Y - _pan.Y - (_canvasHeight - _contentHeight) / 2.0) / _scale);
+
+        public double Scale => _scale;
     }
 
     private sealed class LayerPreviewGeometry

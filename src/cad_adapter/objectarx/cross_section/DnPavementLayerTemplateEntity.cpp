@@ -204,7 +204,7 @@ double previewWidth(const PavementLayerTemplateData& data)
 {
     return PavementLayerTemplateRules::isSupportedPreviewWidth(data.properties.previewWidth)
         ? data.properties.previewWidth
-        : 3.75;
+        : 3.0;
 }
 
 AcGePoint3d sectionPoint(

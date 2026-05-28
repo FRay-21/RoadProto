@@ -9,7 +9,7 @@ namespace roadproto::application::cross_section {
 struct PavementLayerTemplateCreateInput {
     std::wstring name;
     double displayScale = 10.0;
-    double previewWidth = 3.75;
+    double previewWidth = 3.0;
 };
 
 struct PavementLayerTemplateCreateResult {

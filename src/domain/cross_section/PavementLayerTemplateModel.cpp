@@ -170,7 +170,7 @@ PavementLayerTemplateData PavementLayerTemplateDefaults::create()
     PavementLayerTemplateData data;
     data.properties.name = L"\u8def\u9762\u7ed3\u6784\u5c42\u6a21\u677f";
     data.properties.displayScale = 10.0;
-    data.properties.previewWidth = 3.75;
+    data.properties.previewWidth = 3.0;
     data.layers = {
         makeLayer(PavementLayerType::UpperSurface, 0.04, 0.0, 0.0, 0),
         makeLayer(PavementLayerType::MiddleSurface, 0.06, 0.0, 0.0, 1),

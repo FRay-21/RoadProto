@@ -78,7 +78,7 @@ struct PavementLayerTemplateLayer {
 struct PavementLayerTemplateProperties {
     std::wstring name = L"\u8def\u9762\u7ed3\u6784\u5c42\u6a21\u677f";
     double displayScale = 10.0;
-    double previewWidth = 3.75;
+    double previewWidth = 3.0;
     PavementLayerTemplateDisplayMode displayMode = PavementLayerTemplateDisplayMode::Color;
     bool showAllGeneralParameters = false;
     std::wstring structureCode;

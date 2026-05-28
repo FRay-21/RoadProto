@@ -164,6 +164,13 @@ UI   -> 只负责参数收集和展示
   - 统计按构造物范围切分普通段、桥梁段和隧道段；面积为结构层平面投影面积，体积使用相邻断面截面积平均值乘以桩号间距的平均断面法。
   - 输出 Excel 可打开的 `.xls` 路面工程量统计表；单元格居中、自动换行，中文为宋体 10 号，桩号/英文/数字为 Times New Roman 10 号，面积和体积列加宽。
   - 业务文档：`docs/business/drawing_quantity/路面工程量统计表.md`
+- 路面结构图例命令：命令 `RD_DRAWING_PAVEMENT_STRUCTURE_LEGEND`
+  - 可通过 AutoCAD Ribbon 的 `RoadProto` 选项卡、`出图出表` 面板、`路面结构图例` 按钮触发。
+  - 用户选择道路模型或一个横断面图；选择横断面图时，系统按该图保存的道路模型 handle 搜索当前模型空间同一道路的所有横断面图。
+  - 系统读取当前道路使用到的 `DnPavementLayerTemplateEntity`，生成路基土组、路基干湿类型、设计弯沉、累计当量轴次、结构代号、结构图示、总厚度和底部填充样式图例。
+  - 结构图示宽度固定 `20cm`，厚度按厘米 `1:1` 绘制；底部图例按结构层出现顺序逐项绘制，不合并同填充类型或同层名。
+  - 命令只绘制普通 CAD 图元，不生成自定义实体。
+  - 业务文档：`docs/business/drawing_quantity/路面结构图例.md`
 - 平交口模块：命令 `RD_INTERSECTION_INFO`
   - 示例演示新增模块可以通过框架完成注册、命令暴露和 Ribbon 元数据挂接。
   - 业务文档：`docs/business/intersection/平交口模块框架说明.md`
@@ -210,7 +217,7 @@ ARXLOAD artifacts\x64\Release\RoadProto_v0.1.31_20260527_SectionDrawingConfig.ar
 NETLOAD artifacts\managed\Release\net48\RoadProto.Terrain.UI.dll
 ```
 
-加载后可在 Ribbon 中打开 `RoadProto` 选项卡，点击 `数模` 面板下的 `地形构网`、`编辑数模`、`导出数模` 或 `导入数模`；也可点击 `平面设计` 面板下的 `平面布线`、`编辑平曲线参数`、`导出中线 ICD` 和 `导入中线 ICD`；纵断面入口位于 `纵断面设计` 面板下的 `纵断面拉坡图` 和 `创建竖曲线`；横断面入口位于 `横断面设计` 面板下的 `创建路基模板`、`创建边坡模板`、`创建路面结构层模板`、`横断面戴帽`、`编辑道路模型`、`查看横断面` 和 `横断面图配置`；出图出表入口位于 `出图出表` 面板下的 `路面工程量统计表`。命令行可直接运行 `DN_TERRAIN_TIN_CREATE`、`DN_TERRAIN_TIN_EDIT`、`DN_TERRAIN_TIN_EXPORT`、`DN_TERRAIN_TIN_IMPORT`、`RD_ALIGN_CENTERLINE_CREATE`、`RD_ALIGN_CURVE_PARAM_EDIT`、`RD_ALIGN_CENTERLINE_EXPORT_ICD`、`RD_ALIGN_CENTERLINE_IMPORT_ICD`、`RD_PROFILE_GRADE_GRAPH_CREATE`、`RD_PROFILE_VERTICAL_CURVE_CREATE`、`RD_PROFILE_VERTICAL_CURVE_ADD_PVI`、`RD_PROFILE_VERTICAL_CURVE_DELETE_PVI`、`RD_SECTION_SUBGRADE_TEMPLATE_CREATE`、`RD_SECTION_SLOPE_TEMPLATE_CREATE`、`RD_SECTION_PAVEMENT_LAYER_TEMPLATE_CREATE`、`RD_SECTION_ROAD_MODEL_CREATE`、`RD_SECTION_ROAD_MODEL_EDIT`、`RD_SECTION_ROAD_MODEL_VIEW_SECTION`、`RD_SECTION_DRAWING_CONFIG` 和 `RD_DRAWING_PAVEMENT_QUANTITY_TABLE`。数模流转文件后缀固定为 `.rmesh`，道路中线流转文件后缀固定为 `.icd`，纵断面地面线文件后缀固定为 `.dmx`，路面结构层模板流转文件后缀固定为 `.rpavement.xml`，横断面图配置流转文件使用 `.csv`。
+加载后可在 Ribbon 中打开 `RoadProto` 选项卡，点击 `数模` 面板下的 `地形构网`、`编辑数模`、`导出数模` 或 `导入数模`；也可点击 `平面设计` 面板下的 `平面布线`、`编辑平曲线参数`、`导出中线 ICD` 和 `导入中线 ICD`；纵断面入口位于 `纵断面设计` 面板下的 `纵断面拉坡图` 和 `创建竖曲线`；横断面入口位于 `横断面设计` 面板下的 `创建路基模板`、`创建边坡模板`、`创建路面结构层模板`、`横断面戴帽`、`编辑道路模型`、`查看横断面` 和 `横断面图配置`；出图出表入口位于 `出图出表` 面板下的 `路面工程量统计表` 和 `路面结构图例`。命令行可直接运行 `DN_TERRAIN_TIN_CREATE`、`DN_TERRAIN_TIN_EDIT`、`DN_TERRAIN_TIN_EXPORT`、`DN_TERRAIN_TIN_IMPORT`、`RD_ALIGN_CENTERLINE_CREATE`、`RD_ALIGN_CURVE_PARAM_EDIT`、`RD_ALIGN_CENTERLINE_EXPORT_ICD`、`RD_ALIGN_CENTERLINE_IMPORT_ICD`、`RD_PROFILE_GRADE_GRAPH_CREATE`、`RD_PROFILE_VERTICAL_CURVE_CREATE`、`RD_PROFILE_VERTICAL_CURVE_ADD_PVI`、`RD_PROFILE_VERTICAL_CURVE_DELETE_PVI`、`RD_SECTION_SUBGRADE_TEMPLATE_CREATE`、`RD_SECTION_SLOPE_TEMPLATE_CREATE`、`RD_SECTION_PAVEMENT_LAYER_TEMPLATE_CREATE`、`RD_SECTION_ROAD_MODEL_CREATE`、`RD_SECTION_ROAD_MODEL_EDIT`、`RD_SECTION_ROAD_MODEL_VIEW_SECTION`、`RD_SECTION_DRAWING_CONFIG`、`RD_DRAWING_PAVEMENT_QUANTITY_TABLE` 和 `RD_DRAWING_PAVEMENT_STRUCTURE_LEGEND`。数模流转文件后缀固定为 `.rmesh`，道路中线流转文件后缀固定为 `.icd`，纵断面地面线文件后缀固定为 `.dmx`，路面结构层模板流转文件后缀固定为 `.rpavement.xml`，横断面图配置流转文件使用 `.csv`。
 
 ## 本机运行与内存排查
 
@@ -239,7 +246,7 @@ artifacts\x64\Debug\RoadProtoCoreTests.exe
 - 纵断面拉坡图规则：DMX 纵地面线读取、桩号/高程布局映射、纵向比例校验、网格范围计算和创建服务默认属性。
 - 纵断面竖曲线规则：默认创建、对称二次抛物线计算、BVC/EVC、高低点、任意桩号高程和坡度、PVI 增删、半径更新和命令元数据。
 - 横断面道路模型规则：模板优先级解析、采样点收集、竖曲线高程、路基模板三维部件线生成、路面结构层模板内外侧语义和线框生成、边坡模板默认值和几何约束、边坡模板组优先级、构造物范围按左侧/右侧/两侧跳过边坡放坡、TIN 地面剖切交地、断面地面快照、断面节点链、三维网格线框生成、生成进度回调、采样桩号持久化、横断面查看预览、横断面图配置 CSV、配置行优先级、路基类型多选、结构层面域夹点手动编辑、命令元数据、WPF Bridge 和 ObjectARX 实体源码契约。
-- 出图出表规则：路面工程量统计表命令元数据、横断面图实体当前面域优先采样、构造物切段、旧道路模型部件名反推、部件/结构层双模式聚合、结构层平面投影面积、平均断面法体积和带格式 `.xls` 写出。
+- 出图出表规则：路面工程量统计表命令元数据、横断面图实体当前面域优先采样、构造物切段、旧道路模型部件名反推、部件/结构层双模式聚合、结构层平面投影面积、平均断面法体积和带格式 `.xls` 写出；路面结构图例命令元数据、模板列规划、厚度厘米表达、底部图例不合并和普通 CAD 图元绘制契约。
 
 ## 新增命令流程
 

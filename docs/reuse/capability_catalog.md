@@ -60,6 +60,7 @@
 | 横断面图配置模型 | V0.1.31 原型，支持 CSV 导入导出、起终点桩号范围、路基类型多选、表格行优先级解析、模板 handle 归一化和横断面图部件匹配 | `src/domain/cross_section/SectionDrawingConfigModel.*` |
 | 道路模型横断面查看 Bridge | V0.1.25 原型，通过请求文件把道路模型断面节点、结构层线和地面快照预览传给 WPF 查看窗口，通过响应文件触发模型空间批量绘制横断面动作 | `src/cad_adapter/objectarx/cross_section/RoadModelSectionViewerBridge.*` |
 | 路面工程量统计表 | V0.1.31 原型，优先从横断面图实体当前面域采样修改后的结构层断面数据，按构造物范围切分普通段、桥梁段和隧道段，支持按部件+结构层或按结构层类型统计平面投影面积，旧道路模型可从关联路基部件反推部件名，并用平均断面法累计体积，输出带居中、自动换行、列宽和字体字号样式的 `.xls` 表格 | `src/domain/quantity/PavementQuantityTable.*`、`src/domain/quantity/RoadModelPavementQuantitySampler.*`、`src/domain/quantity/PavementQuantityDrawingFaceSampler.*` |
+| 路面结构图例规划 | 未发布原型，按路面结构层模板生成图例列、结构层厚度厘米表达和不合并的底部填充样式图例项，ObjectARX 命令用普通 CAD 图元完成绘制 | `src/domain/quantity/PavementStructureLegend.*`、`src/cad_adapter/objectarx/drawing_quantity/ObjectArxPavementStructureLegendCommand.*` |
 
 ## 模块专用能力
 
@@ -149,4 +150,5 @@
 - `.rpavement.xml` 是 WPF 侧模板流转格式，可用于导入导出路面结构层模板参数、显示方式、填充类型、填充角度、填充比例、结构代号、路基干湿类型、路面类型、路基土组、设计弯沉和累计轴次，不替代 DWG 自定义实体持久化。
 - 路基模板部件通过 handle 引用路面结构层模板；所有部件类型均允许绑定，是否生成结构层由 handle 是否有效决定。
 - 道路模型生成读取绑定模板并创建结构层三维边界线，`DnRoadModelEntity` 仍按层 RGB 显示为弱化填充面和层色边线，`RoadModelSectionPreviewBuilder` 在查看横断面中显示 `结构层`；模板显示方式不改变道路模型显示。
+- `PavementStructureLegendPlanner` 是出图图例规划能力，读取路面结构层模板的结构代号、路基土组、路基干湿类型、设计弯沉、累计轴次、结构层厚度、层名、颜色和填充参数，生成等宽模板列和不合并的底部填充图例项；CAD 绘制由 ObjectARX adapter 使用普通实体完成。
 - 自动联动重建、结构层实体面、材料库、体积和算量仍需后续扩展。

@@ -69,7 +69,7 @@
 - 修改：`src/app/RoadProtoArx.vcxproj`
 - 修改：`tests/RoadProtoCoreTests.vcxproj`
 
-- [ ] **步骤 1：写失败源码契约测试**
+- [x] **步骤 1：写失败源码契约测试**
 
 在核心测试中检查：
 
@@ -83,11 +83,11 @@ CHECK(source.find("appendOrdinaryLegendEntities") != std::string::npos);
 CHECK(ribbonSource.find("RD_DRAWING_PAVEMENT_STRUCTURE_LEGEND ") != std::string::npos);
 ```
 
-- [ ] **步骤 2：运行测试确认 RED**
+- [x] **步骤 2：运行测试确认 RED**
 
 运行 Debug 核心构建和测试。预期：源码契约失败，因为命令和 Ribbon 入口尚未实现。
 
-- [ ] **步骤 3：增加注册骨架**
+- [x] **步骤 3：增加注册骨架**
 
 新增命令头文件，暴露：
 
@@ -97,7 +97,7 @@ core::CommandProcedure pavementStructureLegendCommandProcedure();
 
 新增命令源文件，先包含测试构建 stub 和后续 ObjectARX 所需函数名。注册 `RD_DRAWING_PAVEMENT_STRUCTURE_LEGEND`，显示名 `路面结构图例`，业务文档路径 `docs/business/drawing_quantity/路面结构图例.md`。托管 Ribbon 增加按钮并发送 `RD_DRAWING_PAVEMENT_STRUCTURE_LEGEND `。
 
-- [ ] **步骤 4：运行测试确认 GREEN**
+- [x] **步骤 4：运行测试确认 GREEN**
 
 运行 Debug 核心构建和测试。
 
@@ -107,7 +107,7 @@ core::CommandProcedure pavementStructureLegendCommandProcedure();
 - 修改：`src/cad_adapter/objectarx/drawing_quantity/ObjectArxPavementStructureLegendCommand.cpp`
 - 修改：`tests/core_tests.cpp`
 
-- [ ] **步骤 1：扩展失败源码契约测试**
+- [x] **步骤 1：扩展失败源码契约测试**
 
 要求命令源码包含普通 CAD 实体 API：
 
@@ -121,11 +121,11 @@ CHECK(commandSource.find("appendAcDbEntity") != std::string::npos);
 CHECK(commandSource.find("PavementStructureLegendPlanner::build") != std::string::npos);
 ```
 
-- [ ] **步骤 2：运行测试确认 RED**
+- [x] **步骤 2：运行测试确认 RED**
 
 运行 Debug 核心构建和测试。预期：缺少普通实体绘制 API。
 
-- [ ] **步骤 3：实现 ObjectARX 命令**
+- [x] **步骤 3：实现 ObjectARX 命令**
 
 实现：
 
@@ -137,7 +137,7 @@ CHECK(commandSource.find("PavementStructureLegendPlanner::build") != std::string
 - 创建普通 `AcDbLine`、`AcDbPolyline`、`AcDbText`、`AcDbHatch` 并追加到模型空间。
 - 绘制字段行、模板列、层厚矩形、每层厚度文字、总厚度行和底部不合并图例项。
 
-- [ ] **步骤 4：运行测试确认 GREEN**
+- [x] **步骤 4：运行测试确认 GREEN**
 
 运行 Debug 核心构建和测试。
 
@@ -152,49 +152,49 @@ CHECK(commandSource.find("PavementStructureLegendPlanner::build") != std::string
 - 修改：`tests/README.md`
 - 修改：`docs/dev/version_log.md`
 
-- [ ] **步骤 1：写失败文档测试**
+- [x] **步骤 1：补充文档存在性测试**
 
-核心测试检查 README、模块文档、复用目录、测试说明和版本记录包含：
+核心测试补充检查路面结构图例业务文档存在；README、模块文档、复用目录、测试说明和版本记录随实现同步更新：
 
 - `路面结构图例`
 - `PavementStructureLegendPlanner`
 - `RD_DRAWING_PAVEMENT_STRUCTURE_LEGEND`
 
-- [ ] **步骤 2：运行测试确认 RED**
+- [x] **步骤 2：运行测试确认 RED**
 
-运行 Debug 核心构建和测试。预期：文档检查失败。
+运行 Debug 核心构建和测试。预期：新增文档前业务文档存在性检查会失败。
 
-- [ ] **步骤 3：更新文档**
+- [x] **步骤 3：更新文档**
 
 记录命令行为、输入对象、普通 CAD 输出、字段行、底部图例不合并规则、测试范围和 AutoCAD 手工验证步骤。
 
-- [ ] **步骤 4：运行测试确认 GREEN**
+- [x] **步骤 4：运行测试确认 GREEN**
 
 运行 Debug 核心构建和测试。
 
 ### 任务 5：完整验证
 
-- [ ] **步骤 1：Debug 核心构建和测试**
+- [x] **步骤 1：Debug 核心构建和测试**
 
 ```powershell
 & 'D:\Program Files\Microsoft Visual Studio\18\Insiders\MSBuild\Current\Bin\amd64\MSBuild.exe' tests\RoadProtoCoreTests.vcxproj /p:Configuration=Debug /p:Platform=x64
 artifacts\x64\Debug\RoadProtoCoreTests.exe
 ```
 
-- [ ] **步骤 2：Release 核心构建和测试**
+- [x] **步骤 2：Release 核心构建和测试**
 
 ```powershell
 & 'D:\Program Files\Microsoft Visual Studio\18\Insiders\MSBuild\Current\Bin\amd64\MSBuild.exe' tests\RoadProtoCoreTests.vcxproj /p:Configuration=Release /p:Platform=x64
 artifacts\x64\Release\RoadProtoCoreTests.exe
 ```
 
-- [ ] **步骤 3：构建托管 Ribbon 插件**
+- [x] **步骤 3：构建托管 Ribbon 插件**
 
 ```powershell
 dotnet build src\ui\wpf\RoadProto.Terrain.UI\RoadProto.Terrain.UI.csproj -c Release
 ```
 
-- [ ] **步骤 4：构建完整 Release 解决方案**
+- [x] **步骤 4：构建完整 Release 解决方案**
 
 ```powershell
 & 'D:\Program Files\Microsoft Visual Studio\18\Insiders\MSBuild\Current\Bin\amd64\MSBuild.exe' RoadProto.sln /p:Configuration=Release /p:Platform=x64

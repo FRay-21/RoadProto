@@ -4308,6 +4308,7 @@ void drawingQuantityModuleRegistersPavementQuantityCommandAndRibbonPanel()
     }
 
     checkBusinessDocExistsForTests(L"docs/business/drawing_quantity/路面工程量统计表.md");
+    checkBusinessDocExistsForTests(L"docs/business/drawing_quantity/路面结构图例.md");
     CHECK(ribbon.tab().panels.size() == 1);
     CHECK(ribbon.tab().panels.front().moduleCode == L"DRAWING_QUANTITY");
     CHECK(ribbon.tab().panels.front().title == L"出图出表");

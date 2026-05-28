@@ -4370,6 +4370,11 @@ void pavementStructureLegendCommandSourceContainsSelectionAndTemplateContracts()
     CHECK(source.find("collectTemplateHandlesFromSectionDrawings") != std::string::npos);
     CHECK(source.find("collectTemplateHandlesFromRoadModel") != std::string::npos);
     CHECK(source.find("appendOrdinaryLegendEntities") != std::string::npos);
+    CHECK(source.find("new AcDbLine") != std::string::npos);
+    CHECK(source.find("new AcDbText") != std::string::npos);
+    CHECK(source.find("new AcDbPolyline") != std::string::npos);
+    CHECK(source.find("new AcDbHatch") != std::string::npos);
+    CHECK(source.find("new DnPavementStructureLegendEntity") == std::string::npos);
 }
 
 void startupRegistrationIncludesDrawingQuantityModule()

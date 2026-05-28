@@ -1,81 +1,19 @@
-# Cross Section Viewer Implementation Plan
+# 查看横断面实施计划
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> 本文件为历史实施计划的中文归档版。以后 `docs/superpowers/plans/` 下的计划文档统一使用中文编写；代码标识、命令名、路径和构建命令保持原文。
 
-**Goal:** Add a read-only cross-section viewer that previews road model subgrade lines, slope lines, and ground line by sampled station.
+## 目标
 
-**Architecture:** Persist sampled stations in `RoadModelData`, derive per-station 2D preview segments in domain code, and show those segments through a WPF window launched by an ObjectARX command. CAD access stays in `cad_adapter`, WPF receives plain DTOs through the existing key-value Bridge style.
+实现 `RD_SECTION_ROAD_MODEL_VIEW_SECTION`，从道路模型采样桩号生成 WPF 只读横断面预览，并支持后续批量绘制横断面图。
 
-**Tech Stack:** C++17 domain/application/ObjectARX, WPF .NET Framework 4.8, existing RoadProto core tests and managed bridge tests.
+## 主要任务
 
----
+- 在领域层补充道路模型断面预览构建能力。
+- 在 ObjectARX 层实现道路模型选择、预览数据提取和 WPF Bridge 请求。
+- 在 WPF 中实现桩号列表、预览画布、拖动平移和滚轮缩放。
+- 更新 Ribbon、命令元数据、业务文档和测试说明。
 
-### Task 1: Domain Preview Model
+## 验证
 
-**Files:**
-- Modify: `src/domain/cross_section/RoadModel.h`
-- Modify: `src/domain/cross_section/RoadModel.cpp`
-- Test: `tests/core_tests.cpp`
-
-- [ ] Add `sampledStations` to `RoadModelData`.
-- [ ] Add `RoadModelSectionPreviewSegment`, `RoadModelSectionPreview`, `RoadModelSectionPreviewRequest`, and `RoadModelSectionPreviewBuilder`.
-- [ ] Write failing tests for sampled station persistence in builder output and preview generation at one station.
-- [ ] Run core build and confirm the tests fail because preview types and sampled station storage are missing.
-- [ ] Implement sampled station assignment and preview generation by station interpolation.
-- [ ] Run core tests and confirm the new tests pass.
-
-### Task 2: Bridge DTO And WPF Window
-
-**Files:**
-- Create: `src/ui/wpf/RoadProto.Terrain.UI/Bridge/RoadModelSectionViewerDtos.cs`
-- Create: `src/ui/wpf/RoadProto.Terrain.UI/Bridge/RoadModelSectionViewerFile.cs`
-- Create: `src/ui/wpf/RoadProto.Terrain.UI/RoadModelSectionViewerWindow.xaml`
-- Create: `src/ui/wpf/RoadProto.Terrain.UI/RoadModelSectionViewerWindow.xaml.cs`
-- Create: `src/ui/wpf/RoadProto.Terrain.UI/AutoCad/RoadModelSectionViewerCommands.cs`
-- Modify: `src/ui/wpf/RoadProto.Terrain.UI/AutoCad/RoadProtoRibbonExtension.cs`
-- Modify: `tests/RoadProtoManagedBridgeTests/RoadProtoManagedBridgeTests.csproj`
-- Test: `tests/RoadProtoManagedBridgeTests/Program.cs`
-
-- [ ] Write failing managed tests for request file round-trip and window XAML containing station list, preview canvas, and legend labels.
-- [ ] Run managed bridge tests and confirm they fail.
-- [ ] Implement DTOs and key-value file reader.
-- [ ] Implement WPF viewer with station list, Canvas drawing, simple scaling, and status text.
-- [ ] Add AutoCAD managed command that reads the pending request and opens the viewer.
-- [ ] Add Ribbon button `查看横断面`.
-- [ ] Run managed bridge tests and WPF build.
-
-### Task 3: ObjectARX Command And Native Bridge
-
-**Files:**
-- Create: `src/cad_adapter/objectarx/cross_section/RoadModelSectionViewerBridge.h`
-- Create: `src/cad_adapter/objectarx/cross_section/RoadModelSectionViewerBridge.cpp`
-- Modify: `src/cad_adapter/objectarx/cross_section/ObjectArxRoadModelCommand.h`
-- Modify: `src/cad_adapter/objectarx/cross_section/ObjectArxRoadModelCommand.cpp`
-- Modify: `src/modules/cross_section/CrossSectionModule.cpp`
-- Modify: `tests/RoadProtoCoreTests.vcxproj`
-- Test: `tests/core_tests.cpp`
-
-- [ ] Write failing core source-contract tests for `RD_SECTION_ROAD_MODEL_VIEW_SECTION`, bridge queue function, and managed WPF command name.
-- [ ] Run core build and confirm failure.
-- [ ] Add native bridge writer for viewer request files.
-- [ ] Add command procedure that selects `DnRoadModelEntity`, builds previews, and queues WPF viewer.
-- [ ] Register command metadata and Ribbon attachability in the cross-section module.
-- [ ] Update project files to compile the native bridge.
-- [ ] Run core tests and ARX build.
-
-### Task 4: Documentation And Version
-
-**Files:**
-- Create: `docs/business/cross_section/查看横断面.md`
-- Modify: `docs/modules/cross_section.md`
-- Modify: `docs/reuse/road_model.md`
-- Modify: `docs/reuse/capability_catalog.md`
-- Modify: `docs/dev/version_log.md`
-- Modify: `tests/README.md`
-- Modify: `README.md`
-- Modify: `build/RoadProto.Build.props`
-
-- [ ] Document the new command, UI behavior, and limitations.
-- [ ] Bump version to `v0.1.16` with stage `RoadModelSectionViewer`.
-- [ ] Run core tests, managed bridge tests, WPF Debug/Release builds, and ARX Debug/Release builds.
-- [ ] Report the final ARX and managed DLL paths.
+- 核心测试覆盖断面预览、地面快照优先读取和命令元数据。
+- AutoCAD 手工验证选择道路模型、切换桩号、预览拖动缩放和窗口打开。

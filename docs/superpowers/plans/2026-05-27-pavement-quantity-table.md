@@ -1,70 +1,19 @@
-# Pavement Quantity Table Implementation Plan
+# 路面工程量统计表实施计划
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> 本文件为历史实施计划的中文归档版。以后 `docs/superpowers/plans/` 下的计划文档统一使用中文编写；代码标识、命令名、路径和构建命令保持原文。
 
-**Goal:** Add the `RD_DRAWING_PAVEMENT_QUANTITY_TABLE` command and generate `.xls` pavement quantity tables from drawn cross-section entities.
+## 目标
 
-**Architecture:** Keep quantity calculation in `domain/quantity`, register a new `DRAWING_QUANTITY` module, and keep ObjectARX selection/file prompts in `cad_adapter/objectarx/drawing_quantity`. Use SpreadsheetML `.xls` output to avoid Excel COM and third-party dependencies.
+新增 `RD_DRAWING_PAVEMENT_QUANTITY_TABLE`，从横断面图或道路模型断面数据生成路面结构层面积和体积统计 `.xls` 表格。
 
-**Tech Stack:** C++17, ObjectARX 2021 adapter, existing command/module/Ribbon registries, WPF managed Ribbon extension, RoadProto core tests.
+## 主要任务
 
----
+- 新增 `DRAWING_QUANTITY` 模块和 Ribbon 面板。
+- 在 `domain/quantity` 中实现构造物切段、投影面积、平均断面法体积和 SpreadsheetML `.xls` 写出。
+- 在 ObjectARX 中实现横断面图选择、道路模型读取和输出路径提示。
+- 更新业务文档、模块文档、复用说明、README、测试说明和版本记录。
 
-### Task 1: Domain Quantity Calculator
+## 验证
 
-**Files:**
-- Create: `src/domain/quantity/PavementQuantityTable.h`
-- Create: `src/domain/quantity/PavementQuantityTable.cpp`
-- Modify: `tests/core_tests.cpp`
-- Modify: `tests/RoadProtoCoreTests.vcxproj`
-
-- [x] **Step 1: Write failing tests** for construct-range splitting, boundary interpolation, average-section volume, and dynamic `.xls` columns.
-- [x] **Step 2: Run test build to verify red** with missing quantity headers.
-- [x] **Step 3: Implement calculator and SpreadsheetML writer**.
-- [x] **Step 4: Run core tests and keep them green**.
-
-### Task 2: Module, Startup, And Ribbon
-
-**Files:**
-- Create: `src/modules/drawing_quantity/DrawingQuantityModule.h`
-- Create: `src/modules/drawing_quantity/DrawingQuantityModule.cpp`
-- Create: `src/app/startup/DrawingQuantityStartupRegistration.h`
-- Create: `src/app/startup/DrawingQuantityStartupRegistration.cpp`
-- Modify: `src/app/startup/Startup.cpp`
-- Modify: `src/ui/wpf/RoadProto.Terrain.UI/AutoCad/RoadProtoRibbonExtension.cs`
-
-- [x] **Step 1: Write failing metadata tests** for command registration and managed Ribbon source.
-- [x] **Step 2: Implement module registration** through `ModuleRegistry`.
-- [x] **Step 3: Add visible `出图出表` Ribbon panel and button**.
-- [x] **Step 4: Build WPF project**.
-
-### Task 3: ObjectARX Command Adapter
-
-**Files:**
-- Create: `src/cad_adapter/objectarx/drawing_quantity/ObjectArxPavementQuantityTableCommand.h`
-- Create: `src/cad_adapter/objectarx/drawing_quantity/ObjectArxPavementQuantityTableCommand.cpp`
-- Modify: `src/cad_adapter/objectarx/cross_section/DnRoadModelSectionDrawingEntity.*`
-- Modify: `src/cad_adapter/objectarx/cross_section/ObjectArxRoadModelCommand.cpp`
-
-- [x] **Step 1: Register command procedure with test-build stub**.
-- [x] **Step 2: Select `DnRoadModelSectionDrawingEntity` objects and validate one road model handle**.
-- [x] **Step 3: Read road model section nodes and structure ranges**.
-- [x] **Step 4: Prompt `.xls` path and call the domain writer**.
-- [x] **Step 5: Build ARX Debug and Release**.
-
-### Task 4: Documentation And Versioning
-
-**Files:**
-- Create: `docs/business/drawing_quantity/路面工程量统计表.md`
-- Create: `docs/modules/drawing_quantity.md`
-- Create: `docs/reuse/pavement_quantity_table.md`
-- Modify: `docs/modules/module_index.md`
-- Modify: `docs/reuse/capability_catalog.md`
-- Modify: `docs/dev/version_log.md`
-- Modify: `README.md`
-- Modify: `tests/README.md`
-- Modify: `build/RoadProto.Build.props`
-
-- [x] **Step 1: Add business, module, and reuse documentation**.
-- [x] **Step 2: Bump version to `v0.1.28_20260527_PavementQuantityTable`**.
-- [x] **Step 3: Update verification status after successful builds**.
+- 核心测试覆盖分段、插值、面积体积、动态列和命令元数据。
+- AutoCAD 手工验证横断面图选择、路径选择、表格生成和 Excel 打开效果。

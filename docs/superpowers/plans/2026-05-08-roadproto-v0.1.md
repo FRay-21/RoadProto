@@ -1,79 +1,21 @@
-# RoadProto V0.1 实施计划
+# RoadProto V0.1 框架实施计划
 
-> **给后续 agentic worker 的说明：** 执行该计划时应使用 `superpowers:subagent-driven-development`（推荐）或 `superpowers:executing-plans`，并按任务清单逐项推进。
+> 本文件为历史实施计划的中文归档版。以后 `docs/superpowers/plans/` 下的计划文档统一使用中文编写；代码标识、命令名、路径和构建命令保持原文。
 
-**目标：** 建立 V0.1 ObjectARX/C++ 道路设计原型功能框架。
+## 目标
 
-**架构：** core、domain、application 不依赖 ObjectARX。ObjectARX 访问限制在 `cad_adapter/objectarx` 和 `app/arx_entry`。模块和命令通过统一 registry 注册。
+搭建 RoadProto V0.1 ObjectARX/C++ 原型框架，形成可持续扩展的模块、命令、Ribbon、文档和测试骨架。
 
-**技术栈：** C++17、Visual Studio/MSBuild、AutoCAD 2021 x64、ObjectARX 2021。
+## 主要任务
 
----
+- 建立 `app`、`core`、`domain`、`application`、`modules`、`cad_adapter`、`ui`、`docs`、`tests` 等目录分层。
+- 实现 `CommandRegistry`、`ModuleRegistry` 和 Ribbon 模型。
+- 创建基础 ARX 入口、启动注册流程和示例模块。
+- 建立业务文档、复用说明、版本记录和开发规则的初始结构。
+- 增加核心测试项目，覆盖命令注册、模块注册和基础关系模型。
 
-### 任务 1：项目骨架
+## 验证
 
-**文件：**
-- 创建：`RoadProto.sln`
-- 创建：`build/RoadProto.Build.props`
-- 创建：`build/ObjectARX2021.props`
-- 创建：`src/app/RoadProtoArx.vcxproj`
-- 创建：`tests/RoadProtoCoreTests.vcxproj`
-
-- [x] 创建 Visual Studio 解决方案和项目文件。
-- [x] 配置 ARX 输出名为 `RoadProto_v0.1.0_20260508_Framework.arx`。
-- [x] 配置输出目录为 `artifacts/x64/<Configuration>/`。
-
-### 任务 2：核心注册机制
-
-**文件：**
-- 创建：`src/core/command/CommandRegistry.*`
-- 创建：`src/core/module/ModuleRegistry.*`
-
-- [x] 实现命令元数据和重复注册检查。
-- [x] 实现模块元数据和生命周期回调。
-- [x] 增加命令和模块注册行为测试。
-
-### 任务 3：实体关系机制
-
-**文件：**
-- 创建：`src/domain/common/EntityId.*`
-- 创建：`src/domain/relation/DesignEntity.h`
-- 创建：`src/domain/relation/EntityRelationManager.*`
-
-- [x] 实现实体 ID 和统一设计实体描述。
-- [x] 实现依赖图操作。
-- [x] 实现脏标记和重建请求传播。
-- [x] 增加地形到下游实体的传播测试。
-
-### 任务 4：ARX 与适配层边界
-
-**文件：**
-- 创建：`src/app/arx_entry/RoadProtoArxEntry.cpp`
-- 创建：`src/cad_adapter/objectarx/ObjectArx*.{h,cpp}`
-
-- [x] 实现 ARX 入口生命周期。
-- [x] 从 `CommandRegistry` 统一注册 ObjectARX 命令。
-- [x] 增加编辑器输出适配器。
-- [x] 增加 Ribbon 适配器占位。
-
-### 任务 5：示例模块与文档
-
-**文件：**
-- 创建：`src/modules/terrain/*`
-- 创建：`src/modules/intersection/*`
-- 创建：`src/application/terrain/*`
-- 创建：`src/application/intersection/*`
-- 创建：`docs/business/*`
-- 创建：`docs/reuse/*`
-- 创建：`docs/dev/version_log.md`
-
-- [x] 增加地形数模示例命令。
-- [x] 增加平交口示例命令。
-- [x] 增加架构、业务、复用、版本和 AI 开发规则文档。
-
-### 任务 6：验证
-
-- [x] 构建 `tests/RoadProtoCoreTests.vcxproj`。
-- [x] 运行 `artifacts/x64/Debug/RoadProtoCoreTests.exe`。
-- [ ] 在安装 ObjectARX 2021 SDK 和 v142 工具集的环境中构建 ARX。
-- [ ] 在 AutoCAD 2021 中加载生成的 ARX，并运行 `RD_TERRAIN_MARKDIRTY`。
+- 使用 MSBuild 构建 `RoadProto.sln`。
+- 运行核心测试项目。
+- 在 AutoCAD 2021 中加载生成的 ARX，验证基础命令和 Ribbon 注册。

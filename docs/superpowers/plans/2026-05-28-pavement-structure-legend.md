@@ -1,245 +1,115 @@
-# Pavement Structure Legend Implementation Plan
+# 路面结构图例实施计划
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **给后续执行者：** 本计划必须按任务勾选执行。涉及代码行为时先写失败测试，再实现，再运行验证。以后 `docs/superpowers/plans/` 下的计划文档统一使用中文编写；代码标识、命令名、路径和构建命令保持原文。
 
-**Goal:** Add the `RD_DRAWING_PAVEMENT_STRUCTURE_LEGEND` command that draws a pavement structure legend from the current road model or its drawn cross sections using ordinary CAD entities.
+**目标：** 新增 `RD_DRAWING_PAVEMENT_STRUCTURE_LEGEND` 命令，从当前道路模型或已绘制横断面图收集路面结构层模板，并用普通 CAD 实体绘制路面结构图例。
 
-**Architecture:** Put data formatting and layout planning in `domain/quantity` so it is testable without AutoCAD. Keep ObjectARX work in `cad_adapter/objectarx/drawing_quantity`: selection, source entity reading, model-space scanning, insertion point prompt, and ordinary entity drawing. Register command and Ribbon metadata in the existing drawing quantity module and managed Ribbon extension.
+**架构：** `domain/quantity` 负责模板字段格式化、厚度换算和图例布局计划，不依赖 ObjectARX。`cad_adapter/objectarx/drawing_quantity` 负责对象选择、实体读取、模型空间扫描、插入点点取和普通 CAD 实体绘制。`modules/drawing_quantity` 与托管 Ribbon 只负责命令入口。
 
-**Tech Stack:** C++17, ObjectARX 2021, RoadProto core tests, WPF AutoCAD Ribbon C# source contract checks.
+**技术栈：** C++17、ObjectARX 2021、RoadProto 核心测试、WPF AutoCAD Ribbon 源码契约测试。
 
 ---
 
-### Task 1: Domain Legend Plan
+### 任务 1：领域层图例计划
 
-**Files:**
-- Create: `src/domain/quantity/PavementStructureLegend.h`
-- Create: `src/domain/quantity/PavementStructureLegend.cpp`
-- Modify: `tests/core_tests.cpp`
-- Modify: `tests/RoadProtoCoreTests.vcxproj`
-- Modify: `src/app/RoadProtoArx.vcxproj`
+**文件：**
+- 新增：`src/domain/quantity/PavementStructureLegend.h`
+- 新增：`src/domain/quantity/PavementStructureLegend.cpp`
+- 修改：`tests/core_tests.cpp`
+- 修改：`tests/RoadProtoCoreTests.vcxproj`
+- 修改：`src/app/RoadProtoArx.vcxproj`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **步骤 1：写失败测试**
 
-Add a test named `pavementStructureLegendPlannerFormatsTemplateColumnsAndUnmergedLegendItems` to `tests/core_tests.cpp`:
+在 `tests/core_tests.cpp` 中新增 `pavementStructureLegendPlannerFormatsTemplateColumnsAndUnmergedLegendItems`，验证：
 
-```cpp
-void pavementStructureLegendPlannerFormatsTemplateColumnsAndUnmergedLegendItems()
-{
-    using namespace roadproto::domain::cross_section;
-    using namespace roadproto::domain::quantity;
+- 模板列按 handle 去重并保留首次出现顺序。
+- `structureCode`、路基土组、路基干湿类型、设计弯沉、累计当量轴次从模板属性读取。
+- 厚度由米换算为厘米，等厚显示单值，非等厚显示 `内/外`。
+- 总厚度使用非等厚层平均厚度。
+- 底部图例项不合并，同填充样式不同层名仍分别输出。
 
-    PavementLayerTemplateData first;
-    first.properties.structureCode = L"I-1";
-    first.properties.subgradeSoilGroups = {PavementSubgradeSoilGroup::Bedrock};
-    first.properties.subgradeMoistureTypes = {PavementSubgradeMoistureType::Dry};
-    first.properties.designDeflection = L"E0>60MPa";
-    first.properties.cumulativeAxleLoads = L"1200万次";
-    first.layers = {
-        PavementLayerTemplateLayer{
-            PavementLayerType::UpperSurface,
-            L"SMA-13S",
-            true,
-            0.045,
-            0.045,
-            0.045,
-            0.0,
-            0.0,
-            0.0,
-            0.0,
-            PavementLayerTemplateDisplayColor{255, 0, 0},
-            L"ANSI31",
-            0.0,
-            1.0},
-        PavementLayerTemplateLayer{
-            PavementLayerType::Base,
-            L"基层",
-            false,
-            0.30,
-            0.28,
-            0.32,
-            0.0,
-            0.0,
-            0.0,
-            0.0,
-            PavementLayerTemplateDisplayColor{0, 255, 0},
-            L"BRICK",
-            45.0,
-            0.5}};
+- [x] **步骤 2：运行测试确认 RED**
 
-    PavementLayerTemplateData second = first;
-    second.properties.structureCode = L"I-2";
-    second.layers[0].name = L"AC-20S";
-    second.layers[0].hatchPattern = L"ANSI31";
-
-    const auto plan = PavementStructureLegendPlanner::build({
-        PavementStructureLegendTemplateSource{L"PV-1", first},
-        PavementStructureLegendTemplateSource{L"PV-1", first},
-        PavementStructureLegendTemplateSource{L"PV-2", second}});
-
-    CHECK(plan.columns.size() == 2);
-    CHECK(plan.columns[0].structureCode == L"I-1");
-    CHECK(plan.columns[0].subgradeSoilGroupText == L"基岩");
-    CHECK(plan.columns[0].subgradeMoistureText == L"干燥");
-    CHECK(plan.columns[0].designDeflection == L"E0>60MPa");
-    CHECK(plan.columns[0].cumulativeAxleLoads == L"1200万次");
-    CHECK(plan.columns[0].layers.size() == 2);
-    CHECK(plan.columns[0].layers[0].thicknessText == L"4.5");
-    CHECK(plan.columns[0].layers[1].thicknessText == L"28/32");
-    CHECK(std::fabs(plan.columns[0].totalThicknessCm - 34.5) < 1.0e-9);
-    CHECK(plan.legendItems.size() == 4);
-    CHECK(plan.legendItems[0].layerName == L"SMA-13S");
-    CHECK(plan.legendItems[1].layerName == L"基层");
-    CHECK(plan.legendItems[2].layerName == L"AC-20S");
-    CHECK(plan.layout.structureGraphicWidthCm == 20.0);
-}
-```
-
-Call it from `main()` near the existing quantity tests.
-
-- [ ] **Step 2: Run test to verify it fails**
-
-Run:
+运行：
 
 ```powershell
 & 'D:\Program Files\Microsoft Visual Studio\18\Insiders\MSBuild\Current\Bin\amd64\MSBuild.exe' tests\RoadProtoCoreTests.vcxproj /p:Configuration=Debug /p:Platform=x64
 ```
 
-Expected: build fails because `domain/quantity/PavementStructureLegend.h` does not exist.
+预期：构建失败，提示 `domain/quantity/PavementStructureLegend.h` 不存在。
 
-- [ ] **Step 3: Implement the minimal domain model**
+- [x] **步骤 3：实现最小领域模型**
 
-Create `PavementStructureLegend.h/.cpp` with:
+新增 `PavementStructureLegendTemplateSource`、`PavementStructureLegendLayerPlan`、`PavementStructureLegendColumnPlan`、`PavementStructureLegendItemPlan`、`PavementStructureLegendLayoutPlan`、`PavementStructureLegendPlan` 和 `PavementStructureLegendPlanner::build`。
 
-```cpp
-struct PavementStructureLegendTemplateSource {
-    std::wstring handle;
-    roadproto::domain::cross_section::PavementLayerTemplateData data;
-};
+实现规则：
 
-struct PavementStructureLegendLayerPlan {
-    std::wstring layerName;
-    std::wstring thicknessText;
-    double displayThicknessCm = 0.0;
-    int colorR = 0;
-    int colorG = 0;
-    int colorB = 0;
-    std::wstring hatchPattern = L"SOLID";
-    double hatchAngle = 0.0;
-    double hatchScale = 1.0;
-};
+- 按 handle 去重模板列。
+- 不去重 `legendItems`。
+- 米转厘米。
+- 整数厘米不带小数，非整数保留一位小数。
+- 非等厚层使用平均厚度绘图和累计总厚度，文字显示 `inner/outer`。
+- 路基土组和干湿类型用 `、` 连接。
 
-struct PavementStructureLegendColumnPlan {
-    std::wstring templateHandle;
-    std::wstring structureCode;
-    std::wstring subgradeSoilGroupText;
-    std::wstring subgradeMoistureText;
-    std::wstring designDeflection;
-    std::wstring cumulativeAxleLoads;
-    double totalThicknessCm = 0.0;
-    std::vector<PavementStructureLegendLayerPlan> layers;
-};
+- [x] **步骤 4：运行测试确认 GREEN**
 
-struct PavementStructureLegendItemPlan {
-    std::wstring layerName;
-    int colorR = 0;
-    int colorG = 0;
-    int colorB = 0;
-    std::wstring hatchPattern = L"SOLID";
-    double hatchAngle = 0.0;
-    double hatchScale = 1.0;
-};
+运行 Debug 核心构建和 `artifacts\x64\Debug\RoadProtoCoreTests.exe`。
 
-struct PavementStructureLegendLayoutPlan {
-    double structureGraphicWidthCm = 20.0;
-    double columnWidth = 36.0;
-    double headerColumnWidth = 16.0;
-};
+预期：构建成功，测试输出 `All RoadProto core tests passed.`。
 
-struct PavementStructureLegendPlan {
-    PavementStructureLegendLayoutPlan layout;
-    std::vector<PavementStructureLegendColumnPlan> columns;
-    std::vector<PavementStructureLegendItemPlan> legendItems;
-};
+### 任务 2：命令元数据与源码契约
 
-class PavementStructureLegendPlanner {
-public:
-    static PavementStructureLegendPlan build(
-        const std::vector<PavementStructureLegendTemplateSource>& sources);
-};
-```
+**文件：**
+- 修改：`tests/core_tests.cpp`
+- 修改：`src/modules/drawing_quantity/DrawingQuantityModule.cpp`
+- 新增：`src/cad_adapter/objectarx/drawing_quantity/ObjectArxPavementStructureLegendCommand.h`
+- 新增：`src/cad_adapter/objectarx/drawing_quantity/ObjectArxPavementStructureLegendCommand.cpp`
+- 修改：`src/ui/wpf/RoadProto.Terrain.UI/AutoCad/RoadProtoRibbonExtension.cs`
+- 修改：`src/app/RoadProtoArx.vcxproj`
+- 修改：`tests/RoadProtoCoreTests.vcxproj`
 
-Implementation rules:
-- Deduplicate template columns by handle while preserving first occurrence.
-- Do not deduplicate `legendItems`.
-- Convert meters to centimeters.
-- Format integer centimeters without decimals and fractional centimeters with one decimal.
-- Use average thickness for non-uniform display height and total thickness; show text as `inner/outer`.
-- Join soil groups and moisture types with `、`.
+- [ ] **步骤 1：写失败源码契约测试**
 
-- [ ] **Step 4: Run test to verify it passes**
-
-Run the same MSBuild command, then:
-
-```powershell
-artifacts\x64\Debug\RoadProtoCoreTests.exe
-```
-
-Expected: tests pass.
-
-### Task 2: Command Metadata and Source Contracts
-
-**Files:**
-- Modify: `tests/core_tests.cpp`
-- Modify: `src/modules/drawing_quantity/DrawingQuantityModule.cpp`
-- Modify: `src/cad_adapter/objectarx/drawing_quantity/ObjectArxPavementStructureLegendCommand.h`
-- Modify: `src/cad_adapter/objectarx/drawing_quantity/ObjectArxPavementStructureLegendCommand.cpp`
-- Modify: `src/ui/wpf/RoadProto.Terrain.UI/AutoCad/RoadProtoRibbonExtension.cs`
-- Modify: `src/app/RoadProtoArx.vcxproj`
-- Modify: `tests/RoadProtoCoreTests.vcxproj`
-
-- [ ] **Step 1: Write failing source-contract tests**
-
-Add checks that expect:
+在核心测试中检查：
 
 ```cpp
-CHECK(moduleSource.find("RD_DRAWING_PAVEMENT_STRUCTURE_LEGEND") != std::string::npos);
-CHECK(moduleSource.find("路面结构图例") != std::string::npos);
-CHECK(commandSource.find("DnRoadModelEntity") != std::string::npos);
-CHECK(commandSource.find("DnRoadModelSectionDrawingEntity") != std::string::npos);
-CHECK(commandSource.find("DnPavementLayerTemplateEntity") != std::string::npos);
-CHECK(commandSource.find("collectSectionDrawingsForRoadModel") != std::string::npos);
-CHECK(commandSource.find("appendOrdinaryLegendEntities") != std::string::npos);
+CHECK(commands.contains(L"RD_DRAWING_PAVEMENT_STRUCTURE_LEGEND"));
+CHECK(source.find("DnRoadModelEntity") != std::string::npos);
+CHECK(source.find("DnRoadModelSectionDrawingEntity") != std::string::npos);
+CHECK(source.find("DnPavementLayerTemplateEntity") != std::string::npos);
+CHECK(source.find("collectSectionDrawingsForRoadModel") != std::string::npos);
+CHECK(source.find("appendOrdinaryLegendEntities") != std::string::npos);
 CHECK(ribbonSource.find("RD_DRAWING_PAVEMENT_STRUCTURE_LEGEND ") != std::string::npos);
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [ ] **步骤 2：运行测试确认 RED**
 
-Run Debug core test build and executable. Expected: source-contract test fails because the command does not exist.
+运行 Debug 核心构建和测试。预期：源码契约失败，因为命令和 Ribbon 入口尚未实现。
 
-- [ ] **Step 3: Add registration skeleton**
+- [ ] **步骤 3：增加注册骨架**
 
-Create command header exposing:
+新增命令头文件，暴露：
 
 ```cpp
 core::CommandProcedure pavementStructureLegendCommandProcedure();
 ```
 
-Create command source with a test-build stub and ObjectARX function names required by the contract. Register in `DrawingQuantityModule.cpp` with business doc `docs/business/drawing_quantity/路面结构图例.md`. Add managed Ribbon constants and button sending `RD_DRAWING_PAVEMENT_STRUCTURE_LEGEND `.
+新增命令源文件，先包含测试构建 stub 和后续 ObjectARX 所需函数名。注册 `RD_DRAWING_PAVEMENT_STRUCTURE_LEGEND`，显示名 `路面结构图例`，业务文档路径 `docs/business/drawing_quantity/路面结构图例.md`。托管 Ribbon 增加按钮并发送 `RD_DRAWING_PAVEMENT_STRUCTURE_LEGEND `。
 
-- [ ] **Step 4: Run test to verify it passes**
+- [ ] **步骤 4：运行测试确认 GREEN**
 
-Run Debug core test build and executable.
+运行 Debug 核心构建和测试。
 
-### Task 3: ObjectARX Ordinary Drawing Implementation
+### 任务 3：ObjectARX 普通实体绘制
 
-**Files:**
-- Modify: `src/cad_adapter/objectarx/drawing_quantity/ObjectArxPavementStructureLegendCommand.cpp`
-- Modify: `tests/core_tests.cpp`
+**文件：**
+- 修改：`src/cad_adapter/objectarx/drawing_quantity/ObjectArxPavementStructureLegendCommand.cpp`
+- 修改：`tests/core_tests.cpp`
 
-- [ ] **Step 1: Extend failing source-contract test**
+- [ ] **步骤 1：扩展失败源码契约测试**
 
-Require ordinary CAD entity APIs:
+要求命令源码包含普通 CAD 实体 API：
 
 ```cpp
 CHECK(commandSource.find("new AcDbLine") != std::string::npos);
@@ -251,84 +121,86 @@ CHECK(commandSource.find("appendAcDbEntity") != std::string::npos);
 CHECK(commandSource.find("PavementStructureLegendPlanner::build") != std::string::npos);
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [ ] **步骤 2：运行测试确认 RED**
 
-Run Debug core test build and executable. Expected: source-contract test fails on missing drawing APIs.
+运行 Debug 核心构建和测试。预期：缺少普通实体绘制 API。
 
-- [ ] **Step 3: Implement ObjectARX command**
+- [ ] **步骤 3：实现 ObjectARX 命令**
 
-Implement:
-- Select `DnRoadModelEntity` or `DnRoadModelSectionDrawingEntity`.
-- If section drawing selected, scan model space for all drawings with the same `roadModelHandle`.
-- Collect template handles from section drawing faces first, then road model `pavementLayerLines`.
-- Read `DnPavementLayerTemplateEntity::templateData()`.
-- Prompt insertion point with `acedGetPoint`.
-- Create ordinary line/text/polyline/hatch entities.
-- Draw field rows, structure columns, per-layer rectangles, per-layer thickness text, total thickness row, and unmerged bottom legend items.
+实现：
 
-- [ ] **Step 4: Run test to verify it passes**
+- 支持选择 `DnRoadModelEntity` 或 `DnRoadModelSectionDrawingEntity`。
+- 若选择横断面图，读取 `roadModelHandle` 并扫描模型空间同一道路模型的所有横断面图。
+- 优先从横断面图 `faces[].sourceTemplateHandle` 收集模板 handle，再从道路模型 `pavementLayerLines` 兼容回退。
+- 读取 `DnPavementLayerTemplateEntity::templateData()`。
+- 使用 `acedGetPoint` 点取插入位置。
+- 创建普通 `AcDbLine`、`AcDbPolyline`、`AcDbText`、`AcDbHatch` 并追加到模型空间。
+- 绘制字段行、模板列、层厚矩形、每层厚度文字、总厚度行和底部不合并图例项。
 
-Run Debug core test build and executable.
+- [ ] **步骤 4：运行测试确认 GREEN**
 
-### Task 4: Project Files and Documentation
+运行 Debug 核心构建和测试。
 
-**Files:**
-- Create: `docs/business/drawing_quantity/路面结构图例.md`
-- Modify: `docs/modules/drawing_quantity.md`
-- Modify: `docs/modules/module_index.md`
-- Modify: `docs/reuse/capability_catalog.md`
-- Modify: `README.md`
-- Modify: `tests/README.md`
-- Modify: `docs/dev/version_log.md`
+### 任务 4：文档与版本记录
 
-- [ ] **Step 1: Write failing doc/source tests**
+**文件：**
+- 新增：`docs/business/drawing_quantity/路面结构图例.md`
+- 修改：`docs/modules/drawing_quantity.md`
+- 修改：`docs/modules/module_index.md`
+- 修改：`docs/reuse/capability_catalog.md`
+- 修改：`README.md`
+- 修改：`tests/README.md`
+- 修改：`docs/dev/version_log.md`
 
-Add source-contract checks for `路面结构图例`, `PavementStructureLegendPlanner`, and `RD_DRAWING_PAVEMENT_STRUCTURE_LEGEND` in README, module docs, reuse catalog, tests README, and version log.
+- [ ] **步骤 1：写失败文档测试**
 
-- [ ] **Step 2: Run test to verify it fails**
+核心测试检查 README、模块文档、复用目录、测试说明和版本记录包含：
 
-Run Debug core test build and executable. Expected: doc checks fail.
+- `路面结构图例`
+- `PavementStructureLegendPlanner`
+- `RD_DRAWING_PAVEMENT_STRUCTURE_LEGEND`
 
-- [ ] **Step 3: Update docs**
+- [ ] **步骤 2：运行测试确认 RED**
 
-Document command behavior, inputs, ordinary CAD outputs, field rows, bottom legend no-merge rule, tests, and AutoCAD manual verification.
+运行 Debug 核心构建和测试。预期：文档检查失败。
 
-- [ ] **Step 4: Run test to verify it passes**
+- [ ] **步骤 3：更新文档**
 
-Run Debug core test build and executable.
+记录命令行为、输入对象、普通 CAD 输出、字段行、底部图例不合并规则、测试范围和 AutoCAD 手工验证步骤。
 
-### Task 5: Full Verification
+- [ ] **步骤 4：运行测试确认 GREEN**
 
-**Files:**
-- No new files unless verification reveals a build issue.
+运行 Debug 核心构建和测试。
 
-- [ ] **Step 1: Run Debug core build and tests**
+### 任务 5：完整验证
+
+- [ ] **步骤 1：Debug 核心构建和测试**
 
 ```powershell
 & 'D:\Program Files\Microsoft Visual Studio\18\Insiders\MSBuild\Current\Bin\amd64\MSBuild.exe' tests\RoadProtoCoreTests.vcxproj /p:Configuration=Debug /p:Platform=x64
 artifacts\x64\Debug\RoadProtoCoreTests.exe
 ```
 
-- [ ] **Step 2: Run Release core build and tests**
+- [ ] **步骤 2：Release 核心构建和测试**
 
 ```powershell
 & 'D:\Program Files\Microsoft Visual Studio\18\Insiders\MSBuild\Current\Bin\amd64\MSBuild.exe' tests\RoadProtoCoreTests.vcxproj /p:Configuration=Release /p:Platform=x64
 artifacts\x64\Release\RoadProtoCoreTests.exe
 ```
 
-- [ ] **Step 3: Build managed Ribbon plugin**
+- [ ] **步骤 3：构建托管 Ribbon 插件**
 
 ```powershell
 dotnet build src\ui\wpf\RoadProto.Terrain.UI\RoadProto.Terrain.UI.csproj -c Release
 ```
 
-- [ ] **Step 4: Build full solution Release**
+- [ ] **步骤 4：构建完整 Release 解决方案**
 
 ```powershell
 & 'D:\Program Files\Microsoft Visual Studio\18\Insiders\MSBuild\Current\Bin\amd64\MSBuild.exe' RoadProto.sln /p:Configuration=Release /p:Platform=x64
 ```
 
-- [ ] **Step 5: Run diff whitespace check**
+- [ ] **步骤 5：检查空白字符**
 
 ```powershell
 git diff --check

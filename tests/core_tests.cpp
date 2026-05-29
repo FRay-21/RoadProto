@@ -2593,6 +2593,121 @@ void roadModelBuilderCreatesThreeDimensionalComponentLines()
     }
 }
 
+void roadModelBuilderAppliesSubgradeHeightAtComponentInnerEdge()
+{
+    using namespace roadproto::domain::alignment;
+    using namespace roadproto::domain::cross_section;
+    using namespace roadproto::domain::profile;
+
+    SubgradeTemplateComponent lane;
+    lane.side = SubgradeSide::Right;
+    lane.type = SubgradeComponentType::TravelLane;
+    lane.width = 3.5;
+    lane.fixedSlope = 0.0;
+    lane.color = {1, 2, 3};
+
+    SubgradeTemplateComponent shoulder;
+    shoulder.side = SubgradeSide::Right;
+    shoulder.type = SubgradeComponentType::HardShoulder;
+    shoulder.width = 1.0;
+    shoulder.height = 0.4;
+    shoulder.fixedSlope = 0.0;
+    shoulder.color = {4, 5, 6};
+    shoulder.pavementLayerLinked = true;
+    shoulder.pavementLayerHandle = L"PV-STEP";
+    shoulder.pavementLayerName = L"硬路肩结构层";
+
+    SubgradeTemplateData templateData;
+    templateData.components.push_back(lane);
+    templateData.components.push_back(shoulder);
+
+    PavementLayerTemplateData pavement;
+    pavement.properties.name = L"硬路肩结构层";
+    PavementLayerTemplateLayer layer;
+    layer.type = PavementLayerType::Base;
+    layer.name = L"基层";
+    layer.uniformThickness = true;
+    layer.thickness = 0.2;
+    pavement.layers.push_back(layer);
+
+    RoadModelBuildInput input;
+    input.config.sampleInterval = 10.0;
+    input.config.assignments.push_back({0.0, 20.0, L"T1", L"Template 1"});
+    input.verticalCurve.controlPoints = {
+        {VerticalCurvePointRole::Start, 0.0, 100.0},
+        {VerticalCurvePointRole::End, 20.0, 100.0},
+    };
+    input.alignmentSamples = {
+        {{0.0, 0.0}, 0.0},
+        {{20.0, 0.0}, 20.0},
+    };
+    input.templates = {
+        {L"T1", templateData},
+    };
+    input.pavementLayerTemplates = {
+        {L"PV-STEP", pavement},
+    };
+
+    const auto result = RoadModelBuilder::build(input);
+
+    CHECK(result.succeeded);
+    const auto shoulderInner = std::find_if(
+        result.data.componentLines.begin(),
+        result.data.componentLines.end(),
+        [](const RoadModelComponentLine& line) {
+            return line.key.componentIndex == 1 && line.key.boundaryIndex == 0;
+        });
+    const auto shoulderOuter = std::find_if(
+        result.data.componentLines.begin(),
+        result.data.componentLines.end(),
+        [](const RoadModelComponentLine& line) {
+            return line.key.componentIndex == 1 && line.key.boundaryIndex == 1;
+        });
+    CHECK(shoulderInner != result.data.componentLines.end());
+    CHECK(shoulderOuter != result.data.componentLines.end());
+    if (shoulderInner != result.data.componentLines.end() && !shoulderInner->points.empty()) {
+        CHECK(std::fabs(shoulderInner->points.front().z - 100.4) < 1.0e-9);
+    }
+    if (shoulderOuter != result.data.componentLines.end() && !shoulderOuter->points.empty()) {
+        CHECK(std::fabs(shoulderOuter->points.front().z - 100.4) < 1.0e-9);
+    }
+
+    const auto pavementTopInner = std::find_if(
+        result.data.pavementLayerLines.begin(),
+        result.data.pavementLayerLines.end(),
+        [](const RoadModelPavementLayerLine& line) {
+            return line.key.componentIndex == 1 && line.key.layerIndex == 0 && line.key.boundaryIndex == 0;
+        });
+    const auto pavementTopOuter = std::find_if(
+        result.data.pavementLayerLines.begin(),
+        result.data.pavementLayerLines.end(),
+        [](const RoadModelPavementLayerLine& line) {
+            return line.key.componentIndex == 1 && line.key.layerIndex == 0 && line.key.boundaryIndex == 1;
+        });
+    CHECK(pavementTopInner != result.data.pavementLayerLines.end());
+    CHECK(pavementTopOuter != result.data.pavementLayerLines.end());
+    if (pavementTopInner != result.data.pavementLayerLines.end() && !pavementTopInner->points.empty()) {
+        CHECK(std::fabs(pavementTopInner->points.front().z - 100.4) < 1.0e-9);
+    }
+    if (pavementTopOuter != result.data.pavementLayerLines.end() && !pavementTopOuter->points.empty()) {
+        CHECK(std::fabs(pavementTopOuter->points.front().z - 100.4) < 1.0e-9);
+    }
+
+    bool hasVerticalStep = false;
+    if (!result.data.sections.empty()) {
+        const auto& nodes = result.data.sections.front().rightNodes;
+        for (std::size_t i = 1; i < nodes.size(); ++i) {
+            if (std::fabs(nodes[i - 1].offset - nodes[i].offset) < 1.0e-9 &&
+                std::fabs(nodes[i - 1].elevation - 100.0) < 1.0e-9 &&
+                std::fabs(nodes[i].elevation - 100.4) < 1.0e-9) {
+                hasVerticalStep = true;
+                break;
+            }
+        }
+    }
+    CHECK(hasVerticalStep);
+}
+
 void roadModelBuilderCreatesPavementLayerWireLinesForBoundSubgradeComponent()
 {
     using namespace roadproto::domain::alignment;
@@ -8001,6 +8116,7 @@ int main()
     roadModelStationSamplerOnlyKeepsTemplateCoveredStations();
     roadModelStationSamplerSnapsTemplateBoundaryTolerance();
     roadModelBuilderCreatesThreeDimensionalComponentLines();
+    roadModelBuilderAppliesSubgradeHeightAtComponentInnerEdge();
     roadModelBuilderCreatesPavementLayerWireLinesForBoundSubgradeComponent();
     roadModelBuilderKeepsPavementLayerInnerOuterSemanticOnLeftSide();
     roadModelBuilderUsesCurrentPavementLayerContourForWidenedModelWires();

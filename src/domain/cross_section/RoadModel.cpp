@@ -1005,7 +1005,8 @@ SubgradeOuterEdge subgradeOuterEdgeAtStation(
         const double width = SubgradeTemplateRules::widthAtStation(*component, station);
         const double slope = SubgradeTemplateRules::slopeAtStation(*component, station);
         edge.offset += width;
-        edge.elevationOffset += component->height + std::fabs(width) * slope;
+        const double innerElevationOffset = edge.elevationOffset + component->height;
+        edge.elevationOffset = innerElevationOffset + std::fabs(width) * slope;
     }
     return edge;
 }
@@ -1257,9 +1258,8 @@ void appendTemplateBoundaryPoints(
             const auto& component = *components[index];
             const double width = SubgradeTemplateRules::widthAtStation(component, frame.station);
             const double slope = SubgradeTemplateRules::slopeAtStation(component, frame.station);
-            const double innerElevationOffset = elevationOffset;
-            const double outerElevationOffset =
-                elevationOffset + component.height + std::fabs(width) * slope;
+            const double innerElevationOffset = elevationOffset + component.height;
+            const double outerElevationOffset = innerElevationOffset + std::fabs(width) * slope;
 
             points.push_back(
                 ActiveBoundaryPoint{
@@ -1352,9 +1352,8 @@ bool appendPavementLayerBoundaryPoints(
             const auto& component = *components[index];
             const double width = SubgradeTemplateRules::widthAtStation(component, frame.station);
             const double slope = SubgradeTemplateRules::slopeAtStation(component, frame.station);
-            const double innerElevationOffset = elevationOffset;
-            const double outerElevationOffset =
-                elevationOffset + component.height + std::fabs(width) * slope;
+            const double innerElevationOffset = elevationOffset + component.height;
+            const double outerElevationOffset = innerElevationOffset + std::fabs(width) * slope;
 
             if (component.pavementLayerLinked) {
                 if (component.pavementLayerHandle.empty()) {

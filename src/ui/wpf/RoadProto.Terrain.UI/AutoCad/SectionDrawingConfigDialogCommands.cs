@@ -76,5 +76,6 @@ public sealed class SectionDrawingConfigDialogCommands
             ConfigPath = request.ConfigPath,
             ComponentOptions = request.ComponentOptions,
             PavementRows = request.PavementRows,
+            ClearTableRows = request.ClearTableRows,
         };
 }

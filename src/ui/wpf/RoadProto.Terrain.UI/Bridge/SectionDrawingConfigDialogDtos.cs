@@ -25,6 +25,17 @@ public sealed class SectionDrawingConfigRowDto
     public string TemplateName { get; set; } = string.Empty;
 }
 
+public sealed class SectionDrawingClearTableRowDto
+{
+    public double StartStation { get; set; }
+    public double EndStation { get; set; }
+    public double LeftSlopeRatio { get; set; } = 1.5;
+    public double RightSlopeRatio { get; set; } = 1.5;
+    public double Thickness { get; set; } = 0.3;
+    public string Scope { get; set; } = "Both";
+    public bool ClearCut { get; set; } = true;
+}
+
 public sealed class SectionDrawingConfigRequest
 {
     public string DrawingHandle { get; set; } = string.Empty;
@@ -33,6 +44,7 @@ public sealed class SectionDrawingConfigRequest
     public string ConfigPath { get; set; } = string.Empty;
     public List<SectionDrawingConfigComponentOptionDto> ComponentOptions { get; set; } = new();
     public List<SectionDrawingConfigRowDto> PavementRows { get; set; } = new();
+    public List<SectionDrawingClearTableRowDto> ClearTableRows { get; set; } = new();
 }
 
 public sealed class SectionDrawingConfigResponse
@@ -46,4 +58,5 @@ public sealed class SectionDrawingConfigResponse
     public string ConfigPath { get; set; } = string.Empty;
     public List<SectionDrawingConfigComponentOptionDto> ComponentOptions { get; set; } = new();
     public List<SectionDrawingConfigRowDto> PavementRows { get; set; } = new();
+    public List<SectionDrawingClearTableRowDto> ClearTableRows { get; set; } = new();
 }

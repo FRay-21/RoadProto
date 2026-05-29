@@ -500,6 +500,11 @@ bool isFiniteDrawingPoint(const RoadModelSectionDrawingPoint& point)
     return std::isfinite(point.x) && std::isfinite(point.y);
 }
 
+bool isClearTableFace(const RoadModelSectionDrawingFace& face)
+{
+    return face.faceId.rfind(L"clearTable:", 0) == 0;
+}
+
 RoadModelSectionDrawingPoint mapSectionPointToDrawing(
     double offset,
     double elevation,
@@ -509,6 +514,174 @@ RoadModelSectionDrawingPoint mapSectionPointToDrawing(
     return RoadModelSectionDrawingPoint{
         offset - minOffset + kSectionDrawingPadding,
         elevation - minElevation + kSectionDrawingStationLabelBand + kSectionDrawingPadding};
+}
+
+double signedSideOffset(SubgradeSide side, const RoadModelSectionNode& node)
+{
+    return side == SubgradeSide::Left ? std::fabs(node.offset) : -std::fabs(node.offset);
+}
+
+double clearTableGroundDistance(const RoadModelGroundProfilePoint& point)
+{
+    return std::fabs(point.offset);
+}
+
+double sideDistance(const RoadModelSectionNode& node)
+{
+    return std::fabs(node.offset);
+}
+
+const std::vector<RoadModelGroundProfilePoint>& groundProfileForSide(
+    const RoadModelSection& section,
+    SubgradeSide side)
+{
+    return side == SubgradeSide::Left ? section.leftGroundProfile : section.rightGroundProfile;
+}
+
+const std::vector<RoadModelSectionNode>& sectionNodesForSide(
+    const RoadModelSection& section,
+    SubgradeSide side)
+{
+    return side == SubgradeSide::Left ? section.leftNodes : section.rightNodes;
+}
+
+double sideClearTableCoverageDistance(const RoadModelSection& section, SubgradeSide side)
+{
+    double coverage = 0.0;
+    for (const auto& node : sectionNodesForSide(section, side)) {
+        if (node.kind == RoadModelSectionNodeKind::Subgrade || node.kind == RoadModelSectionNodeKind::Slope) {
+            coverage = std::max(coverage, sideDistance(node));
+        }
+    }
+    return coverage;
+}
+
+std::optional<double> groundElevationAtDistance(
+    const std::vector<RoadModelGroundProfilePoint>& profile,
+    double distance)
+{
+    if (profile.empty() || !std::isfinite(distance)) {
+        return std::nullopt;
+    }
+
+    struct GroundSample {
+        double distance = 0.0;
+        double elevation = 0.0;
+    };
+
+    std::vector<GroundSample> points;
+    points.reserve(profile.size());
+    for (const auto& point : profile) {
+        if (std::isfinite(point.offset) && std::isfinite(point.elevation)) {
+            points.push_back(GroundSample{clearTableGroundDistance(point), point.elevation});
+        }
+    }
+    if (points.empty()) {
+        return std::nullopt;
+    }
+
+    std::sort(points.begin(), points.end(), [](const auto& left, const auto& right) {
+        return left.distance < right.distance;
+    });
+
+    for (std::size_t i = 1; i < points.size(); ++i) {
+        const auto& first = points[i - 1];
+        const auto& second = points[i];
+        if (distance < first.distance - kStationEpsilon || distance > second.distance + kStationEpsilon) {
+            continue;
+        }
+        const auto span = second.distance - first.distance;
+        if (std::fabs(span) <= 1.0e-9) {
+            return first.elevation;
+        }
+        const auto t = std::clamp((distance - first.distance) / span, 0.0, 1.0);
+        return first.elevation + (second.elevation - first.elevation) * t;
+    }
+
+    const auto closest = std::min_element(points.begin(), points.end(), [&](const auto& left, const auto& right) {
+        return std::fabs(left.distance - distance) < std::fabs(right.distance - distance);
+    });
+    return closest == points.end() ? std::nullopt : std::optional<double>(closest->elevation);
+}
+
+void ensureClearTableGroundPoint(
+    std::vector<RoadModelGroundProfilePoint>& points,
+    const std::vector<RoadModelGroundProfilePoint>& profile,
+    double distance)
+{
+    if (!std::isfinite(distance)) {
+        return;
+    }
+    const auto elevation = groundElevationAtDistance(profile, distance);
+    if (!elevation.has_value()) {
+        return;
+    }
+    points.push_back(RoadModelGroundProfilePoint{distance, *elevation});
+}
+
+std::vector<RoadModelGroundProfilePoint> sampleClearTableGroundPoints(
+    const std::vector<RoadModelGroundProfilePoint>& profile,
+    double coverage)
+{
+    std::vector<RoadModelGroundProfilePoint> points;
+    if (!std::isfinite(coverage) || coverage <= 1.0e-6) {
+        return points;
+    }
+
+    points.reserve(profile.size() + 2);
+    for (const auto& point : profile) {
+        if (!std::isfinite(point.offset) || !std::isfinite(point.elevation)) {
+            continue;
+        }
+        const auto distance = std::fabs(point.offset);
+        if (distance < -kStationEpsilon || distance > coverage + kStationEpsilon) {
+            continue;
+        }
+        points.push_back(RoadModelGroundProfilePoint{std::clamp(distance, 0.0, coverage), point.elevation});
+    }
+    ensureClearTableGroundPoint(points, profile, 0.0);
+    ensureClearTableGroundPoint(points, profile, coverage);
+
+    std::sort(points.begin(), points.end(), [](const auto& left, const auto& right) {
+        return left.offset < right.offset;
+    });
+
+    std::vector<RoadModelGroundProfilePoint> unique;
+    unique.reserve(points.size());
+    for (const auto& point : points) {
+        if (unique.empty() || std::fabs(unique.back().offset - point.offset) > kStationEpsilon) {
+            unique.push_back(point);
+        } else {
+            if (std::fabs(point.offset) <= kStationEpsilon
+                || std::fabs(point.offset - coverage) <= kStationEpsilon) {
+                unique.back().offset = point.offset;
+            }
+            unique.back().elevation = (unique.back().elevation + point.elevation) * 0.5;
+        }
+    }
+    return unique;
+}
+
+bool isCutSide(const RoadModelSection& section, SubgradeSide side)
+{
+    const auto& nodes = sectionNodesForSide(section, side);
+    const RoadModelSectionNode* outerSubgrade = nullptr;
+    for (const auto& node : nodes) {
+        if (node.kind != RoadModelSectionNodeKind::Subgrade || !std::isfinite(node.elevation)) {
+            continue;
+        }
+        if (outerSubgrade == nullptr || sideDistance(node) > sideDistance(*outerSubgrade)) {
+            outerSubgrade = &node;
+        }
+    }
+    if (outerSubgrade == nullptr) {
+        return false;
+    }
+
+    const auto groundElevation = groundElevationAtDistance(
+        groundProfileForSide(section, side),
+        sideDistance(*outerSubgrade));
+    return groundElevation.has_value() && *groundElevation > outerSubgrade->elevation + 1.0e-5;
 }
 
 struct DrawingBasis {
@@ -545,7 +718,7 @@ void includeSectionGroundBasisPoints(
     double sign)
 {
     for (const auto& point : points) {
-        includeSectionBasisPoint(basis, sign * point.offset, point.elevation);
+        includeSectionBasisPoint(basis, sign * std::fabs(point.offset), point.elevation);
     }
 }
 
@@ -591,14 +764,121 @@ DrawingBasis drawingBasisForSection(
     return basis;
 }
 
-std::vector<RoadModelSectionDrawingFace> buildConfiguredPavementFaces(
+std::vector<RoadModelSectionDrawingPoint> clearTableFacePointsForSide(
+    const RoadModelSection& section,
+    SubgradeSide side,
+    double slopeRatio,
+    double thickness,
+    const DrawingBasis& basis)
+{
+    const auto coverage = sideClearTableCoverageDistance(section, side);
+    if (!std::isfinite(coverage) || coverage <= 1.0e-6 || !std::isfinite(thickness) || thickness <= 0.0) {
+        return {};
+    }
+
+    const auto& profile = groundProfileForSide(section, side);
+    const auto groundPoints = sampleClearTableGroundPoints(profile, coverage);
+    if (groundPoints.size() < 2) {
+        return {};
+    }
+
+    const auto sign = side == SubgradeSide::Left ? 1.0 : -1.0;
+    std::vector<RoadModelSectionDrawingPoint> points;
+    points.reserve(groundPoints.size() * 2);
+    for (const auto& point : groundPoints) {
+        points.push_back(mapSectionPointToDrawing(
+            sign * point.offset,
+            point.elevation,
+            basis.minOffset,
+            basis.minElevation));
+    }
+
+    for (auto it = groundPoints.rbegin(); it != groundPoints.rend(); ++it) {
+        const auto ratio = coverage <= 1.0e-9 ? 0.0 : std::clamp(it->offset / coverage, 0.0, 1.0);
+        const auto inwardShift = thickness * slopeRatio * ratio;
+        const auto bottomOffset = sign * std::max(0.0, it->offset - inwardShift);
+        points.push_back(mapSectionPointToDrawing(
+            bottomOffset,
+            it->elevation - thickness,
+            basis.minOffset,
+            basis.minElevation));
+    }
+
+    return points;
+}
+
+std::vector<RoadModelSectionDrawingFace> buildConfiguredClearTableFaces(
     const RoadModelSectionDrawingData& drawing,
     const RoadModelData& roadModel,
-    const std::unordered_map<std::wstring, PavementLayerTemplateData>& templates,
     std::size_t& preservedManualFaceCount,
     std::vector<std::wstring>& warnings)
 {
     auto faces = preserveManualEditedFaces(drawing.faces, preservedManualFaceCount);
+    const auto* section = findRoadModelSectionAtStation(roadModel, drawing.station);
+    if (section == nullptr) {
+        warnings.push_back(L"No road model section exists for clear table at station " + std::to_wstring(drawing.station));
+        return faces;
+    }
+
+    const auto basis = drawingBasisForSection(drawing, *section);
+    if (!basis.valid) {
+        warnings.push_back(L"Cannot derive section drawing basis for clear table at station " + std::to_wstring(drawing.station));
+        return faces;
+    }
+
+    const SubgradeSide sides[] = {SubgradeSide::Left, SubgradeSide::Right};
+    for (const auto side : sides) {
+        const auto cutSide = isCutSide(*section, side);
+        const auto resolved = SectionDrawingConfigRules::resolveClearTableRow(
+            drawing.config,
+            drawing.station,
+            side,
+            cutSide);
+        if (!resolved.has_value()) {
+            continue;
+        }
+
+        const auto slopeRatio = side == SubgradeSide::Left
+            ? resolved->row.leftSlopeRatio
+            : resolved->row.rightSlopeRatio;
+        auto points = clearTableFacePointsForSide(*section, side, slopeRatio, resolved->row.thickness, basis);
+        if (points.size() < 3 || !std::all_of(points.begin(), points.end(), isFiniteDrawingPoint)) {
+            warnings.push_back(L"Cannot build clear table face at station " + std::to_wstring(drawing.station));
+            continue;
+        }
+
+        RoadModelSectionDrawingFace face;
+        face.layerName = L"\u6e05\u8868";
+        face.componentName = SectionDrawingConfigRules::clearTableScopeDisplayName(
+            side == SubgradeSide::Left
+                ? roadproto::domain::cross_section::SectionClearTableScope::Left
+                : roadproto::domain::cross_section::SectionClearTableScope::Right);
+        face.faceId = L"clearTable:"
+            + (side == SubgradeSide::Left ? std::wstring(L"Left") : std::wstring(L"Right"))
+            + L":"
+            + std::to_wstring(resolved->rowIndex);
+        face.sourceConfigRowIndex = static_cast<int>(resolved->rowIndex);
+        face.manualEdited = false;
+        face.colorR = 126;
+        face.colorG = 84;
+        face.colorB = 45;
+        face.hatchPattern = L"EARTH";
+        face.hatchAngle = 45.0;
+        face.hatchScale = 1.0;
+        face.points = std::move(points);
+        faces.push_back(std::move(face));
+    }
+
+    return faces;
+}
+
+std::vector<RoadModelSectionDrawingFace> buildConfiguredPavementFaces(
+    const RoadModelSectionDrawingData& drawing,
+    const RoadModelData& roadModel,
+    const std::unordered_map<std::wstring, PavementLayerTemplateData>& templates,
+    std::vector<RoadModelSectionDrawingFace> faces,
+    std::vector<std::wstring>& warnings)
+{
     const auto* section = findRoadModelSectionAtStation(roadModel, drawing.station);
     if (section == nullptr) {
         warnings.push_back(L"No road model section exists at station " + std::to_wstring(drawing.station));
@@ -860,11 +1140,16 @@ bool applySectionDrawingConfigToAllDrawings(
         entity = nullptr;
         drawing.config = normalized;
         std::size_t manualCountForDrawing = 0;
-        auto faces = buildConfiguredPavementFaces(
+        auto faces = buildConfiguredClearTableFaces(
+            drawing,
+            roadModel,
+            manualCountForDrawing,
+            warnings);
+        faces = buildConfiguredPavementFaces(
             drawing,
             roadModel,
             templates,
-            manualCountForDrawing,
+            std::move(faces),
             warnings);
 
         if (acdbOpenObject(entity, drawingId, AcDb::kForWrite) != Acad::eOk || entity == nullptr) {

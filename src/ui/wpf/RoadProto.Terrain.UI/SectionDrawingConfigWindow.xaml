@@ -109,6 +109,60 @@
                     </DataGrid>
                 </Grid>
             </TabItem>
+            <TabItem Header="清表">
+                <Grid Margin="12">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                    </Grid.RowDefinitions>
+
+                    <StackPanel Grid.Row="0"
+                                Orientation="Horizontal"
+                                HorizontalAlignment="Right"
+                                Margin="0,0,0,8">
+                        <Button Content="新增" Width="72" Click="OnAddClearTableRowClick" />
+                        <Button Content="删除" Width="72" Click="OnRemoveClearTableRowClick" />
+                        <Button Content="上移" Width="72" Click="OnMoveClearTableRowUpClick" />
+                        <Button Content="下移" Width="72" Margin="0" Click="OnMoveClearTableRowDownClick" />
+                    </StackPanel>
+
+                    <DataGrid Grid.Row="1"
+                              ItemsSource="{Binding ClearTableRows}"
+                              SelectedItem="{Binding SelectedClearTableRow, Mode=TwoWay}"
+                              AutoGenerateColumns="False"
+                              CanUserAddRows="False"
+                              HeadersVisibility="Column"
+                              GridLinesVisibility="Horizontal">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="起点桩号" Binding="{Binding StartStation}" Width="110" />
+                            <DataGridTextColumn Header="终点桩号" Binding="{Binding EndStation}" Width="110" />
+                            <DataGridTextColumn Header="左侧坡率" Binding="{Binding LeftSlopeRatio}" Width="110" />
+                            <DataGridTextColumn Header="右侧坡率" Binding="{Binding RightSlopeRatio}" Width="110" />
+                            <DataGridTextColumn Header="厚度" Binding="{Binding Thickness}" Width="90" />
+                            <DataGridTemplateColumn Header="作用范围" Width="130">
+                                <DataGridTemplateColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <ComboBox ItemsSource="{Binding DataContext.ClearTableScopeOptions, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                  DisplayMemberPath="DisplayName"
+                                                  SelectedValuePath="Value"
+                                                  SelectedValue="{Binding Scope, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                                    </DataTemplate>
+                                </DataGridTemplateColumn.CellTemplate>
+                            </DataGridTemplateColumn>
+                            <DataGridTemplateColumn Header="挖方是否清表" Width="140">
+                                <DataGridTemplateColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <ComboBox ItemsSource="{Binding DataContext.ClearTableCutOptions, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                  DisplayMemberPath="DisplayName"
+                                                  SelectedValuePath="Value"
+                                                  SelectedValue="{Binding ClearCut, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                                    </DataTemplate>
+                                </DataGridTemplateColumn.CellTemplate>
+                            </DataGridTemplateColumn>
+                        </DataGrid.Columns>
+                    </DataGrid>
+                </Grid>
+            </TabItem>
         </TabControl>
 
         <Grid Grid.Row="2" Margin="0,12,0,0">

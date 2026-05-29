@@ -72,6 +72,7 @@
     <ClCompile Include="..\src\domain\profile\ProfileGradeGraphLayout.cpp" />
     <ClCompile Include="..\src\domain\profile\ProfileVerticalCurveCalculator.cpp" />
     <ClCompile Include="..\src\domain\profile\ProfileVerticalCurveDisplayPlanner.cpp" />
+    <ClCompile Include="..\src\domain\quantity\ClearTableQuantityDrawingFaceSampler.cpp" />
     <ClCompile Include="..\src\domain\quantity\PavementQuantityDrawingFaceSampler.cpp" />
     <ClCompile Include="..\src\domain\quantity\PavementStructureLegend.cpp" />
     <ClCompile Include="..\src\domain\quantity\PavementQuantityTable.cpp" />

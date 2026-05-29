@@ -22,15 +22,37 @@ struct SectionPavementLayerConfigRow {
     std::wstring templateName;
 };
 
+enum class SectionClearTableScope {
+    Left,
+    Right,
+    Both,
+};
+
+struct SectionClearTableConfigRow {
+    double startStation = 0.0;
+    double endStation = 0.0;
+    double leftSlopeRatio = 1.5;
+    double rightSlopeRatio = 1.5;
+    double thickness = 0.3;
+    SectionClearTableScope scope = SectionClearTableScope::Both;
+    bool clearCut = true;
+};
+
 struct SectionDrawingConfigData {
     std::wstring configPath;
     std::vector<SectionPavementLayerConfigRow> pavementRows;
+    std::vector<SectionClearTableConfigRow> clearTableRows;
     int version = 1;
 };
 
 struct SectionDrawingResolvedPavementRow {
     std::size_t rowIndex = 0;
     SectionPavementLayerConfigRow row;
+};
+
+struct SectionDrawingResolvedClearTableRow {
+    std::size_t rowIndex = 0;
+    SectionClearTableConfigRow row;
 };
 
 class SectionDrawingConfigRules {
@@ -51,11 +73,25 @@ public:
         SubgradeSide side,
         SubgradeComponentType componentType);
 
+    static std::optional<SectionDrawingResolvedClearTableRow> resolveClearTableRow(
+        const SectionDrawingConfigData& data,
+        double station,
+        SubgradeSide side,
+        bool isCutSection);
+
+    static bool matchesClearTableScope(
+        SectionClearTableScope scope,
+        SubgradeSide side);
+
     static std::wstring componentSelectionCode(const SectionDrawingComponentTypeSelection& selection);
     static std::wstring componentSelectionDisplayName(const SectionDrawingComponentTypeSelection& selection);
 
     static std::optional<SectionDrawingComponentTypeSelection> componentSelectionFromText(
         const std::wstring& text);
+
+    static std::wstring clearTableScopeCode(SectionClearTableScope scope);
+    static std::wstring clearTableScopeDisplayName(SectionClearTableScope scope);
+    static std::optional<SectionClearTableScope> clearTableScopeFromText(const std::wstring& text);
 };
 
 class SectionDrawingConfigCsv {

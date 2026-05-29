@@ -261,6 +261,13 @@ std::optional<SubgradeSide> sideFromText(const std::wstring& text)
     return std::nullopt;
 }
 
+bool isValidClearTableScope(SectionClearTableScope scope)
+{
+    return scope == SectionClearTableScope::Left
+        || scope == SectionClearTableScope::Right
+        || scope == SectionClearTableScope::Both;
+}
+
 std::wstring componentTypeDisplayName(SubgradeComponentType type)
 {
     switch (type) {
@@ -354,6 +361,24 @@ bool SectionDrawingConfigRules::normalize(SectionDrawingConfigData& data, std::w
         row.componentTypes = std::move(unique);
     }
 
+    for (auto& row : data.clearTableRows) {
+        if (!isFinite(row.startStation)
+            || !isFinite(row.endStation)
+            || !isFinite(row.leftSlopeRatio)
+            || !isFinite(row.rightSlopeRatio)
+            || !isFinite(row.thickness)
+            || row.leftSlopeRatio <= 0.0
+            || row.rightSlopeRatio <= 0.0
+            || row.thickness <= 0.0
+            || !isValidClearTableScope(row.scope)) {
+            errorMessage = L"Section drawing clear table rows must use finite stations, positive slope ratios, and positive thickness.";
+            return false;
+        }
+        if (row.endStation < row.startStation) {
+            std::swap(row.startStation, row.endStation);
+        }
+    }
+
     return true;
 }
 
@@ -412,6 +437,38 @@ bool SectionDrawingConfigRules::matchesComponent(
     });
 }
 
+std::optional<SectionDrawingResolvedClearTableRow> SectionDrawingConfigRules::resolveClearTableRow(
+    const SectionDrawingConfigData& data,
+    double station,
+    SubgradeSide side,
+    bool isCutSection)
+{
+    if (!isFinite(station)) {
+        return std::nullopt;
+    }
+
+    for (std::size_t i = 0; i < data.clearTableRows.size(); ++i) {
+        const auto& row = data.clearTableRows[i];
+        if (station < row.startStation - kStationTolerance || station > row.endStation + kStationTolerance) {
+            continue;
+        }
+        if (isCutSection && !row.clearCut) {
+            continue;
+        }
+        if (matchesClearTableScope(row.scope, side)) {
+            return SectionDrawingResolvedClearTableRow{i, row};
+        }
+    }
+    return std::nullopt;
+}
+
+bool SectionDrawingConfigRules::matchesClearTableScope(SectionClearTableScope scope, SubgradeSide side)
+{
+    return scope == SectionClearTableScope::Both
+        || (scope == SectionClearTableScope::Left && side == SubgradeSide::Left)
+        || (scope == SectionClearTableScope::Right && side == SubgradeSide::Right);
+}
+
 std::wstring SectionDrawingConfigRules::componentSelectionCode(const SectionDrawingComponentTypeSelection& selection)
 {
     return sideCode(selection.side) + L":" + std::wstring(subgradeComponentTypeCode(selection.componentType));
@@ -457,6 +514,47 @@ std::optional<SectionDrawingComponentTypeSelection> SectionDrawingConfigRules::c
         }
     }
 
+    return std::nullopt;
+}
+
+std::wstring SectionDrawingConfigRules::clearTableScopeCode(SectionClearTableScope scope)
+{
+    switch (scope) {
+    case SectionClearTableScope::Left:
+        return L"Left";
+    case SectionClearTableScope::Right:
+        return L"Right";
+    case SectionClearTableScope::Both:
+    default:
+        return L"Both";
+    }
+}
+
+std::wstring SectionDrawingConfigRules::clearTableScopeDisplayName(SectionClearTableScope scope)
+{
+    switch (scope) {
+    case SectionClearTableScope::Left:
+        return L"\u5de6\u4fa7";
+    case SectionClearTableScope::Right:
+        return L"\u53f3\u4fa7";
+    case SectionClearTableScope::Both:
+    default:
+        return L"\u4e24\u4fa7";
+    }
+}
+
+std::optional<SectionClearTableScope> SectionDrawingConfigRules::clearTableScopeFromText(const std::wstring& text)
+{
+    const auto value = trim(text);
+    if (value == L"Left" || value == L"\u5de6\u4fa7") {
+        return SectionClearTableScope::Left;
+    }
+    if (value == L"Right" || value == L"\u53f3\u4fa7") {
+        return SectionClearTableScope::Right;
+    }
+    if (value == L"Both" || value == L"\u4e24\u4fa7") {
+        return SectionClearTableScope::Both;
+    }
     return std::nullopt;
 }
 

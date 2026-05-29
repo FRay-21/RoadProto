@@ -25,6 +25,7 @@ namespace {
 using roadproto::domain::cross_section::SectionDrawingComponentTypeSelection;
 using roadproto::domain::cross_section::SectionDrawingConfigData;
 using roadproto::domain::cross_section::SectionDrawingConfigRules;
+using roadproto::domain::cross_section::SectionClearTableConfigRow;
 using roadproto::domain::cross_section::SectionPavementLayerConfigRow;
 
 constexpr int kMaxConfigRows = 10000;
@@ -192,7 +193,8 @@ bool writeRequestFile(
     std::wstring& errorMessage)
 {
     if (request.componentOptions.size() > static_cast<std::size_t>(kMaxComponentOptions)
-        || request.config.pavementRows.size() > static_cast<std::size_t>(kMaxConfigRows)) {
+        || request.config.pavementRows.size() > static_cast<std::size_t>(kMaxConfigRows)
+        || request.config.clearTableRows.size() > static_cast<std::size_t>(kMaxConfigRows)) {
         errorMessage = L"Section drawing config dialog request is too large.";
         return false;
     }
@@ -228,6 +230,19 @@ bool writeRequestFile(
         writeKeyValue(stream, prefix + L".componentCodes", joinComponentCodes(row.componentTypes));
         writeKeyValue(stream, prefix + L".templateHandle", row.templateHandle);
         writeKeyValue(stream, prefix + L".templateName", row.templateName);
+    }
+
+    writeKeyValue(stream, L"clearTableRowCount", request.config.clearTableRows.size());
+    for (std::size_t i = 0; i < request.config.clearTableRows.size(); ++i) {
+        const auto& row = request.config.clearTableRows[i];
+        const auto prefix = L"clearTableRow." + std::to_wstring(i);
+        writeKeyValue(stream, prefix + L".startStation", row.startStation);
+        writeKeyValue(stream, prefix + L".endStation", row.endStation);
+        writeKeyValue(stream, prefix + L".leftSlopeRatio", row.leftSlopeRatio);
+        writeKeyValue(stream, prefix + L".rightSlopeRatio", row.rightSlopeRatio);
+        writeKeyValue(stream, prefix + L".thickness", row.thickness);
+        writeKeyValue(stream, prefix + L".scope", SectionDrawingConfigRules::clearTableScopeCode(row.scope));
+        writeKeyValue(stream, prefix + L".clearCut", row.clearCut);
     }
 
     return true;
@@ -476,6 +491,44 @@ bool readSectionDrawingConfigDialogResponse(
         }
 
         parsed.config.pavementRows.push_back(std::move(row));
+    }
+
+    const auto clearTableRowCount = intValue(values, L"clearTableRowCount", 0);
+    if (clearTableRowCount < 0 || clearTableRowCount > kMaxConfigRows) {
+        errorMessage = L"Section drawing config response clear table row count is invalid.";
+        return false;
+    }
+    parsed.config.clearTableRows.reserve(static_cast<std::size_t>(clearTableRowCount));
+    for (int i = 0; i < clearTableRowCount; ++i) {
+        const auto prefix = L"clearTableRow." + std::to_wstring(i);
+        SectionClearTableConfigRow row;
+        const auto startStation = doubleValue(values, prefix + L".startStation");
+        const auto endStation = doubleValue(values, prefix + L".endStation");
+        const auto leftSlopeRatio = doubleValue(values, prefix + L".leftSlopeRatio");
+        const auto rightSlopeRatio = doubleValue(values, prefix + L".rightSlopeRatio");
+        const auto thickness = doubleValue(values, prefix + L".thickness");
+        if (!startStation.has_value()
+            || !endStation.has_value()
+            || !leftSlopeRatio.has_value()
+            || !rightSlopeRatio.has_value()
+            || !thickness.has_value()) {
+            errorMessage = L"Section drawing config response clear table value is invalid.";
+            return false;
+        }
+        const auto scope = SectionDrawingConfigRules::clearTableScopeFromText(
+            valueOrDefault(values, prefix + L".scope", L"Both"));
+        if (!scope.has_value()) {
+            errorMessage = L"Section drawing config response clear table scope is invalid.";
+            return false;
+        }
+        row.startStation = *startStation;
+        row.endStation = *endStation;
+        row.leftSlopeRatio = *leftSlopeRatio;
+        row.rightSlopeRatio = *rightSlopeRatio;
+        row.thickness = *thickness;
+        row.scope = *scope;
+        row.clearCut = boolValue(values, prefix + L".clearCut", true);
+        parsed.config.clearTableRows.push_back(std::move(row));
     }
 
     if (!SectionDrawingConfigRules::normalize(parsed.config, errorMessage)) {

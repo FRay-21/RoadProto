@@ -1,5 +1,6 @@
 using System.Collections.ObjectModel;
 using System.ComponentModel;
+using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Windows;
@@ -9,10 +10,23 @@ using RoadProto.Terrain.UI.Bridge;
 
 namespace RoadProto.Terrain.UI;
 
+public sealed class SectionDrawingTextOption
+{
+    public string Value { get; set; } = string.Empty;
+    public string DisplayName { get; set; } = string.Empty;
+}
+
+public sealed class SectionDrawingBoolOption
+{
+    public bool Value { get; set; }
+    public string DisplayName { get; set; } = string.Empty;
+}
+
 public partial class SectionDrawingConfigWindow : Window, INotifyPropertyChanged
 {
     private readonly SectionDrawingConfigRequest _request;
     private SectionDrawingConfigRowDto? _selectedRow;
+    private SectionDrawingClearTableRowDto? _selectedClearTableRow;
     private string _configPath;
 
     public SectionDrawingConfigWindow(SectionDrawingConfigRequest request)
@@ -22,6 +36,18 @@ public partial class SectionDrawingConfigWindow : Window, INotifyPropertyChanged
         _configPath = request.ConfigPath;
         ComponentOptions = new ObservableCollection<SectionDrawingConfigComponentOptionDto>(request.ComponentOptions);
         PavementRows = new ObservableCollection<SectionDrawingConfigRowDto>(request.PavementRows);
+        ClearTableRows = new ObservableCollection<SectionDrawingClearTableRowDto>(request.ClearTableRows);
+        ClearTableScopeOptions = new List<SectionDrawingTextOption>
+        {
+            new() { Value = "Left", DisplayName = "左侧" },
+            new() { Value = "Right", DisplayName = "右侧" },
+            new() { Value = "Both", DisplayName = "两侧" },
+        };
+        ClearTableCutOptions = new List<SectionDrawingBoolOption>
+        {
+            new() { Value = true, DisplayName = "是" },
+            new() { Value = false, DisplayName = "否" },
+        };
         foreach (var row in PavementRows)
         {
             RefreshComponentDisplayText(row);
@@ -47,12 +73,28 @@ public partial class SectionDrawingConfigWindow : Window, INotifyPropertyChanged
 
     public ObservableCollection<SectionDrawingConfigRowDto> PavementRows { get; }
 
+    public ObservableCollection<SectionDrawingClearTableRowDto> ClearTableRows { get; }
+
+    public IReadOnlyList<SectionDrawingTextOption> ClearTableScopeOptions { get; }
+
+    public IReadOnlyList<SectionDrawingBoolOption> ClearTableCutOptions { get; }
+
     public SectionDrawingConfigRowDto? SelectedRow
     {
         get => _selectedRow;
         set
         {
             _selectedRow = value;
+            OnPropertyChanged();
+        }
+    }
+
+    public SectionDrawingClearTableRowDto? SelectedClearTableRow
+    {
+        get => _selectedClearTableRow;
+        set
+        {
+            _selectedClearTableRow = value;
             OnPropertyChanged();
         }
     }
@@ -142,6 +184,27 @@ public partial class SectionDrawingConfigWindow : Window, INotifyPropertyChanged
 
     private void OnMoveDownClick(object sender, RoutedEventArgs e)
         => MoveSelectedRow(1);
+
+    private void OnAddClearTableRowClick(object sender, RoutedEventArgs e)
+    {
+        var row = new SectionDrawingClearTableRowDto();
+        ClearTableRows.Add(row);
+        SelectedClearTableRow = row;
+    }
+
+    private void OnRemoveClearTableRowClick(object sender, RoutedEventArgs e)
+    {
+        if (SelectedClearTableRow != null)
+        {
+            ClearTableRows.Remove(SelectedClearTableRow);
+        }
+    }
+
+    private void OnMoveClearTableRowUpClick(object sender, RoutedEventArgs e)
+        => MoveSelectedClearTableRow(-1);
+
+    private void OnMoveClearTableRowDownClick(object sender, RoutedEventArgs e)
+        => MoveSelectedClearTableRow(1);
 
     private void OnComponentTypesClick(object sender, RoutedEventArgs e)
     {
@@ -242,6 +305,21 @@ public partial class SectionDrawingConfigWindow : Window, INotifyPropertyChanged
         PavementRows.Move(oldIndex, newIndex);
     }
 
+    private void MoveSelectedClearTableRow(int offset)
+    {
+        if (SelectedClearTableRow == null)
+        {
+            return;
+        }
+        var oldIndex = ClearTableRows.IndexOf(SelectedClearTableRow);
+        var newIndex = oldIndex + offset;
+        if (oldIndex < 0 || newIndex < 0 || newIndex >= ClearTableRows.Count)
+        {
+            return;
+        }
+        ClearTableRows.Move(oldIndex, newIndex);
+    }
+
     private SectionDrawingConfigResponse CreateResponse(SectionDrawingConfigAction action)
         => new()
         {
@@ -253,6 +331,7 @@ public partial class SectionDrawingConfigWindow : Window, INotifyPropertyChanged
             ConfigPath = ConfigPath,
             ComponentOptions = ComponentOptions.ToList(),
             PavementRows = PavementRows.ToList(),
+            ClearTableRows = ClearTableRows.ToList(),
         };
 
     private SectionDrawingConfigResponse CreateCancelledResponse()
@@ -266,6 +345,7 @@ public partial class SectionDrawingConfigWindow : Window, INotifyPropertyChanged
             ConfigPath = ConfigPath,
             ComponentOptions = ComponentOptions.ToList(),
             PavementRows = PavementRows.ToList(),
+            ClearTableRows = ClearTableRows.ToList(),
         };
 
     private void RefreshComponentDisplayText(SectionDrawingConfigRowDto row)

@@ -43,6 +43,12 @@ public static class SectionDrawingConfigDialogFile
             request.PavementRows.Add(ReadRow(values, $"pavementRow.{i}", request.ComponentOptions));
         }
 
+        var clearTableRowCount = ClampCount(GetInt(values, "clearTableRowCount"), MaxConfigRows);
+        for (var i = 0; i < clearTableRowCount; i++)
+        {
+            request.ClearTableRows.Add(ReadClearTableRow(values, $"clearTableRow.{i}"));
+        }
+
         return request;
     }
 
@@ -74,6 +80,12 @@ public static class SectionDrawingConfigDialogFile
         for (var i = 0; i < response.PavementRows.Count; i++)
         {
             WriteRow(lines, $"pavementRow.{i}", response.PavementRows[i]);
+        }
+
+        lines.Add(Write("clearTableRowCount", response.ClearTableRows.Count));
+        for (var i = 0; i < response.ClearTableRows.Count; i++)
+        {
+            WriteClearTableRow(lines, $"clearTableRow.{i}", response.ClearTableRows[i]);
         }
 
         File.WriteAllLines(path, lines, Utf8NoBom);
@@ -167,6 +179,31 @@ public static class SectionDrawingConfigDialogFile
         lines.Add(Write($"{prefix}.templateName", row.TemplateName));
     }
 
+    private static SectionDrawingClearTableRowDto ReadClearTableRow(
+        Dictionary<string, string> values,
+        string prefix)
+        => new()
+        {
+            StartStation = GetDouble(values, $"{prefix}.startStation"),
+            EndStation = GetDouble(values, $"{prefix}.endStation"),
+            LeftSlopeRatio = GetDouble(values, $"{prefix}.leftSlopeRatio", 1.5),
+            RightSlopeRatio = GetDouble(values, $"{prefix}.rightSlopeRatio", 1.5),
+            Thickness = GetDouble(values, $"{prefix}.thickness", 0.3),
+            Scope = NormalizeClearTableScope(Get(values, $"{prefix}.scope", "Both")),
+            ClearCut = GetBool(values, $"{prefix}.clearCut", true),
+        };
+
+    private static void WriteClearTableRow(List<string> lines, string prefix, SectionDrawingClearTableRowDto row)
+    {
+        lines.Add(Write($"{prefix}.startStation", row.StartStation));
+        lines.Add(Write($"{prefix}.endStation", row.EndStation));
+        lines.Add(Write($"{prefix}.leftSlopeRatio", row.LeftSlopeRatio));
+        lines.Add(Write($"{prefix}.rightSlopeRatio", row.RightSlopeRatio));
+        lines.Add(Write($"{prefix}.thickness", row.Thickness));
+        lines.Add(Write($"{prefix}.scope", NormalizeClearTableScope(row.Scope)));
+        lines.Add(Write($"{prefix}.clearCut", row.ClearCut));
+    }
+
     private static void ApplyComponentText(
         SectionDrawingConfigRowDto row,
         string value,
@@ -233,6 +270,23 @@ public static class SectionDrawingConfigDialogFile
 
     private static double GetDouble(Dictionary<string, string> values, string key, double fallback = 0.0)
         => double.TryParse(Get(values, key), NumberStyles.Float, CultureInfo.InvariantCulture, out var value) ? value : fallback;
+
+    private static bool GetBool(Dictionary<string, string> values, string key, bool fallback = false)
+    {
+        var value = Get(values, key, fallback ? "1" : "0");
+        return value.Equals("1", StringComparison.OrdinalIgnoreCase)
+            || value.Equals("true", StringComparison.OrdinalIgnoreCase)
+            || value.Equals("yes", StringComparison.OrdinalIgnoreCase)
+            || value.Equals("是", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static string NormalizeClearTableScope(string value)
+        => value.Trim() switch
+        {
+            "Left" or "左侧" => "Left",
+            "Right" or "右侧" => "Right",
+            _ => "Both",
+        };
 
     private static double ParseDouble(string value, int lineNumber, string columnName)
     {

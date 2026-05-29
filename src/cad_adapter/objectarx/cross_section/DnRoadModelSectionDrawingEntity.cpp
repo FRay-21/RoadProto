@@ -13,6 +13,8 @@
 #include <utility>
 
 using roadproto::domain::cross_section::SectionDrawingComponentTypeSelection;
+using roadproto::domain::cross_section::SectionClearTableConfigRow;
+using roadproto::domain::cross_section::SectionClearTableScope;
 using roadproto::domain::cross_section::SectionDrawingConfigData;
 using roadproto::domain::cross_section::SectionDrawingConfigRules;
 using roadproto::domain::cross_section::SectionPavementLayerConfigRow;
@@ -34,7 +36,7 @@ ACRX_DXF_DEFINE_MEMBERS(
 
 namespace {
 
-constexpr Adesk::Int16 kEntityVersion = 4;
+constexpr Adesk::Int16 kEntityVersion = 6;
 constexpr Adesk::Int32 kMaxLines = 10000;
 constexpr Adesk::Int32 kMaxFaces = 10000;
 constexpr Adesk::Int32 kMaxPointsPerItem = 1000;
@@ -83,9 +85,17 @@ bool isValidSubgradeComponentType(Adesk::Int32 value)
         && value <= static_cast<Adesk::Int32>(SubgradeComponentType::CurbStrip);
 }
 
+bool isValidClearTableScope(Adesk::Int32 value)
+{
+    return value == static_cast<Adesk::Int32>(SectionClearTableScope::Left)
+        || value == static_cast<Adesk::Int32>(SectionClearTableScope::Right)
+        || value == static_cast<Adesk::Int32>(SectionClearTableScope::Both);
+}
+
 bool validateSectionDrawingConfig(const SectionDrawingConfigData& config)
 {
     if (!canWriteInt32(config.pavementRows.size())
+        || !canWriteInt32(config.clearTableRows.size())
         || config.pavementRows.size() > static_cast<std::size_t>(kMaxConfigRows)) {
         return false;
     }
@@ -104,6 +114,24 @@ bool validateSectionDrawingConfig(const SectionDrawingConfigData& config)
             if (!isValidSubgradeSide(side) || !isValidSubgradeComponentType(componentType)) {
                 return false;
             }
+        }
+    }
+
+    if (config.clearTableRows.size() > static_cast<std::size_t>(kMaxConfigRows)) {
+        return false;
+    }
+    for (const auto& row : config.clearTableRows) {
+        const auto scope = static_cast<Adesk::Int32>(row.scope);
+        if (!std::isfinite(row.startStation)
+            || !std::isfinite(row.endStation)
+            || !std::isfinite(row.leftSlopeRatio)
+            || !std::isfinite(row.rightSlopeRatio)
+            || !std::isfinite(row.thickness)
+            || row.leftSlopeRatio <= 0.0
+            || row.rightSlopeRatio <= 0.0
+            || row.thickness <= 0.0
+            || !isValidClearTableScope(scope)) {
+            return false;
         }
     }
 
@@ -126,9 +154,25 @@ void writeSectionDrawingConfig(AcDbDwgFiler* filer, const SectionDrawingConfigDa
         writeWideString(filer, row.templateHandle);
         writeWideString(filer, row.templateName);
     }
+
+    filer->writeInt32(static_cast<Adesk::Int32>(config.clearTableRows.size()));
+    for (const auto& row : config.clearTableRows) {
+        filer->writeDouble(row.startStation);
+        filer->writeDouble(row.endStation);
+        filer->writeDouble(row.leftSlopeRatio);
+        filer->writeDouble(row.rightSlopeRatio);
+        filer->writeDouble(row.thickness);
+        filer->writeInt32(static_cast<Adesk::Int32>(row.scope));
+        filer->writeInt32(row.clearCut ? 1 : 0);
+    }
 }
 
-bool readSectionDrawingConfig(AcDbDwgFiler* filer, SectionDrawingConfigData& config, std::wstring& errorMessage)
+bool readSectionDrawingConfig(
+    AcDbDwgFiler* filer,
+    SectionDrawingConfigData& config,
+    std::wstring& errorMessage,
+    bool hasClearTableRows,
+    bool hasClearTableThickness)
 {
     SectionDrawingConfigData data;
     Adesk::Int32 version = 1;
@@ -167,6 +211,34 @@ bool readSectionDrawingConfig(AcDbDwgFiler* filer, SectionDrawingConfigData& con
         row.templateHandle = readWideString(filer);
         row.templateName = readWideString(filer);
         data.pavementRows.push_back(std::move(row));
+    }
+
+    if (hasClearTableRows) {
+        Adesk::Int32 clearTableRowCount = 0;
+        if (!readCount(filer, kMaxConfigRows, clearTableRowCount)) {
+            return false;
+        }
+        data.clearTableRows.reserve(static_cast<std::size_t>(clearTableRowCount));
+        for (Adesk::Int32 i = 0; i < clearTableRowCount; ++i) {
+            SectionClearTableConfigRow row;
+            filer->readDouble(&row.startStation);
+            filer->readDouble(&row.endStation);
+            filer->readDouble(&row.leftSlopeRatio);
+            filer->readDouble(&row.rightSlopeRatio);
+            if (hasClearTableThickness) {
+                filer->readDouble(&row.thickness);
+            }
+            Adesk::Int32 scope = 0;
+            filer->readInt32(&scope);
+            if (!isValidClearTableScope(scope)) {
+                return false;
+            }
+            row.scope = static_cast<SectionClearTableScope>(scope);
+            Adesk::Int32 clearCut = 1;
+            filer->readInt32(&clearCut);
+            row.clearCut = clearCut != 0;
+            data.clearTableRows.push_back(std::move(row));
+        }
     }
 
     if (!SectionDrawingConfigRules::normalize(data, errorMessage)) {
@@ -827,7 +899,7 @@ Acad::ErrorStatus DnRoadModelSectionDrawingEntity::dwgInFields(AcDbDwgFiler* fil
 
     if (version >= 4) {
         std::wstring configError;
-        if (!readSectionDrawingConfig(filer, data.config, configError)) {
+        if (!readSectionDrawingConfig(filer, data.config, configError, version >= 5, version >= 6)) {
             return Acad::eInvalidInput;
         }
     }

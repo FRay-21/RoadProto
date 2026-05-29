@@ -6,6 +6,7 @@
 #include "cad_adapter/objectarx/ObjectArxSelectionSetGuard.h"
 #include "cad_adapter/objectarx/cross_section/DnRoadModelEntity.h"
 #include "cad_adapter/objectarx/cross_section/DnRoadModelSectionDrawingEntity.h"
+#include "domain/quantity/ClearTableQuantityDrawingFaceSampler.h"
 #include "domain/quantity/PavementQuantityDrawingFaceSampler.h"
 #include "domain/quantity/PavementQuantityTable.h"
 #include "domain/quantity/RoadModelPavementQuantitySampler.h"
@@ -39,6 +40,10 @@ namespace {
 using roadproto::cad_adapter::objectarx::cross_section::RoadModelSectionDrawingData;
 using roadproto::domain::cross_section::RoadModelData;
 using roadproto::domain::cross_section::RoadModelStructureType;
+using roadproto::domain::quantity::ClearTableQuantityDrawingFace;
+using roadproto::domain::quantity::ClearTableQuantityDrawingFaceSampler;
+using roadproto::domain::quantity::ClearTableQuantityDrawingPoint;
+using roadproto::domain::quantity::ClearTableQuantitySectionSample;
 using roadproto::domain::quantity::PavementQuantityAggregationMode;
 using roadproto::domain::quantity::PavementQuantityDrawingFace;
 using roadproto::domain::quantity::PavementQuantityDrawingFaceSampler;
@@ -295,6 +300,22 @@ bool sameStation(double lhs, double rhs)
     return std::fabs(lhs - rhs) <= kStationTolerance;
 }
 
+bool isClearTableFaceId(const std::wstring& faceId)
+{
+    return faceId.rfind(L"clearTable:", 0) == 0;
+}
+
+std::wstring clearTableSideNameFromFaceId(const std::wstring& faceId)
+{
+    if (faceId.find(L"clearTable:Left:") == 0) {
+        return L"左侧";
+    }
+    if (faceId.find(L"clearTable:Right:") == 0) {
+        return L"右侧";
+    }
+    return L"";
+}
+
 std::optional<PavementQuantitySectionSample> sampleFromRoadModelSection(
     double station,
     const RoadModelData& data)
@@ -308,6 +329,9 @@ std::vector<PavementQuantityDrawingFace> drawingFacesFromSectionDrawing(
     std::vector<PavementQuantityDrawingFace> faces;
     faces.reserve(drawingData.faces.size());
     for (const auto& face : drawingData.faces) {
+        if (isClearTableFaceId(face.faceId)) {
+            continue;
+        }
         PavementQuantityDrawingFace mapped;
         mapped.layerName = face.layerName;
         mapped.componentName = face.componentName;
@@ -318,6 +342,55 @@ std::vector<PavementQuantityDrawingFace> drawingFacesFromSectionDrawing(
         faces.push_back(std::move(mapped));
     }
     return faces;
+}
+
+double clearTableThicknessFromConfig(
+    const RoadModelSectionDrawingData& drawingData,
+    int sourceConfigRowIndex)
+{
+    if (sourceConfigRowIndex < 0) {
+        return 0.0;
+    }
+
+    const auto index = static_cast<std::size_t>(sourceConfigRowIndex);
+    if (index >= drawingData.config.clearTableRows.size()) {
+        return 0.0;
+    }
+
+    const auto thickness = drawingData.config.clearTableRows[index].thickness;
+    return std::isfinite(thickness) && thickness > 0.0 ? thickness : 0.0;
+}
+
+std::vector<ClearTableQuantityDrawingFace> clearTableQuantityFacesFromSectionDrawing(
+    const RoadModelSectionDrawingData& drawingData)
+{
+    std::vector<ClearTableQuantityDrawingFace> faces;
+    faces.reserve(drawingData.faces.size());
+    for (const auto& face : drawingData.faces) {
+        if (!isClearTableFaceId(face.faceId)) {
+            continue;
+        }
+
+        ClearTableQuantityDrawingFace mapped;
+        mapped.layerName = face.layerName.empty() ? L"清表" : face.layerName;
+        mapped.sideName = clearTableSideNameFromFaceId(face.faceId);
+        mapped.sourceConfigRowIndex = face.sourceConfigRowIndex;
+        mapped.thickness = clearTableThicknessFromConfig(drawingData, face.sourceConfigRowIndex);
+        mapped.points.reserve(face.points.size());
+        for (const auto& point : face.points) {
+            mapped.points.push_back(ClearTableQuantityDrawingPoint{point.x, point.y});
+        }
+        faces.push_back(std::move(mapped));
+    }
+    return faces;
+}
+
+std::optional<ClearTableQuantitySectionSample> clearTableQuantitySampleFromSectionDrawing(
+    const RoadModelSectionDrawingData& drawingData)
+{
+    return ClearTableQuantityDrawingFaceSampler::sampleAtStation(
+        drawingData.station,
+        clearTableQuantityFacesFromSectionDrawing(drawingData));
 }
 
 PavementQuantitySegmentType quantityTypeFromStructure(RoadModelStructureType type)

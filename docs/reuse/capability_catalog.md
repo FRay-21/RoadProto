@@ -57,7 +57,7 @@
 | 横断面道路模型 | V0.1.27 原型，按道路中线、竖曲线、路基模板范围、路面结构层模板引用、边坡模板组和构造物范围生成断面节点链、结构层边界线与弱化填充显示、地面剖面快照与三维网格线框，支持优先级解析、行内点选模板、模板组管理、构造物范围按侧别跳过边坡、生成进度回调、TIN 网格候选剖切、采样桩号保存、横断面预览、DWG 持久化和编辑回写 | `src/domain/cross_section/RoadModel.*` |
 | 道路模型自定义实体 | V0.1.27 原型，保存 `RoadModelData`、构造物范围、采样桩号、断面节点链、结构层节点、地面剖面快照和网格线框，并绘制路基、结构层、边坡横向肋线、纵向连接线、最外侧边界线、端部封闭线和过渡线，支持 DWG 持久化、几何范围和变换 | `src/cad_adapter/objectarx/cross_section/DnRoadModelEntity.*` |
 | 道路模型横断面落图实体 | V0.1.31 原型，每个桩号生成一个 `DnRoadModelSectionDrawingEntity`，保存外框、桩号文字、线段、结构层面域、清表面域、颜色、模板填充参数、横断面图配置、清表厚度、面域来源字段和 `manualEdited` 手动编辑标记；外框和桩号文字使用白色，用作后续面积标注和算量承载 | `src/cad_adapter/objectarx/cross_section/DnRoadModelSectionDrawingEntity.*` |
-| 横断面图配置模型 | V0.1.31 原型，支持 CSV 导入导出、起终点桩号范围、路基类型多选、表格行优先级解析、模板 handle 归一化、横断面图部件匹配、清表作用范围和厚度校验 | `src/domain/cross_section/SectionDrawingConfigModel.*` |
+| 横断面图配置模型 | V0.1.31 原型，支持 CSV 导入导出、起终点桩号范围、路基类型多选、表格行优先级解析、模板 handle 归一化、横断面图部件匹配、清表作用范围、厚度校验和单侧内外坡率解析 | `src/domain/cross_section/SectionDrawingConfigModel.*` |
 | 道路模型横断面查看 Bridge | V0.1.25 原型，通过请求文件把道路模型断面节点、结构层线和地面快照预览传给 WPF 查看窗口，通过响应文件触发模型空间批量绘制横断面动作 | `src/cad_adapter/objectarx/cross_section/RoadModelSectionViewerBridge.*` |
 | 路面工程量统计表 | V0.1.31 原型，优先从横断面图实体当前面域采样修改后的结构层断面数据，按构造物范围切分普通段、桥梁段和隧道段，支持按部件+结构层或按结构层类型统计平面投影面积，旧道路模型可从关联路基部件反推部件名，并用平均断面法累计体积，输出带居中、自动换行、列宽和字体字号样式的 `.xls` 表格；清表面域不并入路面工程量 | `src/domain/quantity/PavementQuantityTable.*`、`src/domain/quantity/RoadModelPavementQuantitySampler.*`、`src/domain/quantity/PavementQuantityDrawingFaceSampler.*` |
 | 清表算量面域接口 | 未发布接口，承接横断面图 `clearTable:` 面域的点列、侧别、来源配置行和厚度，作为后续独立清表工程量命令的领域入口；当前不计算清表工程量 | `src/domain/quantity/ClearTableQuantityDrawingFaceSampler.*` |

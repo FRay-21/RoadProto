@@ -901,6 +901,49 @@ void sectionDrawingConfigClearTableRowsResolveByScopeAndCutOption()
     CHECK(SectionDrawingConfigRules::clearTableScopeDisplayName(SectionClearTableScope::Right) == L"\u53f3\u4fa7");
 }
 
+void sectionDrawingConfigClearTableSingleSideKeepsInnerAndOuterSlopeRatios()
+{
+    using namespace roadproto::domain::cross_section;
+
+    SectionClearTableConfigRow leftOnly;
+    leftOnly.leftSlopeRatio = 1.25;
+    leftOnly.rightSlopeRatio = 2.0;
+    leftOnly.scope = SectionClearTableScope::Left;
+
+    const auto leftOnlySlopes = SectionDrawingConfigRules::clearTableEdgeSlopeRatios(
+        leftOnly,
+        SubgradeSide::Left);
+    CHECK(std::fabs(leftOnlySlopes.innerSlopeRatio - 2.0) < 1.0e-9);
+    CHECK(std::fabs(leftOnlySlopes.outerSlopeRatio - 1.25) < 1.0e-9);
+
+    SectionClearTableConfigRow rightOnly;
+    rightOnly.leftSlopeRatio = 1.25;
+    rightOnly.rightSlopeRatio = 2.0;
+    rightOnly.scope = SectionClearTableScope::Right;
+
+    const auto rightOnlySlopes = SectionDrawingConfigRules::clearTableEdgeSlopeRatios(
+        rightOnly,
+        SubgradeSide::Right);
+    CHECK(std::fabs(rightOnlySlopes.innerSlopeRatio - 1.25) < 1.0e-9);
+    CHECK(std::fabs(rightOnlySlopes.outerSlopeRatio - 2.0) < 1.0e-9);
+
+    SectionClearTableConfigRow bothSides;
+    bothSides.leftSlopeRatio = 1.25;
+    bothSides.rightSlopeRatio = 2.0;
+    bothSides.scope = SectionClearTableScope::Both;
+
+    const auto bothLeftSlopes = SectionDrawingConfigRules::clearTableEdgeSlopeRatios(
+        bothSides,
+        SubgradeSide::Left);
+    const auto bothRightSlopes = SectionDrawingConfigRules::clearTableEdgeSlopeRatios(
+        bothSides,
+        SubgradeSide::Right);
+    CHECK(std::fabs(bothLeftSlopes.innerSlopeRatio) < 1.0e-9);
+    CHECK(std::fabs(bothLeftSlopes.outerSlopeRatio - 1.25) < 1.0e-9);
+    CHECK(std::fabs(bothRightSlopes.innerSlopeRatio) < 1.0e-9);
+    CHECK(std::fabs(bothRightSlopes.outerSlopeRatio - 2.0) < 1.0e-9);
+}
+
 void sectionDrawingConfigClearTableRowsRejectInvalidSlopeRatios()
 {
     using namespace roadproto::domain::cross_section;
@@ -5002,6 +5045,7 @@ void sectionDrawingConfigObjectArxCommandSourceContracts()
     CHECK(source.find("buildConfiguredPavementFaces") != std::string::npos);
     CHECK(source.find("buildConfiguredClearTableFaces") != std::string::npos);
     CHECK(source.find("SectionDrawingConfigRules::resolveClearTableRow") != std::string::npos);
+    CHECK(source.find("SectionDrawingConfigRules::clearTableEdgeSlopeRatios") != std::string::npos);
     CHECK(source.find("resolved->row.thickness") != std::string::npos);
     CHECK(source.find("clearTable:") != std::string::npos);
     CHECK(source.find("isClearTableFace") != std::string::npos);
@@ -7916,6 +7960,7 @@ int main()
     sectionDrawingConfigRowsHandleBoundaryAndNormalizationEdges();
     sectionDrawingConfigComponentMatchingUsesSideAndType();
     sectionDrawingConfigClearTableRowsResolveByScopeAndCutOption();
+    sectionDrawingConfigClearTableSingleSideKeepsInnerAndOuterSlopeRatios();
     sectionDrawingConfigClearTableRowsRejectInvalidSlopeRatios();
     sectionDrawingConfigClearTableRowsRejectInvalidThickness();
     sectionDrawingConfigCsvRoundTripsUtf8Rows();

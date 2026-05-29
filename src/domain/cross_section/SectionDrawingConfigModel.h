@@ -55,6 +55,11 @@ struct SectionDrawingResolvedClearTableRow {
     SectionClearTableConfigRow row;
 };
 
+struct SectionClearTableEdgeSlopeRatios {
+    double innerSlopeRatio = 0.0;
+    double outerSlopeRatio = 0.0;
+};
+
 class SectionDrawingConfigRules {
 public:
     static bool normalize(SectionDrawingConfigData& data, std::wstring& errorMessage);
@@ -81,6 +86,10 @@ public:
 
     static bool matchesClearTableScope(
         SectionClearTableScope scope,
+        SubgradeSide side);
+
+    static SectionClearTableEdgeSlopeRatios clearTableEdgeSlopeRatios(
+        const SectionClearTableConfigRow& row,
         SubgradeSide side);
 
     static std::wstring componentSelectionCode(const SectionDrawingComponentTypeSelection& selection);

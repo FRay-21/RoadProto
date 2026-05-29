@@ -767,12 +767,18 @@ DrawingBasis drawingBasisForSection(
 std::vector<RoadModelSectionDrawingPoint> clearTableFacePointsForSide(
     const RoadModelSection& section,
     SubgradeSide side,
-    double slopeRatio,
+    double innerSlopeRatio,
+    double outerSlopeRatio,
     double thickness,
     const DrawingBasis& basis)
 {
     const auto coverage = sideClearTableCoverageDistance(section, side);
-    if (!std::isfinite(coverage) || coverage <= 1.0e-6 || !std::isfinite(thickness) || thickness <= 0.0) {
+    if (!std::isfinite(coverage)
+        || coverage <= 1.0e-6
+        || !std::isfinite(innerSlopeRatio)
+        || !std::isfinite(outerSlopeRatio)
+        || !std::isfinite(thickness)
+        || thickness <= 0.0) {
         return {};
     }
 
@@ -793,10 +799,14 @@ std::vector<RoadModelSectionDrawingPoint> clearTableFacePointsForSide(
             basis.minElevation));
     }
 
+    const auto bottomInnerDistance = std::min(std::max(0.0, thickness * innerSlopeRatio), coverage);
+    const auto bottomOuterDistance = std::max(0.0, coverage - std::max(0.0, thickness * outerSlopeRatio));
+    const auto bottomSpan = std::max(0.0, bottomOuterDistance - bottomInnerDistance);
+
     for (auto it = groundPoints.rbegin(); it != groundPoints.rend(); ++it) {
         const auto ratio = coverage <= 1.0e-9 ? 0.0 : std::clamp(it->offset / coverage, 0.0, 1.0);
-        const auto inwardShift = thickness * slopeRatio * ratio;
-        const auto bottomOffset = sign * std::max(0.0, it->offset - inwardShift);
+        const auto bottomDistance = bottomInnerDistance + bottomSpan * ratio;
+        const auto bottomOffset = sign * bottomDistance;
         points.push_back(mapSectionPointToDrawing(
             bottomOffset,
             it->elevation - thickness,
@@ -838,10 +848,16 @@ std::vector<RoadModelSectionDrawingFace> buildConfiguredClearTableFaces(
             continue;
         }
 
-        const auto slopeRatio = side == SubgradeSide::Left
-            ? resolved->row.leftSlopeRatio
-            : resolved->row.rightSlopeRatio;
-        auto points = clearTableFacePointsForSide(*section, side, slopeRatio, resolved->row.thickness, basis);
+        const auto slopeRatios = SectionDrawingConfigRules::clearTableEdgeSlopeRatios(
+            resolved->row,
+            side);
+        auto points = clearTableFacePointsForSide(
+            *section,
+            side,
+            slopeRatios.innerSlopeRatio,
+            slopeRatios.outerSlopeRatio,
+            resolved->row.thickness,
+            basis);
         if (points.size() < 3 || !std::all_of(points.begin(), points.end(), isFiniteDrawingPoint)) {
             warnings.push_back(L"Cannot build clear table face at station " + std::to_wstring(drawing.station));
             continue;

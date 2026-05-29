@@ -469,6 +469,22 @@ bool SectionDrawingConfigRules::matchesClearTableScope(SectionClearTableScope sc
         || (scope == SectionClearTableScope::Right && side == SubgradeSide::Right);
 }
 
+SectionClearTableEdgeSlopeRatios SectionDrawingConfigRules::clearTableEdgeSlopeRatios(
+    const SectionClearTableConfigRow& row,
+    SubgradeSide side)
+{
+    const auto outerSlopeRatio = side == SubgradeSide::Left
+        ? row.leftSlopeRatio
+        : row.rightSlopeRatio;
+    double innerSlopeRatio = 0.0;
+    if (row.scope == SectionClearTableScope::Left && side == SubgradeSide::Left) {
+        innerSlopeRatio = row.rightSlopeRatio;
+    } else if (row.scope == SectionClearTableScope::Right && side == SubgradeSide::Right) {
+        innerSlopeRatio = row.leftSlopeRatio;
+    }
+    return SectionClearTableEdgeSlopeRatios{innerSlopeRatio, outerSlopeRatio};
+}
+
 std::wstring SectionDrawingConfigRules::componentSelectionCode(const SectionDrawingComponentTypeSelection& selection)
 {
     return sideCode(selection.side) + L":" + std::wstring(subgradeComponentTypeCode(selection.componentType));

@@ -70,6 +70,7 @@ struct ActivePavementLayerBoundaryPoint {
     double offset = 0.0;
     double elevation = 0.0;
     std::wstring label;
+    std::wstring componentName;
 };
 
 struct RoadModelLineAccumulator {
@@ -245,6 +246,38 @@ std::vector<double> filterTemplateCoveredStations(
         }
     }
     return result;
+}
+
+bool structureAffectsSide(const RoadModelStructureRange& structure, SubgradeSide side)
+{
+    if (structure.sideRange == RoadModelStructureSideRange::Both) {
+        return true;
+    }
+    if (structure.sideRange == RoadModelStructureSideRange::Left) {
+        return side == SubgradeSide::Left;
+    }
+    return side == SubgradeSide::Right;
+}
+
+bool structureSuppressesSlopeAtStation(
+    const std::vector<RoadModelStructureRange>& structures,
+    double station,
+    SubgradeSide side)
+{
+    if (!isFinite(station)) {
+        return false;
+    }
+
+    for (const auto& structure : structures) {
+        if (!structureAffectsSide(structure, side)) {
+            continue;
+        }
+        if (station >= structure.startStation - kStationTolerance &&
+            station <= structure.endStation + kStationTolerance) {
+            return true;
+        }
+    }
+    return false;
 }
 
 bool sameLineKey(const RoadModelLineKey& lhs, const RoadModelLineKey& rhs)
@@ -557,7 +590,12 @@ void appendSectionNodePreviewSegment(
     RoadModelSectionPreviewSegment segment;
     segment.kind = previewKindFromSectionNode(end);
     segment.color = toPreviewColor(end.color);
-    segment.label = previewLabelForKind(segment.kind);
+    segment.label = segment.kind == RoadModelSectionPreviewSegmentKind::PavementLayer && !end.label.empty()
+        ? end.label
+        : previewLabelForKind(segment.kind);
+    segment.componentName = segment.kind == RoadModelSectionPreviewSegmentKind::PavementLayer
+        ? end.componentName
+        : L"";
     segment.points = {
         RoadModelSectionPreviewPoint{start.offset, start.elevation},
         RoadModelSectionPreviewPoint{end.offset, end.elevation}};
@@ -1269,7 +1307,8 @@ void appendPavementLayerBoundaryPoint(
     double centerElevation,
     double componentInnerOffset,
     const PavementLayerSectionPoint& sectionPoint,
-    const std::wstring& label)
+    const std::wstring& label,
+    const std::wstring& componentName)
 {
     const double absoluteOffset = componentInnerOffset + sectionPoint.offset;
     points.push_back(
@@ -1291,7 +1330,8 @@ void appendPavementLayerBoundaryPoint(
             frame.station,
             signedOffset(side, absoluteOffset),
             sectionPoint.elevation,
-            label});
+            label,
+            componentName});
 }
 
 bool appendPavementLayerBoundaryPoints(
@@ -1347,6 +1387,7 @@ bool appendPavementLayerBoundaryPoints(
                     const auto& layer = pavementSection.layers[layerIndex];
                     const auto color = toWireColor(layer.color);
                     const auto label = layer.name.empty() ? L"路面结构层" : layer.name;
+                    const auto componentName = subgradeComponentTypeDisplayName(component.type);
                     appendPavementLayerBoundaryPoint(
                         points,
                         assignment,
@@ -1360,7 +1401,8 @@ bool appendPavementLayerBoundaryPoints(
                         centerElevation,
                         offset,
                         layer.topInner,
-                        label);
+                        label,
+                        componentName);
                     appendPavementLayerBoundaryPoint(
                         points,
                         assignment,
@@ -1374,7 +1416,8 @@ bool appendPavementLayerBoundaryPoints(
                         centerElevation,
                         offset,
                         layer.topOuter,
-                        label);
+                        label,
+                        componentName);
                     appendPavementLayerBoundaryPoint(
                         points,
                         assignment,
@@ -1388,7 +1431,8 @@ bool appendPavementLayerBoundaryPoints(
                         centerElevation,
                         offset,
                         layer.bottomInner,
-                        label);
+                        label,
+                        componentName);
                     appendPavementLayerBoundaryPoint(
                         points,
                         assignment,
@@ -1402,7 +1446,8 @@ bool appendPavementLayerBoundaryPoints(
                         centerElevation,
                         offset,
                         layer.bottomOuter,
-                        label);
+                        label,
+                        componentName);
                 }
             }
 
@@ -1818,7 +1863,8 @@ RoadModelSectionNode sectionNodeFromBoundary(const ActiveBoundaryPoint& point)
         point.elevation,
         point.point,
         toWireColor(point.color),
-        L"路基"};
+        L"路基",
+        L""};
 }
 
 RoadModelSectionNode sectionNodeFromSlopeBoundary(const ActiveSlopeBoundaryPoint& point)
@@ -1830,7 +1876,8 @@ RoadModelSectionNode sectionNodeFromSlopeBoundary(const ActiveSlopeBoundaryPoint
         point.elevation,
         point.point,
         toWireColor(point.color),
-        L"边坡"};
+        L"边坡",
+        L""};
 }
 
 RoadModelSectionNode sectionNodeFromPavementLayerBoundary(const ActivePavementLayerBoundaryPoint& point)
@@ -1842,7 +1889,8 @@ RoadModelSectionNode sectionNodeFromPavementLayerBoundary(const ActivePavementLa
         point.elevation,
         point.point,
         point.color,
-        point.label.empty() ? L"路面结构层" : point.label};
+        point.label.empty() ? L"路面结构层" : point.label,
+        point.componentName.empty() ? L"未分部件" : point.componentName};
 }
 
 void appendSectionNode(std::vector<RoadModelSectionNode>& nodes, RoadModelSectionNode node)
@@ -2290,6 +2338,26 @@ bool RoadModelRules::validateSlopeTemplateGroups(
     return true;
 }
 
+bool RoadModelRules::validateStructureRanges(
+    const std::vector<RoadModelStructureRange>& structures,
+    std::wstring& errorMessage)
+{
+    errorMessage.clear();
+
+    for (const auto& structure : structures) {
+        if (!isFinite(structure.startStation) || !isFinite(structure.endStation)) {
+            errorMessage = L"Road model structure range station must be finite.";
+            return false;
+        }
+        if (structure.endStation < structure.startStation) {
+            errorMessage = L"Road model structure range end station must not be before start station.";
+            return false;
+        }
+    }
+
+    return true;
+}
+
 RoadModelTemplateResolver::RoadModelTemplateResolver(std::vector<RoadModelTemplateAssignment> assignments)
     : assignments_(std::move(assignments))
 {
@@ -2337,6 +2405,17 @@ std::vector<double> RoadModelStationSampler::collectStations(
     double alignmentEnd,
     const profile::ProfileVerticalCurveData& verticalCurve,
     const std::vector<RoadModelTemplateAssignment>& assignments,
+    double sampleInterval)
+{
+    return collectStations(alignmentStart, alignmentEnd, verticalCurve, assignments, {}, sampleInterval);
+}
+
+std::vector<double> RoadModelStationSampler::collectStations(
+    double alignmentStart,
+    double alignmentEnd,
+    const profile::ProfileVerticalCurveData& verticalCurve,
+    const std::vector<RoadModelTemplateAssignment>& assignments,
+    const std::vector<RoadModelStructureRange>& structures,
     double sampleInterval)
 {
     if (!isFinite(alignmentStart) || !isFinite(alignmentEnd) || alignmentEnd <= alignmentStart ||
@@ -2391,6 +2470,14 @@ std::vector<double> RoadModelStationSampler::collectStations(
 
         addStationInRange(stations, start, effectiveRange);
         addStationInRange(stations, end, effectiveRange);
+    }
+
+    for (const auto& structure : structures) {
+        if (!isFinite(structure.startStation) || !isFinite(structure.endStation)) {
+            continue;
+        }
+        addStationInRange(stations, structure.startStation, effectiveRange);
+        addStationInRange(stations, structure.endStation, effectiveRange);
     }
 
     for (const auto& point : verticalCurve.controlPoints) {
@@ -2555,6 +2642,12 @@ RoadModelBuildResult RoadModelBuilder::build(const RoadModelBuildInput& input)
     }
 
     reportProgress(input, 10, L"正在重建纵断面设计线...");
+    std::wstring structureError;
+    if (!RoadModelRules::validateStructureRanges(input.config.structures, structureError)) {
+        result.errorMessage = structureError;
+        return result;
+    }
+
     const auto builtVertical = profile::ProfileVerticalCurveCalculator::rebuild(input.verticalCurve);
     if (!builtVertical.succeeded) {
         result.errorMessage = builtVertical.errorMessage.empty()
@@ -2584,6 +2677,7 @@ RoadModelBuildResult RoadModelBuilder::build(const RoadModelBuildInput& input)
         alignmentEnd,
         input.verticalCurve,
         input.config.assignments,
+        input.config.structures,
         input.config.sampleInterval);
     if (sampledStations.empty()) {
         result.errorMessage = L"Road model has no stations covered by alignment, vertical curve, and templates.";
@@ -2722,58 +2816,62 @@ RoadModelBuildResult RoadModelBuilder::build(const RoadModelBuildInput& input)
             &result.diagnostics);
         previousGroundProfiles = endGroundProfiles;
 
-        appendSlopeBoundaryPointsForSide(
-            startSlopePoints,
-            result.data.slopeSectionResults,
-            input.config.slopeConfig.leftGroups,
-            input.slopeTemplates,
-            normalizedSlopeTemplates,
-            startGroundProfiles.left,
-            templateSource->data,
-            *startFrame,
-            startElevation.value,
-            midStation,
-            SubgradeSide::Left,
-            input.config.slopeConfig.leftSearchWidth);
-        appendSlopeBoundaryPointsForSide(
-            endSlopePoints,
-            result.data.slopeSectionResults,
-            input.config.slopeConfig.leftGroups,
-            input.slopeTemplates,
-            normalizedSlopeTemplates,
-            endGroundProfiles.left,
-            templateSource->data,
-            *endFrame,
-            endElevation.value,
-            midStation,
-            SubgradeSide::Left,
-            input.config.slopeConfig.leftSearchWidth);
-        appendSlopeBoundaryPointsForSide(
-            startSlopePoints,
-            result.data.slopeSectionResults,
-            input.config.slopeConfig.rightGroups,
-            input.slopeTemplates,
-            normalizedSlopeTemplates,
-            startGroundProfiles.right,
-            templateSource->data,
-            *startFrame,
-            startElevation.value,
-            midStation,
-            SubgradeSide::Right,
-            input.config.slopeConfig.rightSearchWidth);
-        appendSlopeBoundaryPointsForSide(
-            endSlopePoints,
-            result.data.slopeSectionResults,
-            input.config.slopeConfig.rightGroups,
-            input.slopeTemplates,
-            normalizedSlopeTemplates,
-            endGroundProfiles.right,
-            templateSource->data,
-            *endFrame,
-            endElevation.value,
-            midStation,
-            SubgradeSide::Right,
-            input.config.slopeConfig.rightSearchWidth);
+        if (!structureSuppressesSlopeAtStation(input.config.structures, midStation, SubgradeSide::Left)) {
+            appendSlopeBoundaryPointsForSide(
+                startSlopePoints,
+                result.data.slopeSectionResults,
+                input.config.slopeConfig.leftGroups,
+                input.slopeTemplates,
+                normalizedSlopeTemplates,
+                startGroundProfiles.left,
+                templateSource->data,
+                *startFrame,
+                startElevation.value,
+                midStation,
+                SubgradeSide::Left,
+                input.config.slopeConfig.leftSearchWidth);
+            appendSlopeBoundaryPointsForSide(
+                endSlopePoints,
+                result.data.slopeSectionResults,
+                input.config.slopeConfig.leftGroups,
+                input.slopeTemplates,
+                normalizedSlopeTemplates,
+                endGroundProfiles.left,
+                templateSource->data,
+                *endFrame,
+                endElevation.value,
+                midStation,
+                SubgradeSide::Left,
+                input.config.slopeConfig.leftSearchWidth);
+        }
+        if (!structureSuppressesSlopeAtStation(input.config.structures, midStation, SubgradeSide::Right)) {
+            appendSlopeBoundaryPointsForSide(
+                startSlopePoints,
+                result.data.slopeSectionResults,
+                input.config.slopeConfig.rightGroups,
+                input.slopeTemplates,
+                normalizedSlopeTemplates,
+                startGroundProfiles.right,
+                templateSource->data,
+                *startFrame,
+                startElevation.value,
+                midStation,
+                SubgradeSide::Right,
+                input.config.slopeConfig.rightSearchWidth);
+            appendSlopeBoundaryPointsForSide(
+                endSlopePoints,
+                result.data.slopeSectionResults,
+                input.config.slopeConfig.rightGroups,
+                input.slopeTemplates,
+                normalizedSlopeTemplates,
+                endGroundProfiles.right,
+                templateSource->data,
+                *endFrame,
+                endElevation.value,
+                midStation,
+                SubgradeSide::Right,
+                input.config.slopeConfig.rightSearchWidth);
+        }
 
         const auto startSection = makeRoadModelSection(
             startStation,

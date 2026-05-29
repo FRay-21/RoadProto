@@ -1,5 +1,254 @@
 # 版本记录
 
+## 未发布 - 2026-05-29
+
+- 阶段：路面结构层创建向导内外侧参数与部件增删交互调整。
+- 修改内容：
+  - 新增 `RD_DRAWING_PAVEMENT_STRUCTURE_LEGEND` 路面结构图例命令，可选择道路模型或一个横断面图；选择横断面图时按道路模型 handle 搜索当前模型空间同路所有横断面图。
+  - 路面结构图例从路面结构层模板读取路基土组、路基干湿类型、设计弯沉、累计当量轴次、结构代号、结构层厚度、层名、颜色和填充参数。
+  - 图例按模板绘制等宽列，结构图示宽度固定 `20cm`，厚度按厘米 `1:1` 表达；底部填充样式图例逐项绘制，不按填充类型或层名合并。
+  - 路面结构图例的结构图示内部不再绘制路面结构层类型文字，第一列表头列宽加宽，避免 `路基干湿类型`、`累计当量轴次`、`路面总厚度(cm)` 等标题越出表格线。
+  - 图例绘制只使用 `AcDbLine`、`AcDbText`、`AcDbPolyline`、`AcDbHatch` 等普通 CAD 图元，不新增自定义实体。
+  - 横断面图配置绘制结构层时，配置行优先级改为按桩号、侧别和路基部件类型逐项解析；同范围不同行车道和硬路肩不冲突，可同时绘制，同一路基部件重叠时仍按上方行优先。
+  - 路面结构层创建向导的厚度、加宽和坡度改为内外侧字段，同一结构层尽量保持在一行内编辑。
+  - 沥青路面向导移除主线路缘带适应路段类型。
+  - 沥青路面主线行车道预设中，基层和底基层改为内侧加宽 `0.1`、内侧坡度 `1`、外侧加宽 `0`、外侧坡度 `0`。
+  - 沥青路面主线硬路肩预设中，基层和底基层改为外侧加宽 `0.1`、外侧坡度 `1`、内侧加宽 `0`、内侧坡度 `0`，该值直接来自创建向导预设源头。
+  - 路面结构层模板参数窗口新增“新增部件”和“删除部件”按钮；新增时选择在当前部件上方或下方插入，删除时确认删除选中部件。
+  - 所有路面结构层类型的预览宽度初始默认值统一为 `3`，同步调整 WPF、Bridge DTO、领域默认值、创建服务默认值和 DWG 实体显示兜底值。
+  - WPF 预览中的层名和厚度改为白色竖向引线式标注：一根引线从结构层顶边下引，每层一行显示名称和厚度，每行配白色下划线；文字、引线、下划线、加宽箭头和标注偏移均使用固定模型尺寸并随预览缩放，加宽文字缩小并放在尺寸箭头中部上方，坡度文字缩小并放在坡边中部侧边。
+  - 缩短 WPF 预览中的加宽尺寸线和层名厚度下划线，并减小加宽尺寸箭头，保持宽度文字贴近尺寸箭头中部上方。
+  - 横断面图配置窗口在 `路面结构层` 旁新增 `清表` tab，按起点桩号、终点桩号、左侧坡率、右侧坡率、厚度、作用范围和挖方是否清表维护清表范围。
+  - `清表` 配置会在横断面地面线以下生成清表面域，作用范围支持左侧、右侧和两侧；挖方是否清表为否时，挖方侧不绘制清表层，厚度按配置行输入值生成。
+  - 修正单侧清表坡率生效范围：本侧坡率控制外侧边界，对侧坡率控制靠近中心线的内侧截止边界；两侧清表保持中心线连续通过，不生成额外中心线坡率。
+  - 横断面图实体持久化版本升级到 `6`，保存清表配置和厚度；路面工程量统计读取横断面图面域时排除清表面域。
+  - 新增 `ClearTableQuantityDrawingFaceSampler` 领域接口，预留清表面域独立算量入口并承接厚度字段；本轮不计算清表工程量，也不并入路面工程量统计表。
+- 验证状态：已通过核心测试 Debug 构建与运行、WPF 托管插件 Debug 构建、`RoadProto.sln` Debug 全量构建和 `git diff --check`；本轮已重新生成 Debug ARX 与托管 DLL，Release 构建和 AutoCAD 图形界面仍待后续验证。
+
+## v0.1.31 - 2026-05-27
+
+- 版本标识：`v0.1.31_20260527_SectionDrawingConfig`。
+- ARX 文件：`RoadProto_v0.1.31_20260527_SectionDrawingConfig.arx`。
+- 阶段：横断面图配置与图上结构层手动编辑。
+- 是否可作为稳定测试版本：是。核心测试 Debug/Release、托管 bridge 测试 Debug/Release、WPF Debug/Release 构建和 `RoadProto.sln` Debug/Release 全量构建已验证。
+
+### 修改内容
+
+- 新增 `RD_SECTION_DRAWING_CONFIG` 横断面图配置命令，选择 `查看横断面 / 绘制横断面` 生成的 `DnRoadModelSectionDrawingEntity` 后打开 WPF 配置窗口。
+- 新增 `SectionDrawingConfigModel` 领域模型，支持 CSV 导入导出、起终点桩号范围、路基类型多选、表格行优先级解析和模板 handle 归一化。
+- 横断面图配置窗口上方支持 CSV 路径、导入和导出；当前包含 `路面结构层` tab，表格字段为起点桩号、终点桩号、路基类型和模板。
+- 路基类型从同一道路模型在当前 DWG 中已经绘制出的横断面图提取，按左/右侧和部件类型去重后作为多选项。
+- 点击 `绘制` 后，按配置把路面结构层面域应用到同一道路模型下的所有横断面图；表格上方行优先级高。
+- `DnRoadModelSectionDrawingEntity` 新增横断面图配置持久化、结构层面域来源字段、`faceId`、来源模板 handle、来源配置行号和 `manualEdited` 标记。
+- 横断面图结构层面域新增顶点夹点；用户拖动四边形或梯形顶点后标记 `manualEdited=true`，后续重新绘制时保留手动修改。
+- `RD_DRAWING_PAVEMENT_QUANTITY_TABLE` 优先通过 `PavementQuantityDrawingFaceSampler` 从横断面图实体当前面域采样，工程量统计以图上手动修改后的尺寸为准；缺少可用面域时再回退道路模型断面数据。
+- 更新横断面图配置业务文档、查看横断面文档、路面工程量统计表文档、模块说明、复用说明、README 和测试说明。
+
+### 验证状态
+
+- 自动化验证：核心测试 Debug/Release 构建与运行通过；托管 bridge 测试 Debug/Release 通过；WPF Debug/Release 构建通过；`RoadProto.sln` Debug/Release 全量构建通过，生成 `RoadProto_v0.1.31_20260527_SectionDrawingConfig.arx` 和 `RoadProto.Terrain.UI.dll`。
+- 图形界面验证：待在 AutoCAD 2021 中加载 ARX 和托管 DLL 后验证 Ribbon 入口、横断面图选择、CSV 导入导出、模板点选、图上结构层绘制、顶点夹点编辑、双击横断面图二次编辑和工程量统计结果。
+
+## v0.1.30 - 2026-05-27
+
+- 版本标识：`v0.1.30_20260527_PavementQuantityComponentFormatFix`。
+- ARX 文件：`RoadProto_v0.1.30_20260527_PavementQuantityComponentFormatFix.arx`。
+- 阶段：路面工程量统计表部件名反推与表格格式修正。
+- 是否可作为稳定测试版本：是。核心测试 Debug/Release、WPF Debug/Release 构建和 `RoadProto.sln` Debug/Release 全量构建已验证。
+
+### 修改内容
+
+- 路面工程量统计表从道路模型读取断面数据时，若旧模型结构层节点缺少部件名，不再直接输出 `未分部件`，而是优先从结构层纵向线 `componentIndex` 和路基部件线的部件类型反推 `行车道`、`硬路肩` 等部件名称。
+- 反推失败时再退回路基部件边界范围匹配；仍无法识别时才输出 `未分部件`。
+- `.xls` 写出新增统一表格样式：所有内容水平/垂直居中、自动换行；中文文字使用宋体 10 号；桩号、英文和数字使用 Times New Roman 10 号；面积和体积动态列加宽。
+- 新增领域层 `RoadModelPavementQuantitySampler`，把道路模型断面采样和旧数据部件名反推从 ObjectARX 命令中沉淀为可测试能力。
+
+### 验证状态
+
+- 自动化验证：核心测试 Debug/Release 构建与运行通过；WPF Debug/Release 构建通过；`RoadProto.sln` Debug/Release 全量构建通过，生成 `RoadProto_v0.1.30_20260527_PavementQuantityComponentFormatFix.arx` 和 `RoadProto.Terrain.UI.dll`。
+- 图形界面验证：待在 AutoCAD 2021 中加载 ARX 和托管 DLL 后验证旧道路模型导出的部件拆列、保存对话框统计方式和 `.xls` 打开后的格式效果。
+
+## v0.1.29 - 2026-05-27
+
+- 版本标识：`v0.1.29_20260527_PavementQuantityComponentMode`。
+- ARX 文件：`RoadProto_v0.1.29_20260527_PavementQuantityComponentMode.arx`。
+- 阶段：路面工程量统计表部件聚合模式。
+- 是否可作为稳定测试版本：是。核心测试 Debug/Release、WPF Debug/Release 构建和 `RoadProto.sln` Debug/Release 全量构建已验证。
+
+### 修改内容
+
+- 路面工程量统计表新增统计方式：`按部件和结构层`、`按结构层类型`。
+- `按部件和结构层` 输出 `部件名称-结构层名称面积` 和 `部件名称-结构层名称体积` 动态列，例如 `行车道-上面层面积`。
+- `按结构层类型` 保持上一版按结构层名称合并的输出方式。
+- 道路模型断面节点、查看横断面预览和横断面落图面域新增部件名称传递与持久化；旧实体缺少部件名称时按 `未分部件` 处理。
+- 输出路径选择优先使用带统计方式选项的 Windows 保存文件对话框；不可用时退回默认按部件和结构层统计。
+- 更新业务文档、模块说明、复用说明、README 和测试说明。
+
+### 验证状态
+
+- 自动化验证：核心测试 Debug/Release 构建与运行通过；WPF Debug/Release 构建通过；`RoadProto.sln` Debug/Release 全量构建通过，生成 `RoadProto_v0.1.29_20260527_PavementQuantityComponentMode.arx` 和 `RoadProto.Terrain.UI.dll`。
+- 图形界面验证：待在 AutoCAD 2021 中加载 ARX 和托管 DLL 后验证保存对话框统计方式、按部件拆列、按类型合并和 `.xls` 打开效果。
+
+## v0.1.28 - 2026-05-27
+
+- 版本标识：`v0.1.28_20260527_PavementQuantityTable`。
+- ARX 文件：`RoadProto_v0.1.28_20260527_PavementQuantityTable.arx`。
+- 阶段：出图出表路面工程量统计表。
+- 是否可作为稳定测试版本：是。核心测试 Debug/Release、WPF Debug/Release 构建和 `RoadProto.sln` Debug/Release 全量构建已验证。
+
+### 修改内容
+
+- 新增 `DRAWING_QUANTITY` 出图、出表、算量模块，并通过 `ModuleRegistry` 注册。
+- Ribbon 新增 `出图出表` 面板和 `路面工程量统计表` 按钮，命令为 `RD_DRAWING_PAVEMENT_QUANTITY_TABLE`。
+- 新增路面工程量统计领域能力：按道路模型构造物范围切分普通段、桥梁段和隧道段。
+- 面积按结构层平面投影宽度沿桩号区间累计；体积按相邻断面结构层截面积平均值乘以桩号间距的平均断面法累计。
+- 命令选择 `查看横断面` 绘制的 `DnRoadModelSectionDrawingEntity`，读取对应道路模型结构层断面数据，并提示输出 `.xls` 路径。
+- `DnRoadModelSectionDrawingEntity` 结构层面域新增结构层名称字段，旧版横断面落图读取时名称为空并按通用结构层处理。
+- 更新业务文档、模块说明、复用说明、README 和测试说明。
+
+### 验证状态
+
+- 自动化验证：核心测试 Debug/Release 构建与运行通过；WPF Debug/Release 构建通过；`RoadProto.sln` Debug/Release 全量构建通过，生成 `RoadProto_v0.1.28_20260527_PavementQuantityTable.arx` 和 `RoadProto.Terrain.UI.dll`。
+- 图形界面验证：本轮未在 AutoCAD 2021 图形界面完整点验；建议加载 Debug 或 Release 产物后验证 `出图出表` 面板、`路面工程量统计表` 命令、横断面图选择、输出路径提示、`.xls` 打开和构造物切段结果。
+
+## v0.1.27 - 2026-05-27
+
+- 版本标识：`v0.1.27_20260527_RoadModelStructures`。
+- ARX 文件：`RoadProto_v0.1.27_20260527_RoadModelStructures.arx`。
+- 阶段：横断面戴帽构造物范围与边坡跳过。
+- 是否可作为稳定测试版本：是。核心测试 Debug/Release、托管 bridge 测试、WPF Debug/Release 构建和 `RoadProto.sln` Debug/Release 全量构建已验证。
+
+### 修改内容
+
+- 横断面戴帽新增构造物 tab，可维护起点桩号、终点桩号、构造物类型和影响范围。
+- 构造物类型支持桥梁、隧道；影响范围支持左侧、右侧、两侧。
+- 新增 `RoadModelStructureRange` 配置，并通过 WPF DTO、临时请求/响应文件、C++ `RoadModelDialogBridge` 和 `DnRoadModelEntity` DWG 持久化同步保存。
+- 生成道路模型时，桥梁或隧道命中的桩号范围内，按左侧、右侧或两侧跳过对应边坡放坡，模型中不生成该侧边坡线。
+- `RoadModelStationSampler` 将构造物起终点纳入采样桩号，确保构造物边界处能断开或恢复边坡。
+- `DnRoadModelEntity` 数据版本升至 7；旧版本道路模型读取时构造物列表为空，新版本保存构造物范围配置。
+- 更新横断面戴帽业务文档、道路模型复用说明、模块说明、README 和测试说明。
+
+### 验证状态
+
+- 自动化验证：托管 bridge 测试通过；核心测试 Debug/Release 构建与运行通过；WPF Debug 构建通过；`RoadProto.sln` Debug/Release 全量构建通过，生成 `RoadProto_v0.1.27_20260527_RoadModelStructures.arx` 和 `RoadProto.Terrain.UI.dll`。
+- 图形界面验证：本轮未在 AutoCAD 2021 图形界面完整点验；建议加载 Debug 或 Release 产物后验证 `构造物` tab 的桥梁/隧道、左侧/右侧/两侧范围、编辑回显、DWG 保存重开和边坡缺失效果。
+
+## v0.1.26 - 2026-05-25
+
+- 版本标识：`v0.1.26_20260525_CrossSectionFrameLabelWhite`。
+- ARX 文件：`RoadProto_v0.1.26_20260525_CrossSectionFrameLabelWhite.arx`。
+- 阶段：查看横断面落图外框与桩号颜色调整。
+- 是否可作为稳定测试版本：是。核心测试 Debug/Release、托管 bridge 测试和 `RoadProto.sln` Debug/Release 构建已验证。
+
+### 修改内容
+
+- `DnRoadModelSectionDrawingEntity` 绘制横断面外框和下方桩号文字时统一使用 AutoCAD ACI 7 白色。
+- 路面结构层面域、填充线和断面内部线段继续使用原有路面结构层模板颜色与填充参数，不随外框/桩号颜色变化。
+- 更新查看横断面业务文档、复用说明、README、测试说明和核心 source-contract，确保新版本产物可追踪。
+
+### 验证状态
+
+- 自动化验证：托管 bridge 测试通过；核心测试 Debug/Release 构建与运行通过；`RoadProto.sln` Debug/Release 构建通过，生成 `RoadProto_v0.1.26_20260525_CrossSectionFrameLabelWhite.arx` 和 `RoadProto.Terrain.UI.dll`。
+- 图形界面验证：本轮未在 AutoCAD 2021 图形界面完整点验；建议加载 Release 产物后验证 `绘制横断面` 落图的外框和桩号文字显示为白色。
+
+## v0.1.25 - 2026-05-25
+
+- 版本标识：`v0.1.25_20260525_CrossSectionViewDrawing`。
+- ARX 文件：`RoadProto_v0.1.25_20260525_CrossSectionViewDrawing.arx`。
+- 阶段：查看横断面预览交互与模型空间批量落图。
+- 是否可作为稳定测试版本：是。核心测试 Debug、托管 bridge 测试和 `RoadProto.sln` Debug 构建已验证。
+
+### 修改内容
+
+- 优化 `查看横断面` WPF 预览图，参考路面结构层模板预览，支持鼠标拖动平移和滚轮缩放。
+- 预览图先绘制结构层半透明填充面，再绘制结构层边线、路基线、边坡线和地面线。
+- 在查看横断面对话框新增 `绘制横断面` 按钮，点击后通过响应文件触发 ObjectARX 内部命令回到模型空间点取插入基点。
+- 新增内部命令 `RD_SECTION_ROAD_MODEL_VIEW_SECTION_APPLY_DIALOG_FILE`，负责读取 WPF 响应、重建所有桩号断面预览并按基点向上批量绘制。
+- 新增 `DnRoadModelSectionDrawingEntity` 自定义实体，每个桩号生成一个实体，保存道路模型 handle、中线 handle、桩号、外框尺寸、线段、结构层面域和结构层模板填充信息。
+- 横断面落图中的结构层颜色和填充优先按道路模型结构层线引用的路面结构层模板匹配；无法匹配时保留预览颜色并使用实体填充，避免落图失败。
+
+### 验证状态
+
+- 自动化验证：托管 bridge 测试通过；核心测试 Debug 构建与运行通过；`RoadProto.sln` Debug 构建通过，生成 `RoadProto_v0.1.25_20260525_CrossSectionViewDrawing.arx` 和 `RoadProto.Terrain.UI.dll`。
+- 图形界面验证：本轮未在 AutoCAD 2021 图形界面完整点验；建议加载 Debug 或 Release 产物后验证预览拖动缩放、绘制横断面基点点取、批量落图间距、桩号文字、外框实体和结构层填充效果。
+
+## v0.1.24 - 2026-05-25
+
+- 版本标识：`v0.1.24_20260525_PavementLayerTemplateWizard`。
+- ARX 文件：`RoadProto_v0.1.24_20260525_PavementLayerTemplateWizard.arx`。
+- 阶段：路面结构层模板创建向导与文档预设参数。
+- 是否可作为稳定测试版本：是。核心测试 Debug/Release、托管 bridge 测试、WPF Release 构建和 ARX Release 构建已验证。
+
+### 修改内容
+
+- 新增路面结构层创建向导；运行创建命令后先选择路面类型和适应路段类型，再进入原有路面结构层模板参数窗口，既有 DWG 自定义实体双击编辑仍直接打开原有编辑窗口。
+- 向导按 `参数示意.docx` 内置沥青路面主线行车道、主线硬路肩、主线路缘带、互通匝道、桥头过渡段、桥面铺装、互通被交路、隧道，以及混凝土路面收费站广场、通道连接线初始参数。
+- 路面结构层类型扩展为上面层、中面层、下面层、沥青封层、基层、底基层、垫层和搭板层；桥接文件、WPF 枚举、XML 流转和 DWG 持久化均使用稳定编码保存。
+- 创建向导取消时不提前生成默认模板实体；确认旧参数窗口后再点取插入点并创建 `DnPavementLayerTemplateEntity`，避免取消向导后模型空间残留默认实体。
+
+### 验证状态
+
+- 自动化验证：核心测试 Debug/Release 构建与运行、托管 bridge 测试、WPF Release 构建和 `RoadProto.sln` Release 构建通过；Release 产物生成 `RoadProto_v0.1.24_20260525_PavementLayerTemplateWizard.arx` 和 `RoadProto.Terrain.UI.dll`。
+- 图形界面验证：本轮未在 AutoCAD 2021 图形界面完整点验；建议加载 Release ARX 和托管 DLL 后验证创建向导、向导确认后旧参数窗口、双击编辑不显示向导、`.rpavement.xml` 导入导出和道路模型结构层显示。
+
+## v0.1.23 - 2026-05-23
+
+- 版本标识：`v0.1.23_20260523_PavementLayerTemplateGeneralParams`。
+- ARX 文件：`RoadProto_v0.1.23_20260523_PavementLayerTemplateGeneralParams.arx`。
+- 阶段：路面结构层模板高级通用参数数据保留与默认折叠显示。
+- 是否可作为稳定测试版本：是。核心测试 Debug/Release、托管 bridge 测试、WPF Release 构建和 ARX Release 构建已验证。
+
+### 修改内容
+
+- 路面结构层模板通用参数新增 `showAllGeneralParameters`、`structureCode`、`subgradeMoistureTypes`、`pavementType`、`subgradeSoilGroups`、`designDeflection` 和 `cumulativeAxleLoads`；领域模型、C++ Bridge、DWG 自定义实体、WPF 请求/响应文件和 `.rpavement.xml` 均同步读写。
+- WPF 通用参数区默认只显示预览宽度、结构层数量、显示方式和当前编辑层；勾选“显示全部通用参数”后才显示结构代号、路基干湿类型、路面类型、路基土组、设计弯沉和累计轴次。
+- 路基干湿类型和路基土组使用多选下拉保存稳定枚举编码；路面类型使用单选下拉，默认沥青路面。
+- 新增通用设计字段当前仅作为模板数据保留，不参与 WPF 预览标注、`DnPavementLayerTemplateEntity` 模板标题/尺寸文字或道路模型结构层图形显示。
+
+### 验证状态
+
+- 自动化验证：核心测试 Debug/Release 构建与运行、托管 bridge 测试、WPF Release 构建和 `RoadProto.sln` Release 构建通过；Release 产物生成 `RoadProto_v0.1.23_20260523_PavementLayerTemplateGeneralParams.arx` 和 `RoadProto.Terrain.UI.dll`。
+- 图形界面验证：本轮未新增 AutoCAD 2021 图形界面手工验证；建议加载 Release ARX 和托管 DLL 后点验高级通用参数折叠显示、XML 导入导出和旧模板回写兼容。
+
+## v0.1.22 - 2026-05-23
+
+- 版本标识：`v0.1.22_20260523_PavementLayerTemplateHatchParams`。
+- ARX 文件：`RoadProto_v0.1.22_20260523_PavementLayerTemplateHatchParams.arx`。
+- 阶段：路面结构层模板填充角度/比例、DWG 标题显示和预览固定标注优化。
+- 是否可作为稳定测试版本：是。核心测试 Debug/Release、托管 bridge 测试、WPF Release 构建和 ARX Release 构建已验证。
+
+### 修改内容
+
+- 路面结构层模板每层新增 `hatchAngle` 和 `hatchScale`，请求/响应文件、`.rpavement.xml`、C++ Bridge、领域归一化和 DWG 自定义实体持久化同步读写。
+- 扩充填充类型列表，覆盖 AutoCAD 常用 ANSI、AR、BRICK、STEEL、GRAVEL、EARTH 等内置填充名；非法填充仍归一化为 `SOLID`，非法角度归零，非法比例归一。
+- WPF 预览中的层名+厚度标注改为固定字号，不再随结构层厚度变化；填充预览按当前层填充角度和填充比例绘制。
+- `DnPavementLayerTemplateEntity` 不再显示层名、厚度、加宽和坡度尺寸标注，只在模板上方显示模板名称；标题绘制前估算文字总长度，再按文字中点与模板内容中心对齐。
+- 道路模型结构层显示策略保持不变，仍只按层 RGB 颜色显示弱化填充面和边线，不引入模板填充模式。
+
+### 验证状态
+
+- 自动化验证：核心测试 Debug/Release 构建与运行、托管 bridge 测试、WPF Release 构建和 `RoadProto.sln` Release 构建已通过；Release 产物已生成 `RoadProto_v0.1.22_20260523_PavementLayerTemplateHatchParams.arx` 和 `RoadProto.Terrain.UI.dll`。
+- 图形界面验证：本轮仍建议在 AutoCAD 2021 中加载 Release ARX 和托管 DLL 后，点验 DWG 模板标题居中、WPF 固定字号标注、填充角度/比例和道路模型颜色显示；历史回归记录中已在 AutoCAD 2021 图形界面加载 Debug ARX 完成模板实体显示验证。
+
+## v0.1.21 - 2026-05-23
+
+- 版本标识：`v0.1.21_20260523_PavementLayerTemplateAnnotation`。
+- ARX 文件：`RoadProto_v0.1.21_20260523_PavementLayerTemplateAnnotation.arx`。
+- 阶段：路面结构层模板标注、当前层编辑和填充显示优化。
+
+### 修改内容
+
+- 优化路面结构层模板 WPF 预览标注：层名与厚度合并为一行，整体标注缩小；加宽处改为 CAD 式尺寸标注；坡度在侧边中心以 `1:n` 显示。
+- 将 WPF 参数区改为当前层编辑：预览图点击选择结构层，右侧仅显示当前层参数和通用参数，并提供当前层输入框和上/下切换按钮。
+- 新增每层 `hatchPattern` 填充类型和通用 `displayMode` 显示方式，支持按颜色、按填充、按填充+颜色显示；WPF 预览和 `DnPavementLayerTemplateEntity` 按选择方式显示。
+- 新增颜色预览块点击选择索引颜色；请求/响应文件、`.rpavement.xml` 和 DWG 自定义实体持久化同步保存显示方式和填充类型。
+- 保持道路模型中的路面结构层模型显示策略不变：仍按层 RGB 颜色绘制弱化填充面和边线，不引入模板显示方式中的填充预览模式。
+
+### 验证状态
+
+- 自动化验证：核心测试 Debug/Release 构建与运行、托管 bridge 测试、WPF Release 构建和 `RoadProto.sln` Release 构建已通过；Release 产物已生成 `RoadProto_v0.1.21_20260523_PavementLayerTemplateAnnotation.arx` 和 `RoadProto.Terrain.UI.dll`。
+- 图形界面验证：仍建议在 AutoCAD 2021 中加载 Release ARX 和托管 DLL 后，点验模板创建、双击编辑、预览点击选层、索引颜色选择、填充显示方式和道路模型颜色显示。
+
 ## v0.1.20 - 2026-05-22
 
 - 版本标识：`v0.1.20_20260522_PavementLayerTemplateDisplay`。

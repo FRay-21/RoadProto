@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.IO;
+using System.Linq;
 using System.Text;
 using Autodesk.AutoCAD.Runtime;
 using RoadProto.Terrain.UI.Bridge;
@@ -47,6 +48,20 @@ public sealed class PavementLayerTemplateDialogCommands
                 return;
             }
 
+            if (request.ShowCreateWizard)
+            {
+                var wizard = new PavementLayerTemplateCreateWizardWindow(request);
+                if (wizard.ShowDialog() != true || wizard.SelectedTemplate == null)
+                {
+                    var cancelled = CreateCancelledResponse(request, false);
+                    PavementLayerTemplateDialogFile.WriteResponse(request.ResponsePath, cancelled);
+                    SendApplyCommand(document, request.ResponsePath);
+                    return;
+                }
+
+                ApplyTemplate(request, wizard.SelectedTemplate);
+            }
+
             var window = new PavementLayerTemplateWindow(request);
             window.ApplyRequested += (_, response) =>
             {
@@ -64,6 +79,25 @@ public sealed class PavementLayerTemplateDialogCommands
         {
             editor.WriteMessage($"\nRoadProto pavement layer template WPF dialog failed: {error.Message}");
         }
+    }
+
+    private static void ApplyTemplate(
+        PavementLayerTemplateDialogRequest request,
+        PavementLayerTemplateDto template)
+    {
+        request.TemplateName = template.TemplateName;
+        request.DisplayScale = template.DisplayScale;
+        request.PreviewWidth = template.PreviewWidth;
+        request.DisplayMode = template.DisplayMode;
+        request.ShowAllGeneralParameters = template.ShowAllGeneralParameters;
+        request.StructureCode = template.StructureCode;
+        request.SubgradeMoistureTypes = template.SubgradeMoistureTypes.ToList();
+        request.PavementType = template.PavementType;
+        request.SubgradeSoilGroups = template.SubgradeSoilGroups.ToList();
+        request.DesignDeflection = template.DesignDeflection;
+        request.CumulativeAxleLoads = template.CumulativeAxleLoads;
+        request.Layers = template.Layers.ConvertAll(layer => layer.Clone());
+        request.ShowCreateWizard = false;
     }
 
     private static PavementLayerTemplateDialogResponse CreateCancelledResponse(

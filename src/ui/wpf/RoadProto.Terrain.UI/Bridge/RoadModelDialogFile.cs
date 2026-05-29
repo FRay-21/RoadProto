@@ -38,6 +38,11 @@ public static class RoadModelDialogFile
         {
             request.Assignments.Add(ReadAssignment(values, $"assignment.{i}"));
         }
+        var structureCount = Math.Max(0, GetInt(values, "structureCount"));
+        for (var i = 0; i < structureCount; i++)
+        {
+            request.Structures.Add(ReadStructure(values, $"structure.{i}"));
+        }
         ReadSlopeGroups(values, "leftSlopeGroup", request.LeftSlopeGroups);
         ReadSlopeGroups(values, "rightSlopeGroup", request.RightSlopeGroups);
 
@@ -65,6 +70,11 @@ public static class RoadModelDialogFile
         {
             WriteAssignment(lines, $"assignment.{i}", response.Assignments[i]);
         }
+        lines.Add(Write("structureCount", response.Structures.Count));
+        for (var i = 0; i < response.Structures.Count; i++)
+        {
+            WriteStructure(lines, $"structure.{i}", response.Structures[i]);
+        }
         WriteSlopeGroups(lines, "leftSlopeGroup", response.LeftSlopeGroups);
         WriteSlopeGroups(lines, "rightSlopeGroup", response.RightSlopeGroups);
 
@@ -86,6 +96,23 @@ public static class RoadModelDialogFile
         lines.Add(Write($"{prefix}.endStation", assignment.EndStation));
         lines.Add(Write($"{prefix}.templateHandle", assignment.TemplateHandle));
         lines.Add(Write($"{prefix}.templateName", assignment.TemplateName));
+    }
+
+    private static RoadModelStructureRangeDto ReadStructure(Dictionary<string, string> values, string prefix)
+        => new()
+        {
+            StartStation = GetDouble(values, $"{prefix}.startStation"),
+            EndStation = GetDouble(values, $"{prefix}.endStation"),
+            Type = StructureType(Get(values, $"{prefix}.type")),
+            SideRange = StructureSideRange(Get(values, $"{prefix}.sideRange")),
+        };
+
+    private static void WriteStructure(List<string> lines, string prefix, RoadModelStructureRangeDto structure)
+    {
+        lines.Add(Write($"{prefix}.startStation", structure.StartStation));
+        lines.Add(Write($"{prefix}.endStation", structure.EndStation));
+        lines.Add(Write($"{prefix}.type", StructureTypeText(structure.Type)));
+        lines.Add(Write($"{prefix}.sideRange", StructureSideRangeText(structure.SideRange)));
     }
 
     private static void ReadSlopeGroups(
@@ -189,6 +216,30 @@ public static class RoadModelDialogFile
             RoadModelDialogAction.PickLeftSlopeTemplate => "pickLeftSlopeTemplate",
             RoadModelDialogAction.PickRightSlopeTemplate => "pickRightSlopeTemplate",
             _ => "none",
+        };
+
+    private static RoadModelStructureType StructureType(string value)
+        => string.Equals(value, "Tunnel", StringComparison.OrdinalIgnoreCase)
+            ? RoadModelStructureType.Tunnel
+            : RoadModelStructureType.Bridge;
+
+    private static string StructureTypeText(RoadModelStructureType type)
+        => type == RoadModelStructureType.Tunnel ? "Tunnel" : "Bridge";
+
+    private static RoadModelStructureSideRange StructureSideRange(string value)
+        => value switch
+        {
+            "Left" or "left" => RoadModelStructureSideRange.Left,
+            "Right" or "right" => RoadModelStructureSideRange.Right,
+            _ => RoadModelStructureSideRange.Both,
+        };
+
+    private static string StructureSideRangeText(RoadModelStructureSideRange sideRange)
+        => sideRange switch
+        {
+            RoadModelStructureSideRange.Left => "Left",
+            RoadModelStructureSideRange.Right => "Right",
+            _ => "Both",
         };
 
     private static string Escape(string value)

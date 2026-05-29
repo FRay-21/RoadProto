@@ -52,6 +52,7 @@
   <ItemGroup>
     <ClCompile Include="core_tests.cpp" />
     <ClCompile Include="..\src\app\startup\CrossSectionStartupRegistration.cpp" />
+    <ClCompile Include="..\src\app\startup\DrawingQuantityStartupRegistration.cpp" />
     <ClCompile Include="..\src\app\startup\ProfileStartupRegistration.cpp" />
     <ClCompile Include="..\src\core\command\CommandRegistry.cpp" />
     <ClCompile Include="..\src\core\module\ModuleRegistry.cpp" />
@@ -64,12 +65,18 @@
     <ClCompile Include="..\src\domain\alignment\StationFormatter.cpp" />
     <ClCompile Include="..\src\domain\cross_section\PavementLayerTemplateModel.cpp" />
     <ClCompile Include="..\src\domain\cross_section\RoadModel.cpp" />
+    <ClCompile Include="..\src\domain\cross_section\SectionDrawingConfigModel.cpp" />
     <ClCompile Include="..\src\domain\cross_section\SlopeTemplateModel.cpp" />
     <ClCompile Include="..\src\domain\cross_section\SubgradeTemplateModel.cpp" />
     <ClCompile Include="..\src\domain\profile\ProfileDmxFile.cpp" />
     <ClCompile Include="..\src\domain\profile\ProfileGradeGraphLayout.cpp" />
     <ClCompile Include="..\src\domain\profile\ProfileVerticalCurveCalculator.cpp" />
     <ClCompile Include="..\src\domain\profile\ProfileVerticalCurveDisplayPlanner.cpp" />
+    <ClCompile Include="..\src\domain\quantity\ClearTableQuantityDrawingFaceSampler.cpp" />
+    <ClCompile Include="..\src\domain\quantity\PavementQuantityDrawingFaceSampler.cpp" />
+    <ClCompile Include="..\src\domain\quantity\PavementStructureLegend.cpp" />
+    <ClCompile Include="..\src\domain\quantity\PavementQuantityTable.cpp" />
+    <ClCompile Include="..\src\domain\quantity\RoadModelPavementQuantitySampler.cpp" />
     <ClCompile Include="..\src\domain\relation\EntityRelationManager.cpp" />
     <ClCompile Include="..\src\domain\terrain\TerrainMeshFile.cpp" />
     <ClCompile Include="..\src\domain\terrain\TerrainPointNormalizer.cpp" />
@@ -86,7 +93,10 @@
     <ClCompile Include="..\src\application\cross_section\SubgradeTemplateCreateService.cpp" />
     <ClCompile Include="..\src\application\terrain\TerrainUpdateSampleService.cpp" />
     <ClCompile Include="..\src\modules\cross_section\CrossSectionModule.cpp" />
+    <ClCompile Include="..\src\modules\drawing_quantity\DrawingQuantityModule.cpp" />
     <ClCompile Include="..\src\modules\profile\ProfileModule.cpp" />
+    <ClCompile Include="..\src\cad_adapter\objectarx\drawing_quantity\ObjectArxPavementQuantityTableCommand.cpp" />
+    <ClCompile Include="..\src\cad_adapter\objectarx\drawing_quantity\ObjectArxPavementStructureLegendCommand.cpp" />
     <ClCompile Include="..\src\cad_adapter\objectarx\cross_section\ObjectArxRoadModelCommand.cpp" />
     <ClCompile Include="..\src\cad_adapter\objectarx\cross_section\ObjectArxPavementLayerTemplateCommand.cpp" />
     <ClCompile Include="..\src\cad_adapter\objectarx\cross_section\ObjectArxSlopeTemplateCommand.cpp" />

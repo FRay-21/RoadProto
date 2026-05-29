@@ -20,6 +20,7 @@ public partial class RoadModelWindow : Window, INotifyPropertyChanged
     private RoadModelSlopeTemplateGroupDto? _selectedRightSlopeGroup;
     private RoadModelSlopeTemplateReferenceDto? _selectedLeftSlopeTemplate;
     private RoadModelSlopeTemplateReferenceDto? _selectedRightSlopeTemplate;
+    private RoadModelStructureRangeDto? _selectedStructure;
 
     public RoadModelWindow(RoadModelDialogRequest request)
     {
@@ -43,6 +44,10 @@ public partial class RoadModelWindow : Window, INotifyPropertyChanged
         {
             RightSlopeGroups.Add(group.Clone());
         }
+        foreach (var structure in request.Structures)
+        {
+            Structures.Add(structure.Clone());
+        }
         if (request.SelectedAssignmentIndex >= 0 && request.SelectedAssignmentIndex < Assignments.Count)
         {
             SelectedAssignment = Assignments[request.SelectedAssignmentIndex];
@@ -64,6 +69,7 @@ public partial class RoadModelWindow : Window, INotifyPropertyChanged
     public RoadModelDialogResponse? Response { get; private set; }
 
     public ObservableCollection<RoadModelTemplateAssignmentDto> Assignments { get; } = new();
+    public ObservableCollection<RoadModelStructureRangeDto> Structures { get; } = new();
     public ObservableCollection<RoadModelSlopeTemplateGroupDto> LeftSlopeGroups { get; } = new();
     public ObservableCollection<RoadModelSlopeTemplateGroupDto> RightSlopeGroups { get; } = new();
 
@@ -160,6 +166,17 @@ public partial class RoadModelWindow : Window, INotifyPropertyChanged
         }
     }
 
+    public RoadModelStructureRangeDto? SelectedStructure
+    {
+        get => _selectedStructure;
+        set
+        {
+            if (_selectedStructure == value) return;
+            _selectedStructure = value;
+            OnPropertyChanged();
+        }
+    }
+
     private void OnAddAssignment(object sender, RoutedEventArgs e)
     {
         var assignment = new RoadModelTemplateAssignmentDto();
@@ -188,6 +205,36 @@ public partial class RoadModelWindow : Window, INotifyPropertyChanged
         var newIndex = oldIndex + delta;
         if (oldIndex < 0 || newIndex < 0 || newIndex >= Assignments.Count) return;
         Assignments.Move(oldIndex, newIndex);
+    }
+
+    private void OnAddStructure(object sender, RoutedEventArgs e)
+    {
+        var structure = new RoadModelStructureRangeDto();
+        Structures.Add(structure);
+        SelectedStructure = structure;
+    }
+
+    private void OnDeleteStructure(object sender, RoutedEventArgs e)
+    {
+        if (SelectedStructure == null) return;
+        var index = Structures.IndexOf(SelectedStructure);
+        Structures.Remove(SelectedStructure);
+        SelectedStructure = Structures.Count > 0 ? Structures[System.Math.Min(index, Structures.Count - 1)] : null;
+    }
+
+    private void OnMoveStructureUp(object sender, RoutedEventArgs e)
+        => MoveStructure(-1);
+
+    private void OnMoveStructureDown(object sender, RoutedEventArgs e)
+        => MoveStructure(1);
+
+    private void MoveStructure(int delta)
+    {
+        if (SelectedStructure == null) return;
+        var oldIndex = Structures.IndexOf(SelectedStructure);
+        var newIndex = oldIndex + delta;
+        if (oldIndex < 0 || newIndex < 0 || newIndex >= Structures.Count) return;
+        Structures.Move(oldIndex, newIndex);
     }
 
     private void OnAddLeftSlopeGroup(object sender, RoutedEventArgs e)
@@ -435,6 +482,7 @@ public partial class RoadModelWindow : Window, INotifyPropertyChanged
             LeftSlopeSearchWidth = leftSearchWidth ?? ReadPositiveOrFallback(LeftSlopeSearchWidthText, PositiveOrFallback(_request.LeftSlopeSearchWidth, 50.0)),
             RightSlopeSearchWidth = rightSearchWidth ?? ReadPositiveOrFallback(RightSlopeSearchWidthText, PositiveOrFallback(_request.RightSlopeSearchWidth, 50.0)),
             Assignments = new(Assignments),
+            Structures = Structures.Select(structure => structure.Clone()).ToList(),
             LeftSlopeGroups = LeftSlopeGroups.Select(group => group.Clone()).ToList(),
             RightSlopeGroups = RightSlopeGroups.Select(group => group.Clone()).ToList(),
         };

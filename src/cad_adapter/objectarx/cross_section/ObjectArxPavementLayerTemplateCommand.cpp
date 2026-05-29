@@ -139,13 +139,7 @@ void writeCreatedMessage(
 void runPavementLayerTemplateCreateCommand()
 {
     auto& editor = app::ApplicationContext::instance().editor();
-    editor.writeMessage(L"RD_SECTION_PAVEMENT_LAYER_TEMPLATE_CREATE: 请选择路面结构层模板插入位置。");
-
-    AcGePoint3d insertionPoint;
-    if (!promptInsertionPoint(insertionPoint)) {
-        editor.writeWarning(L"路面结构层模板创建已取消。");
-        return;
-    }
+    editor.writeMessage(L"RD_SECTION_PAVEMENT_LAYER_TEMPLATE_CREATE: 正在打开路面结构层创建向导。");
 
     PavementLayerTemplateCreateInput input;
     const PavementLayerTemplateCreateService service;
@@ -155,30 +149,9 @@ void runPavementLayerTemplateCreateCommand()
         return;
     }
 
-    auto* entity = new DnPavementLayerTemplateEntity();
-    if (entity->setTemplateData(result.templateData) != Acad::eOk) {
-        delete entity;
-        editor.writeError(L"路面结构层模板默认数据无效。");
-        return;
-    }
-    entity->setInsertionPoint(insertionPoint);
-
-    AcDbObjectId entityId;
-    if (!appendEntityToModelSpace(entity, entityId)) {
-        delete entity;
-        editor.writeError(L"插入 DnPavementLayerTemplateEntity 失败。");
-        return;
-    }
-
-    const auto handle = entityHandleText(entity);
-    entity->close();
-    acedUpdateDisplay();
-    writeCreatedMessage(editor, handle, result.templateData);
-
     std::wstring errorMessage;
     PavementLayerTemplateDialogRequest request;
-    request.handle = handle;
-    request.insertionPoint = insertionPoint;
+    request.showCreateWizard = true;
     request.data = result.templateData;
     if (!queuePavementLayerTemplateWpfDialog(request, errorMessage)) {
         editor.writeError(L"打开路面结构层模板 WPF 参数窗口失败: " + errorMessage);
@@ -235,6 +208,11 @@ void runPavementLayerTemplateApplyDialogFileCommand()
     }
 
     if (response.handle.empty()) {
+        if (!promptInsertionPoint(response.insertionPoint)) {
+            editor.writeWarning(L"路面结构层模板创建已取消。");
+            return;
+        }
+
         auto* entity = new DnPavementLayerTemplateEntity();
         if (entity->setTemplateData(response.data) != Acad::eOk) {
             delete entity;

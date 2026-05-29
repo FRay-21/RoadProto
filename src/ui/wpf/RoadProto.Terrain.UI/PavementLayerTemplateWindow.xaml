@@ -48,6 +48,7 @@
                     ClipToBounds="True"
                     SizeChanged="PreviewCanvas_SizeChanged"
                     MouseWheel="PreviewCanvas_MouseWheel"
+                    MouseLeftButtonDown="PreviewCanvas_MouseLeftButtonDown"
                     MouseDown="PreviewCanvas_MouseMiddleButtonDown"
                     MouseUp="PreviewCanvas_MouseMiddleButtonUp"
                     MouseMove="PreviewCanvas_MouseMove" />
@@ -67,11 +68,101 @@
                     <Grid.RowDefinitions>
                         <RowDefinition Height="34" />
                         <RowDefinition Height="34" />
+                        <RowDefinition Height="34" />
+                        <RowDefinition Height="34" />
+                        <RowDefinition Height="34" />
                     </Grid.RowDefinitions>
                     <TextBlock Text="预览宽度" VerticalAlignment="Center" />
                     <TextBox x:Name="PreviewWidthBox" Grid.Column="1" Height="26" TextChanged="GlobalInput_Changed" />
                     <TextBlock Grid.Row="1" Text="结构层数量" VerticalAlignment="Center" />
                     <TextBox x:Name="LayerCountBox" Grid.Row="1" Grid.Column="1" Height="26" TextChanged="LayerCountBox_TextChanged" />
+                    <TextBlock Grid.Row="2" Text="显示方式" VerticalAlignment="Center" />
+                    <ComboBox x:Name="DisplayModeBox" Grid.Row="2" Grid.Column="1" Height="26" SelectionChanged="GlobalInput_Changed" />
+                    <TextBlock Grid.Row="3" Text="当前编辑层" VerticalAlignment="Center" />
+                    <DockPanel Grid.Row="3" Grid.Column="1" LastChildFill="True">
+                        <Button x:Name="PreviousLayerButton"
+                                DockPanel.Dock="Left"
+                                Content="▲"
+                                Width="30"
+                                Height="26"
+                                Margin="0,0,4,0"
+                                ToolTip="编辑上一层"
+                                Click="PreviousLayerButton_Click" />
+                        <Button x:Name="NextLayerButton"
+                                DockPanel.Dock="Right"
+                                Content="▼"
+                                Width="30"
+                                Height="26"
+                                Margin="4,0,0,0"
+                                ToolTip="编辑下一层"
+                                Click="NextLayerButton_Click" />
+                        <TextBox x:Name="CurrentLayerBox" Height="26" TextChanged="CurrentLayerBox_TextChanged" />
+                    </DockPanel>
+                    <TextBlock Grid.Row="4" Text="部件操作" VerticalAlignment="Center" />
+                    <StackPanel Grid.Row="4"
+                                Grid.Column="1"
+                                Orientation="Horizontal">
+                        <Button x:Name="AddComponentButton"
+                                Content="新增部件"
+                                Width="92"
+                                Height="26"
+                                Margin="0,0,8,0"
+                                Click="AddComponent_Click" />
+                        <Button x:Name="DeleteComponentButton"
+                                Content="删除部件"
+                                Width="92"
+                                Height="26"
+                                Click="DeleteComponent_Click" />
+                    </StackPanel>
+                </Grid>
+                <CheckBox x:Name="ShowAllGeneralParametersBox"
+                          Content="显示全部通用参数"
+                          Margin="0,0,0,8"
+                          Checked="ShowAllGeneralParametersBox_Changed"
+                          Unchecked="ShowAllGeneralParametersBox_Changed" />
+                <Grid x:Name="AdvancedGeneralParametersPanel"
+                      Margin="0,0,0,12"
+                      Visibility="Collapsed">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="116" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="34" />
+                        <RowDefinition Height="34" />
+                        <RowDefinition Height="34" />
+                        <RowDefinition Height="34" />
+                        <RowDefinition Height="34" />
+                        <RowDefinition Height="34" />
+                    </Grid.RowDefinitions>
+                    <TextBlock Text="结构代号" VerticalAlignment="Center" />
+                    <TextBox x:Name="StructureCodeBox" Grid.Column="1" Height="26" TextChanged="GlobalInput_Changed" />
+                    <TextBlock Grid.Row="1" Text="路基干湿类型" VerticalAlignment="Center" />
+                    <ComboBox x:Name="SubgradeMoistureTypesBox"
+                              Grid.Row="1"
+                              Grid.Column="1"
+                              Height="26"
+                              IsEditable="True"
+                              IsReadOnly="True"
+                              IsTextSearchEnabled="False" />
+                    <TextBlock Grid.Row="2" Text="路面类型" VerticalAlignment="Center" />
+                    <ComboBox x:Name="PavementTypeBox"
+                              Grid.Row="2"
+                              Grid.Column="1"
+                              Height="26"
+                              SelectionChanged="GlobalInput_Changed" />
+                    <TextBlock Grid.Row="3" Text="路基土组" VerticalAlignment="Center" />
+                    <ComboBox x:Name="SubgradeSoilGroupsBox"
+                              Grid.Row="3"
+                              Grid.Column="1"
+                              Height="26"
+                              IsEditable="True"
+                              IsReadOnly="True"
+                              IsTextSearchEnabled="False" />
+                    <TextBlock Grid.Row="4" Text="设计弯沉" VerticalAlignment="Center" />
+                    <TextBox x:Name="DesignDeflectionBox" Grid.Row="4" Grid.Column="1" Height="26" TextChanged="GlobalInput_Changed" />
+                    <TextBlock Grid.Row="5" Text="累计轴次" VerticalAlignment="Center" />
+                    <TextBox x:Name="CumulativeAxleLoadsBox" Grid.Row="5" Grid.Column="1" Height="26" TextChanged="GlobalInput_Changed" />
                 </Grid>
                 <StackPanel x:Name="LayersPanel" />
             </StackPanel>
@@ -84,7 +175,7 @@
                     Margin="0,12,0,0">
             <Button Content="确定" Width="90" Height="32" Margin="0,0,8,0" IsDefault="True" Click="Ok_Click" />
             <Button Content="取消" Width="90" Height="32" Margin="0,0,8,0" IsCancel="True" Click="Cancel_Click" />
-            <Button Content="应用" Width="90" Height="32" Click="Apply_Click" />
+            <Button x:Name="ApplyButton" Content="应用" Width="90" Height="32" Click="Apply_Click" />
         </StackPanel>
     </Grid>
 </Window>

@@ -14,6 +14,7 @@ public static class RoadModelSectionViewerFile
         var request = new RoadModelSectionViewerRequest
         {
             Handle = Get(values, "handle"),
+            ResponsePath = Get(values, "responsePath"),
             RoadCenterlineHandle = Get(values, "roadCenterlineHandle"),
         };
 
@@ -37,6 +38,7 @@ public static class RoadModelSectionViewerFile
                 {
                     Kind = ParseKind(Get(values, $"{segmentPrefix}.kind")),
                     Label = Get(values, $"{segmentPrefix}.label"),
+                    ComponentName = Get(values, $"{segmentPrefix}.componentName"),
                     ColorR = GetInt(values, $"{segmentPrefix}.colorR"),
                     ColorG = GetInt(values, $"{segmentPrefix}.colorG"),
                     ColorB = GetInt(values, $"{segmentPrefix}.colorB"),
@@ -60,6 +62,17 @@ public static class RoadModelSectionViewerFile
         }
 
         return request;
+    }
+
+    public static void WriteResponse(string path, RoadModelSectionViewerResponse response)
+    {
+        var lines = new List<string>
+        {
+            $"action={ActionCode(response.Action)}",
+            $"accepted={(response.Accepted ? 1 : 0)}",
+            $"handle={Escape(response.Handle)}",
+        };
+        File.WriteAllLines(path, lines, Encoding.UTF8);
     }
 
     private static Dictionary<string, string> ReadValues(string path)
@@ -113,6 +126,32 @@ public static class RoadModelSectionViewerFile
             "PavementLayer" => RoadModelSectionViewerSegmentKind.PavementLayer,
             _ => RoadModelSectionViewerSegmentKind.Subgrade,
         };
+
+    private static string ActionCode(RoadModelSectionViewerAction action)
+        => action switch
+        {
+            RoadModelSectionViewerAction.DrawSections => "drawSections",
+            _ => "none",
+        };
+
+    private static string Escape(string value)
+    {
+        var builder = new StringBuilder();
+        foreach (var ch in value)
+        {
+            if (ch == '%' || ch == '\r' || ch == '\n')
+            {
+                builder.Append('%');
+                builder.Append(((int)ch).ToString("X2", CultureInfo.InvariantCulture));
+            }
+            else
+            {
+                builder.Append(ch);
+            }
+        }
+
+        return builder.ToString();
+    }
 
     private static string Unescape(string value)
     {

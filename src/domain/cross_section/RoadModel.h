@@ -38,6 +38,24 @@ struct RoadModelSlopeTemplateGroup {
     std::vector<RoadModelSlopeTemplateReference> templates;
 };
 
+enum class RoadModelStructureType {
+    Bridge,
+    Tunnel,
+};
+
+enum class RoadModelStructureSideRange {
+    Left,
+    Right,
+    Both,
+};
+
+struct RoadModelStructureRange {
+    double startStation = 0.0;
+    double endStation = 0.0;
+    RoadModelStructureType type = RoadModelStructureType::Bridge;
+    RoadModelStructureSideRange sideRange = RoadModelStructureSideRange::Both;
+};
+
 struct RoadModelSlopeConfig {
     double leftSearchWidth = 50.0;
     double rightSearchWidth = 50.0;
@@ -51,6 +69,7 @@ struct RoadModelConfig {
     double sampleInterval = 10.0;
     // Assignments are ordered from high to low priority; resolve returns the first matching row.
     std::vector<RoadModelTemplateAssignment> assignments;
+    std::vector<RoadModelStructureRange> structures;
     RoadModelSlopeConfig slopeConfig;
 };
 
@@ -152,6 +171,7 @@ struct RoadModelSectionNode {
     RoadModelPoint3d point;
     RoadModelWireColor color;
     std::wstring label;
+    std::wstring componentName;
 };
 
 struct RoadModelGroundProfilePoint {
@@ -250,6 +270,7 @@ struct RoadModelSectionPreviewSegment {
     RoadModelSectionPreviewSegmentKind kind = RoadModelSectionPreviewSegmentKind::Subgrade;
     RoadModelSectionPreviewColor color;
     std::wstring label;
+    std::wstring componentName;
     std::vector<RoadModelSectionPreviewPoint> points;
 };
 
@@ -284,6 +305,9 @@ public:
     static bool validateSlopeTemplateGroups(
         const std::vector<RoadModelSlopeTemplateGroup>& groups,
         std::wstring& errorMessage);
+    static bool validateStructureRanges(
+        const std::vector<RoadModelStructureRange>& structures,
+        std::wstring& errorMessage);
 };
 
 class RoadModelTemplateResolver {
@@ -313,6 +337,13 @@ public:
         double alignmentEnd,
         const profile::ProfileVerticalCurveData& verticalCurve,
         const std::vector<RoadModelTemplateAssignment>& assignments,
+        double sampleInterval);
+    static std::vector<double> collectStations(
+        double alignmentStart,
+        double alignmentEnd,
+        const profile::ProfileVerticalCurveData& verticalCurve,
+        const std::vector<RoadModelTemplateAssignment>& assignments,
+        const std::vector<RoadModelStructureRange>& structures,
         double sampleInterval);
 };
 

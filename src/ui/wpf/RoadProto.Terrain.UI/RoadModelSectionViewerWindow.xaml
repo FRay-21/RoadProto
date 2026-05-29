@@ -73,7 +73,14 @@
                 <Grid>
                     <Canvas x:Name="PreviewCanvas"
                             Background="#FFFFFF"
-                            SizeChanged="OnPreviewCanvasSizeChanged" />
+                            ClipToBounds="True"
+                            Focusable="True"
+                            SizeChanged="OnPreviewCanvasSizeChanged"
+                            MouseWheel="PreviewCanvas_MouseWheel"
+                            MouseLeftButtonDown="PreviewCanvas_MouseLeftButtonDown"
+                            MouseLeftButtonUp="PreviewCanvas_MouseLeftButtonUp"
+                            MouseMove="PreviewCanvas_MouseMove"
+                            MouseLeave="PreviewCanvas_MouseLeave" />
                     <StackPanel Orientation="Horizontal"
                                 HorizontalAlignment="Right"
                                 VerticalAlignment="Top"
@@ -105,7 +112,10 @@
                 <ColumnDefinition Width="Auto" />
             </Grid.ColumnDefinitions>
             <TextBlock Text="{Binding StatusText}" VerticalAlignment="Center" />
-            <Button Grid.Column="1" Content="关闭" Click="OnClose" />
+            <StackPanel Grid.Column="1" Orientation="Horizontal">
+                <Button Content="绘制横断面" Margin="0,0,8,0" Click="OnDrawSections" />
+                <Button Content="关闭" Click="OnClose" />
+            </StackPanel>
         </Grid>
     </Grid>
 </Window>

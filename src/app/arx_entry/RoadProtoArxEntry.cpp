@@ -6,6 +6,7 @@
 #include "cad_adapter/objectarx/ObjectArxRibbonAdapter.h"
 #include "cad_adapter/objectarx/cross_section/DnPavementLayerTemplateEntity.h"
 #include "cad_adapter/objectarx/cross_section/DnRoadModelEntity.h"
+#include "cad_adapter/objectarx/cross_section/DnRoadModelSectionDrawingEntity.h"
 #include "cad_adapter/objectarx/cross_section/DnSlopeTemplateEntity.h"
 #include "cad_adapter/objectarx/cross_section/DnSubgradeTemplateEntity.h"
 #include "cad_adapter/objectarx/profile/DnProfileGradeGraphEntity.h"
@@ -30,12 +31,14 @@ void initializeCustomEntityClasses()
     cad_adapter::objectarx::initializeSlopeTemplateEntityClass();
     cad_adapter::objectarx::initializePavementLayerTemplateEntityClass();
     cad_adapter::objectarx::initializeRoadModelEntityClass();
+    cad_adapter::objectarx::initializeRoadModelSectionDrawingEntityClass();
 }
 
 void uninitializeCustomEntityClasses()
 {
     using namespace roadproto;
 
+    cad_adapter::objectarx::uninitializeRoadModelSectionDrawingEntityClass();
     cad_adapter::objectarx::uninitializeRoadModelEntityClass();
     cad_adapter::objectarx::uninitializePavementLayerTemplateEntityClass();
     cad_adapter::objectarx::uninitializeSlopeTemplateEntityClass();

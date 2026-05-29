@@ -7,11 +7,14 @@
 #include <Windows.h>
 
 #include <chrono>
+#include <cctype>
 #include <cstdlib>
 #include <filesystem>
 #include <fstream>
 #include <iomanip>
+#include <locale>
 #include <sstream>
+#include <unordered_map>
 
 namespace roadproto::cad_adapter::objectarx::cross_section {
 namespace {
@@ -48,6 +51,34 @@ std::string wideToUtf8(const std::wstring& value)
     return output;
 }
 
+std::wstring utf8ToWide(const std::string& value)
+{
+    if (value.empty()) {
+        return {};
+    }
+
+    const int size = MultiByteToWideChar(
+        CP_UTF8,
+        0,
+        value.c_str(),
+        static_cast<int>(value.size()),
+        nullptr,
+        0);
+    if (size <= 0) {
+        return {};
+    }
+
+    std::wstring output(static_cast<std::size_t>(size), L'\0');
+    MultiByteToWideChar(
+        CP_UTF8,
+        0,
+        value.c_str(),
+        static_cast<int>(value.size()),
+        output.data(),
+        size);
+    return output;
+}
+
 std::string escapeValue(const std::wstring& value)
 {
     const auto utf8 = wideToUtf8(value);
@@ -61,6 +92,24 @@ std::string escapeValue(const std::wstring& value)
         }
     }
     return escaped.str();
+}
+
+std::wstring unescapeValue(const std::string& value)
+{
+    std::string output;
+    output.reserve(value.size());
+    for (std::size_t i = 0; i < value.size(); ++i) {
+        if (value[i] == '%' && i + 2 < value.size()
+            && std::isxdigit(static_cast<unsigned char>(value[i + 1]))
+            && std::isxdigit(static_cast<unsigned char>(value[i + 2]))) {
+            const auto code = value.substr(i + 1, 2);
+            output.push_back(static_cast<char>(std::strtoul(code.c_str(), nullptr, 16)));
+            i += 2;
+        } else {
+            output.push_back(value[i]);
+        }
+    }
+    return utf8ToWide(output);
 }
 
 std::wstring tempFilePath(const wchar_t* suffix)
@@ -101,7 +150,10 @@ void writeKeyValue(std::ostream& stream, const std::wstring& key, int value)
 
 void writeKeyValue(std::ostream& stream, const std::wstring& key, double value)
 {
+    const auto previousLocale = stream.getloc();
+    stream.imbue(std::locale::classic());
     stream << wideToUtf8(key) << '=' << std::setprecision(17) << value << '\n';
+    stream.imbue(previousLocale);
 }
 
 void writeKeyValue(std::ostream& stream, const std::wstring& key, std::size_t value)
@@ -128,6 +180,7 @@ std::wstring segmentKindText(roadproto::domain::cross_section::RoadModelSectionP
 bool writeRequestFile(
     const RoadModelSectionViewerRequest& request,
     const std::wstring& requestPath,
+    const std::wstring& responsePath,
     std::wstring& errorMessage)
 {
     std::ofstream stream(std::filesystem::path(requestPath), std::ios::binary);
@@ -137,6 +190,7 @@ bool writeRequestFile(
     }
 
     writeKeyValue(stream, L"handle", request.handle);
+    writeKeyValue(stream, L"responsePath", responsePath);
     writeKeyValue(stream, L"roadCenterlineHandle", request.roadCenterlineHandle);
     writeKeyValue(stream, L"previewCount", request.previews.size());
     for (std::size_t i = 0; i < request.previews.size(); ++i) {
@@ -153,6 +207,7 @@ bool writeRequestFile(
             const auto segmentPrefix = previewPrefix + L".segment." + std::to_wstring(j);
             writeKeyValue(stream, segmentPrefix + L".kind", segmentKindText(segment.kind));
             writeKeyValue(stream, segmentPrefix + L".label", segment.label);
+            writeKeyValue(stream, segmentPrefix + L".componentName", segment.componentName);
             writeKeyValue(stream, segmentPrefix + L".colorR", segment.color.r);
             writeKeyValue(stream, segmentPrefix + L".colorG", segment.color.g);
             writeKeyValue(stream, segmentPrefix + L".colorB", segment.color.b);
@@ -166,6 +221,56 @@ bool writeRequestFile(
     }
 
     return true;
+}
+
+std::unordered_map<std::wstring, std::wstring> readKeyValueFile(const std::wstring& path)
+{
+    std::ifstream stream(std::filesystem::path(path), std::ios::binary);
+    std::unordered_map<std::wstring, std::wstring> values;
+    std::string line;
+    while (std::getline(stream, line)) {
+        if (!line.empty() && line.back() == '\r') {
+            line.pop_back();
+        }
+        if (line.empty() || line[0] == '#') {
+            continue;
+        }
+        const auto separator = line.find('=');
+        if (separator == std::string::npos) {
+            continue;
+        }
+        auto key = utf8ToWide(line.substr(0, separator));
+        if (!key.empty() && key.front() == 0xFEFF) {
+            key.erase(key.begin());
+        }
+        values[key] = unescapeValue(line.substr(separator + 1));
+    }
+    return values;
+}
+
+std::wstring valueOrDefault(
+    const std::unordered_map<std::wstring, std::wstring>& values,
+    const std::wstring& key,
+    const std::wstring& fallback = L"")
+{
+    const auto found = values.find(key);
+    return found == values.end() ? fallback : found->second;
+}
+
+bool boolValue(
+    const std::unordered_map<std::wstring, std::wstring>& values,
+    const std::wstring& key,
+    bool fallback = false)
+{
+    const auto value = valueOrDefault(values, key, fallback ? L"1" : L"0");
+    return value == L"1" || value == L"true" || value == L"True";
+}
+
+RoadModelSectionViewerAction actionFromCode(const std::wstring& code)
+{
+    return code == L"drawSections"
+        ? RoadModelSectionViewerAction::DrawSections
+        : RoadModelSectionViewerAction::None;
 }
 
 bool writePendingRequestPath(const std::wstring& requestPath, std::wstring& errorMessage)
@@ -197,7 +302,8 @@ bool queueRoadModelSectionViewerWpfDialog(
     std::wstring& errorMessage)
 {
     const auto requestPath = tempFilePath(L".request");
-    if (!writeRequestFile(request, requestPath, errorMessage)) {
+    const auto responsePath = request.responsePath.empty() ? tempFilePath(L".response") : request.responsePath;
+    if (!writeRequestFile(request, requestPath, responsePath, errorMessage)) {
         return false;
     }
     if (!writePendingRequestPath(requestPath, errorMessage)) {
@@ -209,12 +315,34 @@ bool queueRoadModelSectionViewerWpfDialog(
     if (document == nullptr) {
         removeFileIfExists(pendingRequestPath());
         removeFileIfExists(requestPath);
+        removeFileIfExists(responsePath);
         errorMessage = L"No active AutoCAD document is available.";
         return false;
     }
 
     const std::wstring command = L"RD_SECTION_ROAD_MODEL_VIEW_SECTION_SHOW_WPF_DIALOG\n";
     acDocManager->sendStringToExecute(document, command.c_str(), true, false, false);
+    return true;
+}
+
+bool readRoadModelSectionViewerResponse(
+    const std::wstring& responsePath,
+    RoadModelSectionViewerResponse& response,
+    std::wstring& errorMessage)
+{
+    std::ifstream test(std::filesystem::path(responsePath), std::ios::binary);
+    if (!test) {
+        errorMessage = L"Cannot open road model section viewer response file.";
+        return false;
+    }
+    test.close();
+
+    const auto values = readKeyValueFile(responsePath);
+    response.action = actionFromCode(valueOrDefault(values, L"action"));
+    response.accepted = boolValue(values, L"accepted", false);
+    response.handle = valueOrDefault(values, L"handle");
+
+    removeFileIfExists(responsePath);
     return true;
 }
 

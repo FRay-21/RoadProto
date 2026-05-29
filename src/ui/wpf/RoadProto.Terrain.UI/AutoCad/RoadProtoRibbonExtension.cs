@@ -20,6 +20,7 @@ using CoreApplication = Autodesk.AutoCAD.ApplicationServices.Core.Application;
 [assembly: CommandClass(typeof(RoadProto.Terrain.UI.AutoCad.SlopeTemplateDialogCommands))]
 [assembly: CommandClass(typeof(RoadProto.Terrain.UI.AutoCad.RoadModelDialogCommands))]
 [assembly: CommandClass(typeof(RoadProto.Terrain.UI.AutoCad.RoadModelSectionViewerCommands))]
+[assembly: CommandClass(typeof(RoadProto.Terrain.UI.AutoCad.SectionDrawingConfigDialogCommands))]
 
 namespace RoadProto.Terrain.UI.AutoCad;
 
@@ -46,11 +47,16 @@ public sealed class RoadProtoRibbonExtension : IExtensionApplication
     private const string RoadModelCreateButtonId = "ROADPROTO_RD_SECTION_ROAD_MODEL_CREATE";
     private const string RoadModelEditButtonId = "ROADPROTO_RD_SECTION_ROAD_MODEL_EDIT";
     private const string RoadModelSectionViewerButtonId = "ROADPROTO_RD_SECTION_ROAD_MODEL_VIEW_SECTION";
+    private const string SectionDrawingConfigButtonId = "ROADPROTO_RD_SECTION_DRAWING_CONFIG";
+    private const string DrawingQuantityPanelId = "ROADPROTO_DRAWING_QUANTITY_PANEL";
+    private const string PavementQuantityTableButtonId = "ROADPROTO_RD_DRAWING_PAVEMENT_QUANTITY_TABLE";
+    private const string PavementStructureLegendButtonId = "ROADPROTO_RD_DRAWING_PAVEMENT_STRUCTURE_LEGEND";
     private const string TerrainTinDxfName = "DNTERRAINTINENTITY";
     private const string RoadCenterlineDxfName = "DNROADCENTERLINEENTITY";
     private const string ProfileGradeGraphDxfName = "DNPROFILEGRADEGRAPHENTITY";
     private const string ProfileVerticalCurveDxfName = "DNPROFILEVERTICALCURVEENTITY";
     private const string RoadModelDxfName = "DNROADMODELENTITY";
+    private const string SectionDrawingDxfName = "DNROADMODELSECTIONDRAWINGENTITY";
     private const string SubgradeTemplateDxfName = "DNSUBGRADETEMPLATEENTITY";
     private const string SlopeTemplateDxfName = "DNSLOPETEMPLATEENTITY";
     private const string PavementLayerTemplateDxfName = "DNPAVEMENTLAYERTEMPLATEENTITY";
@@ -320,6 +326,45 @@ public sealed class RoadProtoRibbonExtension : IExtensionApplication
                 "RD_SECTION_ROAD_MODEL_VIEW_SECTION "));
         }
 
+        if (!crossSectionPanel.Source.Items.OfType<RibbonButton>().Any(item => item.Id == SectionDrawingConfigButtonId))
+        {
+            crossSectionPanel.Source.Items.Add(CreateCrossSectionCommandButton(
+                SectionDrawingConfigButtonId,
+                "横断面图配置",
+                "配置已绘制横断面图的路面结构层",
+                "RD_SECTION_DRAWING_CONFIG "));
+        }
+
+        var drawingQuantityPanel = tab.Panels.FirstOrDefault(item => item.Source.Id == DrawingQuantityPanelId);
+        if (drawingQuantityPanel == null)
+        {
+            var source = new RibbonPanelSource
+            {
+                Id = DrawingQuantityPanelId,
+                Title = "出图出表",
+            };
+            drawingQuantityPanel = new RibbonPanel { Source = source };
+            tab.Panels.Add(drawingQuantityPanel);
+        }
+
+        if (!drawingQuantityPanel.Source.Items.OfType<RibbonButton>().Any(item => item.Id == PavementQuantityTableButtonId))
+        {
+            drawingQuantityPanel.Source.Items.Add(CreateDrawingQuantityCommandButton(
+                PavementQuantityTableButtonId,
+                "路面工程量统计表",
+                "选择已绘制横断面图并生成路面结构层面积和体积统计表",
+                "RD_DRAWING_PAVEMENT_QUANTITY_TABLE "));
+        }
+
+        if (!drawingQuantityPanel.Source.Items.OfType<RibbonButton>().Any(item => item.Id == PavementStructureLegendButtonId))
+        {
+            drawingQuantityPanel.Source.Items.Add(CreateDrawingQuantityCommandButton(
+                PavementStructureLegendButtonId,
+                "路面结构图例",
+                "选择道路模型或横断面图并绘制路面结构层图例",
+                "RD_DRAWING_PAVEMENT_STRUCTURE_LEGEND "));
+        }
+
         tab.IsActive = true;
 
         return true;
@@ -482,6 +527,15 @@ public sealed class RoadProtoRibbonExtension : IExtensionApplication
                 if (!SuppressDuplicateDoubleClick(roadModelId))
                 {
                     QueueRoadModelEditByHandle(document, roadModelId);
+                }
+                return;
+            }
+
+            if (TryFindEntityByDxfName(document, e.Location, SectionDrawingDxfName, out var sectionDrawingId))
+            {
+                if (!SuppressDuplicateDoubleClick(sectionDrawingId))
+                {
+                    QueueSectionDrawingConfigEditByHandle(document, sectionDrawingId);
                 }
                 return;
             }
@@ -746,6 +800,17 @@ public sealed class RoadProtoRibbonExtension : IExtensionApplication
         document.SendStringToExecute($"RD_SECTION_ROAD_MODEL_EDIT_HANDLE {handle}\n", true, false, true);
     }
 
+    private static void QueueSectionDrawingConfigEditByHandle(Document document, ObjectId entityId)
+    {
+        var handle = entityId.Handle.ToString();
+        if (string.IsNullOrWhiteSpace(handle))
+        {
+            return;
+        }
+
+        document.SendStringToExecute($"RD_SECTION_DRAWING_CONFIG_EDIT_HANDLE {handle}\n", true, false, true);
+    }
+
     private static void SendActiveDocumentCommand(string command)
     {
         CoreApplication.DocumentManager.MdiActiveDocument?
@@ -823,6 +888,25 @@ public sealed class RoadProtoRibbonExtension : IExtensionApplication
     private static RibbonButton CreateCrossSectionCommandButton(string id, string text, string toolTip, string command)
     {
         var icon = CreateCrossSectionIcon();
+        return new RibbonButton
+        {
+            Id = id,
+            Text = text,
+            ShowText = true,
+            ShowImage = true,
+            Image = icon,
+            LargeImage = icon,
+            Size = RibbonItemSize.Standard,
+            Orientation = Orientation.Horizontal,
+            ToolTip = toolTip,
+            CommandParameter = command,
+            CommandHandler = new SendCommandHandler(),
+        };
+    }
+
+    private static RibbonButton CreateDrawingQuantityCommandButton(string id, string text, string toolTip, string command)
+    {
+        var icon = CreateDrawingQuantityIcon();
         return new RibbonButton
         {
             Id = id,
@@ -932,6 +1016,33 @@ public sealed class RoadProtoRibbonExtension : IExtensionApplication
             new SolidColorBrush(Color.FromRgb(120, 120, 120)),
             null,
             Geometry.Parse("M 1,16 L 3,13 L 3,17 L 1,19 Z M 21,13 L 23,16 L 23,19 L 21,17 Z")));
+        drawingGroup.Freeze();
+        return new DrawingImage(drawingGroup);
+    }
+
+    private static ImageSource CreateDrawingQuantityIcon()
+    {
+        var drawingGroup = new DrawingGroup();
+        var borderPen = new Pen(new SolidColorBrush(Color.FromRgb(72, 82, 96)), 1.2);
+        var gridPen = new Pen(new SolidColorBrush(Color.FromRgb(124, 138, 156)), 0.8);
+        var chartPen = new Pen(new SolidColorBrush(Color.FromRgb(245, 112, 48)), 1.6);
+
+        drawingGroup.Children.Add(new GeometryDrawing(
+            new SolidColorBrush(Color.FromRgb(248, 250, 252)),
+            borderPen,
+            Geometry.Parse("M 4,3 L 18,3 L 22,7 L 22,22 L 4,22 Z")));
+        drawingGroup.Children.Add(new GeometryDrawing(
+            new SolidColorBrush(Color.FromRgb(220, 236, 255)),
+            null,
+            Geometry.Parse("M 18,3 L 22,7 L 18,7 Z")));
+        drawingGroup.Children.Add(new GeometryDrawing(
+            null,
+            gridPen,
+            Geometry.Parse("M 7,9 L 19,9 M 7,13 L 19,13 M 7,17 L 19,17 M 11,7 L 11,20 M 15,7 L 15,20")));
+        drawingGroup.Children.Add(new GeometryDrawing(
+            null,
+            chartPen,
+            Geometry.Parse("M 7,19 L 10,15 L 13,16 L 17,10 L 20,12")));
         drawingGroup.Freeze();
         return new DrawingImage(drawingGroup);
     }

@@ -51,6 +51,10 @@
    - 版本记录：`docs/dev/version_log.md`
    - README 或本文件
 
+## 计划文档语言规则
+
+`docs/superpowers/plans/` 下的实施计划文档必须使用中文编写。代码标识、命令名、文件路径、构建命令和必要的 API 名称可以保留英文原文；任务说明、步骤说明、预期结果、风险说明和验证说明必须写中文。
+
 ## Worktree 主目录同步规则
 
 本项目经常使用 `.worktrees/<分支名>` 做隔离开发。主项目目录 `F:\0_GPT_道路设计原型功能项目` 是用户日常查看、加载、继续开发的基准目录。无论本次开发发生在主目录还是 worktree 内，收尾前都必须保证主项目目录保留最新、同相对路径、内容一致的文档和所有代码副本，避免主目录代码或文档落后于实际开发分支。
@@ -147,6 +151,26 @@ D:\Program Files\Microsoft Visual Studio\18\Insiders\Common7\IDE\CommonExtension
 ```
 
 不要因为 `git` 未加入 PATH 就要求用户重复提供仓库 URL；先按上面的本机 Git 路径执行。
+
+## Windows PowerShell UTF-8 编码规范
+
+在 Windows / PowerShell 环境下执行任何可能输出中文的命令前，必须先完成 UTF-8 初始化，不要先直接读取中文文件、源码注释、日志或控制台输出再根据乱码猜测内容。
+
+固定前置命令为：
+
+```powershell
+$OutputEncoding = [System.Text.UTF8Encoding]::new($false)
+[Console]::OutputEncoding = [System.Text.UTF8Encoding]::new($false)
+[Console]::InputEncoding = [System.Text.UTF8Encoding]::new($false)
+```
+
+读取中文文档、中文源码注释或中文日志时，优先使用明确编码方式，例如：
+
+```powershell
+Get-Content -LiteralPath 'docs/coding_rules.md' -Encoding UTF8
+```
+
+如果发现控制台中文乱码，不允许基于乱码内容推断结论；必须重新执行 UTF-8 初始化命令后，再用明确编码方式重新读取原始内容。后续任务中把编码初始化作为固定前置步骤执行，不要每次都在回复中重复解释“刚才编码错误”。
 
 ## 本机编译与运行排查规则
 

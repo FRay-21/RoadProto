@@ -41,10 +41,33 @@ public sealed class RoadModelSectionViewerCommands
             var request = RoadModelSectionViewerFile.ReadRequest(requestPath);
             var window = new RoadModelSectionViewerWindow(request);
             window.ShowDialog();
+            if (window.Response == null)
+            {
+                return;
+            }
+
+            if (string.IsNullOrWhiteSpace(request.ResponsePath))
+            {
+                editor.WriteMessage("\nRoadProto road model section viewer response path is empty.");
+                return;
+            }
+
+            RoadModelSectionViewerFile.WriteResponse(request.ResponsePath, window.Response);
+            SendApplyCommand(document, request.ResponsePath);
         }
         catch (System.Exception error)
         {
             editor.WriteMessage($"\nRoadProto road model section viewer failed: {error.Message}");
         }
+    }
+
+    private static void SendApplyCommand(Autodesk.AutoCAD.ApplicationServices.Document document, string responsePath)
+    {
+        var responseCommandPath = responsePath.Replace('\\', '/');
+        document.SendStringToExecute(
+            $"RD_SECTION_ROAD_MODEL_VIEW_SECTION_APPLY_DIALOG_FILE \"{responseCommandPath}\"\n",
+            true,
+            false,
+            true);
     }
 }

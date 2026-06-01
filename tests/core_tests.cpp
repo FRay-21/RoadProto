@@ -1636,6 +1636,88 @@ void pavementQuantityTableSplitsByStructuresAndUsesAverageEndAreaMethod()
     }
 }
 
+void pavementQuantityTableKeepsDefaultAverageEndAreaCalculationMethod()
+{
+    using namespace roadproto::domain::quantity;
+
+    std::vector<PavementQuantitySectionSample> samples = {
+        PavementQuantitySectionSample{0.0, {PavementQuantityLayerSample{L"面层", 10.0, 1.0}}},
+        PavementQuantitySectionSample{100.0, {PavementQuantityLayerSample{L"面层", 20.0, 4.0}}},
+    };
+
+    std::wstring errorMessage;
+    const auto defaultResult = PavementQuantityTableCalculator::build(samples, {}, errorMessage);
+    CHECK(errorMessage.empty());
+
+    errorMessage.clear();
+    const auto explicitResult = PavementQuantityTableCalculator::build(
+        samples,
+        {},
+        PavementQuantityAggregationMode::ByLayerType,
+        PavementQuantityCalculationMethod::AverageEndArea,
+        errorMessage);
+
+    CHECK(errorMessage.empty());
+    CHECK(defaultResult.rows.size() == 1);
+    CHECK(explicitResult.rows.size() == 1);
+    if (defaultResult.rows.size() == 1 && explicitResult.rows.size() == 1) {
+        CHECK(std::fabs(defaultResult.rows[0].totals[0].projectedArea - explicitResult.rows[0].totals[0].projectedArea) < 1.0e-9);
+        CHECK(std::fabs(defaultResult.rows[0].totals[0].volume - explicitResult.rows[0].totals[0].volume) < 1.0e-9);
+        CHECK(std::fabs(explicitResult.rows[0].totals[0].projectedArea - 1500.0) < 1.0e-9);
+        CHECK(std::fabs(explicitResult.rows[0].totals[0].volume - 250.0) < 1.0e-9);
+    }
+}
+
+void pavementQuantityTableCanCalculateVolumeByPlanAreaAndThickness()
+{
+    using namespace roadproto::domain::quantity;
+
+    std::vector<PavementQuantitySectionSample> samples = {
+        PavementQuantitySectionSample{0.0, {PavementQuantityLayerSample{L"面层", 10.0, 1.0}}},
+        PavementQuantitySectionSample{100.0, {PavementQuantityLayerSample{L"面层", 20.0, 4.0}}},
+    };
+
+    std::wstring errorMessage;
+    const auto result = PavementQuantityTableCalculator::build(
+        samples,
+        {},
+        PavementQuantityAggregationMode::ByLayerType,
+        PavementQuantityCalculationMethod::PlanAreaByThickness,
+        errorMessage);
+
+    CHECK(errorMessage.empty());
+    CHECK(result.rows.size() == 1);
+    if (result.rows.size() == 1 && result.rows[0].totals.size() == 1) {
+        CHECK(std::fabs(result.rows[0].totals[0].projectedArea - 1500.0) < 1.0e-9);
+        CHECK(std::fabs(result.rows[0].totals[0].volume - 225.0) < 1.0e-9);
+    }
+}
+
+void pavementQuantityTablePlanAreaMethodTreatsZeroWidthThicknessAsZero()
+{
+    using namespace roadproto::domain::quantity;
+
+    std::vector<PavementQuantitySectionSample> samples = {
+        PavementQuantitySectionSample{0.0, {PavementQuantityLayerSample{L"面层", 0.0, 5.0}}},
+        PavementQuantitySectionSample{50.0, {PavementQuantityLayerSample{L"面层", 0.0, 3.0}}},
+    };
+
+    std::wstring errorMessage;
+    const auto result = PavementQuantityTableCalculator::build(
+        samples,
+        {},
+        PavementQuantityAggregationMode::ByLayerType,
+        PavementQuantityCalculationMethod::PlanAreaByThickness,
+        errorMessage);
+
+    CHECK(errorMessage.empty());
+    CHECK(result.rows.size() == 1);
+    if (result.rows.size() == 1 && result.rows[0].totals.size() == 1) {
+        CHECK(std::fabs(result.rows[0].totals[0].projectedArea - 0.0) < 1.0e-9);
+        CHECK(std::fabs(result.rows[0].totals[0].volume - 0.0) < 1.0e-9);
+    }
+}
+
 void pavementQuantityTableInterpolatesMissingStructureBoundaryStations()
 {
     using namespace roadproto::domain::quantity;
@@ -8096,6 +8178,9 @@ int main()
     pavementLayerTemplateWideningExtendsCurrentTopEdgeLine();
     pavementLayerTemplateRulesAcceptPositiveFiniteDisplayScale();
     pavementQuantityTableSplitsByStructuresAndUsesAverageEndAreaMethod();
+    pavementQuantityTableKeepsDefaultAverageEndAreaCalculationMethod();
+    pavementQuantityTableCanCalculateVolumeByPlanAreaAndThickness();
+    pavementQuantityTablePlanAreaMethodTreatsZeroWidthThicknessAsZero();
     pavementQuantityTableInterpolatesMissingStructureBoundaryStations();
     pavementQuantityTableCanAggregateByComponentAndLayerOrByLayerType();
     pavementQuantityDrawingFaceSamplerUsesEditedPolygonGeometry();

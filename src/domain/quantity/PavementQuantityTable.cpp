@@ -137,6 +137,19 @@ double layerValueAt(
     return 0.0;
 }
 
+double layerThicknessAt(
+    const std::vector<PavementQuantitySectionSample>& samples,
+    const std::wstring& layerName,
+    double station)
+{
+    const auto width = layerValueAt(samples, layerName, station, true);
+    if (width <= kStationTolerance) {
+        return 0.0;
+    }
+    const auto area = layerValueAt(samples, layerName, station, false);
+    return area / width;
+}
+
 struct ActiveSegmentKind {
     PavementQuantitySegmentType type = PavementQuantitySegmentType::Normal;
     int structureIndex = -1;
@@ -325,13 +338,33 @@ PavementQuantityTable PavementQuantityTableCalculator::build(
     const std::vector<PavementQuantityStructureRange>& structures,
     std::wstring& errorMessage)
 {
-    return build(samples, structures, PavementQuantityAggregationMode::ByLayerType, errorMessage);
+    return build(
+        samples,
+        structures,
+        PavementQuantityAggregationMode::ByLayerType,
+        PavementQuantityCalculationMethod::AverageEndArea,
+        errorMessage);
 }
 
 PavementQuantityTable PavementQuantityTableCalculator::build(
     const std::vector<PavementQuantitySectionSample>& samples,
     const std::vector<PavementQuantityStructureRange>& structures,
     PavementQuantityAggregationMode aggregationMode,
+    std::wstring& errorMessage)
+{
+    return build(
+        samples,
+        structures,
+        aggregationMode,
+        PavementQuantityCalculationMethod::AverageEndArea,
+        errorMessage);
+}
+
+PavementQuantityTable PavementQuantityTableCalculator::build(
+    const std::vector<PavementQuantitySectionSample>& samples,
+    const std::vector<PavementQuantityStructureRange>& structures,
+    PavementQuantityAggregationMode aggregationMode,
+    PavementQuantityCalculationMethod calculationMethod,
     std::wstring& errorMessage)
 {
     errorMessage.clear();
@@ -445,8 +478,15 @@ PavementQuantityTable PavementQuantityTableCalculator::build(
             const auto endWidth = layerValueAt(normalizedSamples, layerName, end, true);
             const auto startArea = layerValueAt(normalizedSamples, layerName, start, false);
             const auto endArea = layerValueAt(normalizedSamples, layerName, end, false);
-            row.totals[layerIndex].projectedArea += (startWidth + endWidth) * 0.5 * length;
-            row.totals[layerIndex].volume += (startArea + endArea) * 0.5 * length;
+            const auto segmentProjectedArea = (startWidth + endWidth) * 0.5 * length;
+            row.totals[layerIndex].projectedArea += segmentProjectedArea;
+            if (calculationMethod == PavementQuantityCalculationMethod::PlanAreaByThickness) {
+                const auto startThickness = layerThicknessAt(normalizedSamples, layerName, start);
+                const auto endThickness = layerThicknessAt(normalizedSamples, layerName, end);
+                row.totals[layerIndex].volume += segmentProjectedArea * (startThickness + endThickness) * 0.5;
+            } else {
+                row.totals[layerIndex].volume += (startArea + endArea) * 0.5 * length;
+            }
         }
     }
 

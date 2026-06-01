@@ -16,6 +16,11 @@ enum class PavementQuantityAggregationMode {
     ByComponentAndLayer,
 };
 
+enum class PavementQuantityCalculationMethod {
+    AverageEndArea,
+    PlanAreaByThickness,
+};
+
 struct PavementQuantityStructureRange {
     double startStation = 0.0;
     double endStation = 0.0;
@@ -64,6 +69,12 @@ public:
         const std::vector<PavementQuantitySectionSample>& samples,
         const std::vector<PavementQuantityStructureRange>& structures,
         PavementQuantityAggregationMode aggregationMode,
+        std::wstring& errorMessage);
+    static PavementQuantityTable build(
+        const std::vector<PavementQuantitySectionSample>& samples,
+        const std::vector<PavementQuantityStructureRange>& structures,
+        PavementQuantityAggregationMode aggregationMode,
+        PavementQuantityCalculationMethod calculationMethod,
         std::wstring& errorMessage);
 };
 

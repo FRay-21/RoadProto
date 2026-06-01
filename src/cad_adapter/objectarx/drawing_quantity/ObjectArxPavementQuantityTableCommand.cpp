@@ -45,6 +45,7 @@ using roadproto::domain::quantity::ClearTableQuantityDrawingFaceSampler;
 using roadproto::domain::quantity::ClearTableQuantityDrawingPoint;
 using roadproto::domain::quantity::ClearTableQuantitySectionSample;
 using roadproto::domain::quantity::PavementQuantityAggregationMode;
+using roadproto::domain::quantity::PavementQuantityCalculationMethod;
 using roadproto::domain::quantity::PavementQuantityDrawingFace;
 using roadproto::domain::quantity::PavementQuantityDrawingFaceSampler;
 using roadproto::domain::quantity::PavementQuantityDrawingPoint;
@@ -59,6 +60,9 @@ constexpr double kStationTolerance = 1.0e-7;
 constexpr DWORD kAggregationModeControlId = 101;
 constexpr DWORD kAggregationModeByComponentItemId = 1;
 constexpr DWORD kAggregationModeByLayerTypeItemId = 2;
+constexpr DWORD kCalculationMethodControlId = 201;
+constexpr DWORD kCalculationMethodAverageEndAreaItemId = 1;
+constexpr DWORD kCalculationMethodPlanAreaItemId = 2;
 
 std::wstring toUpper(std::wstring value)
 {
@@ -82,10 +86,12 @@ bool promptXlsFilePath(
     const ACHAR* defaultFileName,
     std::wstring& path,
     PavementQuantityAggregationMode& aggregationMode,
+    PavementQuantityCalculationMethod& calculationMethod,
     roadproto::cad_adapter::IEditor& editor)
 {
     path.clear();
     aggregationMode = PavementQuantityAggregationMode::ByComponentAndLayer;
+    calculationMethod = PavementQuantityCalculationMethod::AverageEndArea;
 
     HRESULT initializeResult = CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED);
     const bool shouldUninitialize = initializeResult == S_OK || initializeResult == S_FALSE;
@@ -123,6 +129,21 @@ bool promptXlsFilePath(
                 kAggregationModeControlId,
                 kAggregationModeByComponentItemId);
             customize->EndVisualGroup();
+
+            customize->StartVisualGroup(kCalculationMethodControlId + 10, L"断面计算方法");
+            customize->AddRadioButtonList(kCalculationMethodControlId);
+            customize->AddControlItem(
+                kCalculationMethodControlId,
+                kCalculationMethodAverageEndAreaItemId,
+                L"平均断面法");
+            customize->AddControlItem(
+                kCalculationMethodControlId,
+                kCalculationMethodPlanAreaItemId,
+                L"依照路面面积方法");
+            customize->SetSelectedControlItem(
+                kCalculationMethodControlId,
+                kCalculationMethodAverageEndAreaItemId);
+            customize->EndVisualGroup();
         }
 
         hr = dialog->Show(nullptr);
@@ -143,6 +164,12 @@ bool promptXlsFilePath(
                 if (SUCCEEDED(customize->GetSelectedControlItem(kAggregationModeControlId, &selectedMode))
                     && selectedMode == kAggregationModeByLayerTypeItemId) {
                     aggregationMode = PavementQuantityAggregationMode::ByLayerType;
+                }
+
+                DWORD selectedCalculationMethod = kCalculationMethodAverageEndAreaItemId;
+                if (SUCCEEDED(customize->GetSelectedControlItem(kCalculationMethodControlId, &selectedCalculationMethod))
+                    && selectedCalculationMethod == kCalculationMethodPlanAreaItemId) {
+                    calculationMethod = PavementQuantityCalculationMethod::PlanAreaByThickness;
                 }
             }
 
@@ -172,7 +199,7 @@ bool promptXlsFilePath(
         CoUninitialize();
     }
 
-    editor.writeWarning(L"系统保存对话框不可用，使用默认按部件和结构层统计模式。");
+    editor.writeWarning(L"系统保存对话框不可用，使用默认按部件和结构层统计模式、平均断面法。");
     resbuf* result = acutNewRb(RTSTR);
     if (result == nullptr) {
         editor.writeError(L"无法创建 XLS 文件选择缓冲。");
@@ -506,11 +533,13 @@ void runPavementQuantityTableCommand()
 
     std::wstring outputPath;
     PavementQuantityAggregationMode aggregationMode = PavementQuantityAggregationMode::ByComponentAndLayer;
+    PavementQuantityCalculationMethod calculationMethod = PavementQuantityCalculationMethod::AverageEndArea;
     if (!promptXlsFilePath(
             L"输出路面工程量统计表",
             L"pavement_quantity.xls",
             outputPath,
             aggregationMode,
+            calculationMethod,
             editor)) {
         return;
     }
@@ -519,6 +548,7 @@ void runPavementQuantityTableCommand()
         samples,
         structures,
         aggregationMode,
+        calculationMethod,
         errorMessage);
     if (!errorMessage.empty()) {
         editor.writeError(errorMessage);

@@ -4810,6 +4810,11 @@ void pavementQuantityCommandSourceContainsAggregationModeSaveDialog()
     CHECK(source.find("按结构层类型") != std::string::npos);
     CHECK(source.find("PavementQuantityAggregationMode::ByComponentAndLayer") != std::string::npos);
     CHECK(source.find("PavementQuantityAggregationMode::ByLayerType") != std::string::npos);
+    CHECK(source.find("断面计算方法") != std::string::npos);
+    CHECK(source.find("平均断面法") != std::string::npos);
+    CHECK(source.find("依照路面面积方法") != std::string::npos);
+    CHECK(source.find("PavementQuantityCalculationMethod::AverageEndArea") != std::string::npos);
+    CHECK(source.find("PavementQuantityCalculationMethod::PlanAreaByThickness") != std::string::npos);
 }
 
 void pavementQuantityCommandPrefersDrawingFacesContract()

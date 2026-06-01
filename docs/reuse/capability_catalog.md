@@ -59,7 +59,7 @@
 | 道路模型横断面落图实体 | V0.1.31 原型，每个桩号生成一个 `DnRoadModelSectionDrawingEntity`，保存外框、桩号文字、线段、结构层面域、清表面域、颜色、模板填充参数、横断面图配置、清表厚度、面域来源字段和 `manualEdited` 手动编辑标记；外框和桩号文字使用白色，用作后续面积标注和算量承载 | `src/cad_adapter/objectarx/cross_section/DnRoadModelSectionDrawingEntity.*` |
 | 横断面图配置模型 | V0.1.31 原型，支持 CSV 导入导出、起终点桩号范围、路基类型多选、表格行优先级解析、模板 handle 归一化、横断面图部件匹配、清表作用范围、厚度校验和单侧内外坡率解析 | `src/domain/cross_section/SectionDrawingConfigModel.*` |
 | 道路模型横断面查看 Bridge | V0.1.25 原型，通过请求文件把道路模型断面节点、结构层线和地面快照预览传给 WPF 查看窗口，通过响应文件触发模型空间批量绘制横断面动作 | `src/cad_adapter/objectarx/cross_section/RoadModelSectionViewerBridge.*` |
-| 路面工程量统计表 | V0.1.31 原型，优先从横断面图实体当前面域采样修改后的结构层断面数据，按构造物范围切分普通段、桥梁段和隧道段，支持按部件+结构层或按结构层类型统计平面投影面积，旧道路模型可从关联路基部件反推部件名，并用平均断面法累计体积，输出带居中、自动换行、列宽和字体字号样式的 `.xls` 表格；清表面域不并入路面工程量 | `src/domain/quantity/PavementQuantityTable.*`、`src/domain/quantity/RoadModelPavementQuantitySampler.*`、`src/domain/quantity/PavementQuantityDrawingFaceSampler.*` |
+| 路面工程量统计表 | V0.1.31 原型，优先从横断面图实体当前面域采样修改后的结构层断面数据，按构造物范围切分普通段、桥梁段和隧道段，支持按部件+结构层或按结构层类型统计平面投影面积，旧道路模型可从关联路基部件反推部件名，体积可按平均断面法或依照路面面积方法累计；依照路面面积方法保持面积列为平面投影面积，体积按平面面积乘平均厚度计算；输出带居中、自动换行、列宽和字体字号样式的 `.xls` 表格；清表面域不并入路面工程量 | `src/domain/quantity/PavementQuantityTable.*`、`src/domain/quantity/RoadModelPavementQuantitySampler.*`、`src/domain/quantity/PavementQuantityDrawingFaceSampler.*` |
 | 清表算量面域接口 | 未发布接口，承接横断面图 `clearTable:` 面域的点列、侧别、来源配置行和厚度，作为后续独立清表工程量命令的领域入口；当前不计算清表工程量 | `src/domain/quantity/ClearTableQuantityDrawingFaceSampler.*` |
 | 路面结构图例规划 | 未发布原型，按路面结构层模板生成图例列、表头列宽、结构层厚度厘米表达和不合并的底部填充样式图例项，结构图示内部不写层类型文字，ObjectARX 命令用普通 CAD 图元完成绘制 | `src/domain/quantity/PavementStructureLegend.*`、`src/cad_adapter/objectarx/drawing_quantity/ObjectArxPavementStructureLegendCommand.*` |
 

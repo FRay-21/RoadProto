@@ -156,6 +156,7 @@ void pavementLayerTemplateDocumentationAndVersionContracts()
     const auto quantityReuseDoc = readTextFileForTests(root / "docs" / "reuse" / "pavement_quantity_table.md");
     CHECK(quantityReuseDoc.find("PavementQuantityDrawingFaceSampler") != std::string::npos);
     CHECK(quantityReuseDoc.find("夹点修改后的数据进入算量") != std::string::npos);
+    CHECK(quantityReuseDoc.find("依照路面面积方法") != std::string::npos);
 
     const auto versionLog = readTextFileForTests(root / "docs" / "dev" / "version_log.md");
     CHECK(versionLog.find("v0.1.27_20260527_RoadModelStructures") != std::string::npos);
@@ -202,10 +203,14 @@ void pavementLayerTemplateDocumentationAndVersionContracts()
     const auto drawingQuantityModule = readTextFileForTests(root / "docs" / "modules" / "drawing_quantity.md");
     CHECK(drawingQuantityModule.find("PavementQuantityDrawingFaceSampler") != std::string::npos);
     CHECK(drawingQuantityModule.find("横断面图实体当前面域") != std::string::npos);
+    CHECK(drawingQuantityModule.find("断面计算方法") != std::string::npos);
+    CHECK(drawingQuantityModule.find("依照路面面积方法") != std::string::npos);
 
     const auto quantityBusinessDoc = readTextFileForTests(
         root / "docs" / "business" / "drawing_quantity" / L"路面工程量统计表.md");
     CHECK(quantityBusinessDoc.find("横断面图实体当前面域") != std::string::npos);
+    CHECK(quantityBusinessDoc.find("断面计算方法") != std::string::npos);
+    CHECK(quantityBusinessDoc.find("依照路面面积方法") != std::string::npos);
 
     const auto testsReadme = readTextFileForTests(root / "tests" / "README.md");
     CHECK(testsReadme.find("历史 V0.1.6 Core Console 验证记录") != std::string::npos);

@@ -25,7 +25,7 @@
   - 新增 `ClearTableQuantityDrawingFaceSampler` 领域接口，预留清表面域独立算量入口并承接厚度字段；本轮不计算清表工程量，也不并入路面工程量统计表。
   - 修正路基模板部件高度差在道路模型中的生效方式：高度差改为在当前部件内侧形成垂直台阶，不再摊入当前部件宽度生成附加坡度；绑定结构层的顶边同步继承该高度台阶。
   - 路面工程量统计表导出保存界面新增“断面计算方法”，支持 `平均断面法` 和 `依照路面面积方法`；后者面积列仍为平面投影面积，体积按平面面积乘平均厚度计算。
-- 验证状态：本轮路基模板高度差修正已通过核心测试 Debug/Release 构建与运行、`RoadProto.sln` Debug/Release 全量构建和 `git diff --check`；AutoCAD 图形界面仍待后续验证。
+- 验证状态：本轮路基模板高度差修正已通过核心测试 Debug/Release 构建与运行、`RoadProto.sln` Debug/Release 全量构建和 `git diff --check`；本轮路面工程量统计断面计算方法已通过核心测试 Debug/Release 构建与运行、WPF Debug/Release 构建、`RoadProto.sln` Debug/Release 全量构建和 `git diff --check`。AutoCAD 图形界面仍待后续验证。
 
 ## v0.1.31 - 2026-05-27
 

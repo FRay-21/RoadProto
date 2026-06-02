@@ -1302,7 +1302,7 @@ static void PavementLayerTemplateEnumsExposeWizardLayerTypes()
         "ApproachSlab");
 
     Check(PavementLayerTemplateLabels.LayerTypeLabel(asphaltSeal) == "沥青封层", "pavement layer labels should include asphalt seal");
-    Check(PavementLayerTemplateLabels.LayerTypeLabel(approachSlab) == "搭板层", "pavement layer labels should include approach slab");
+    Check(PavementLayerTemplateLabels.LayerTypeLabel(approachSlab) == "搭板", "pavement layer labels should display approach slab as 搭板");
     Check(PavementLayerTemplateLabels.DefaultLayers().Any(layer => layer.Type == asphaltSeal), "default layer options should include asphalt seal");
 }
 
@@ -1427,6 +1427,26 @@ static void PavementLayerTemplatePresetFactoryBuildsDocumentDefaults()
             Check(Math.Abs(preset.PreviewWidth - 3.0) < 1.0e-9, "all pavement layer wizard presets should default preview width to 3");
         }
     }
+}
+
+static void PavementLayerMaterialOptionsFollowLayerTypeAndAllowCustomNames()
+{
+    var upperSurfaceOptions = PavementLayerTemplateLabels.MaterialOptionsForLayerType(PavementLayerType.UpperSurface);
+    var baseOptions = PavementLayerTemplateLabels.MaterialOptionsForLayerType(PavementLayerType.Base);
+    var approachSlabOptions = PavementLayerTemplateLabels.MaterialOptionsForLayerType(PavementLayerType.ApproachSlab);
+
+    Check(upperSurfaceOptions.Contains("细粒式沥青混凝土 AC-13C"), "upper surface material options should include common asphalt materials");
+    Check(upperSurfaceOptions.Contains("沥青玛蹄脂碎石混合料 SMA-13"), "upper surface material options should include SMA recommendations");
+    Check(baseOptions.Contains("水泥稳定碎石"), "base material options should include cement stabilized crushed stone");
+    Check(baseOptions.Contains("贫混凝土基层"), "base material options should include lean concrete base");
+    Check(approachSlabOptions.Contains("钢筋混凝土搭板"), "approach slab material options should include reinforced concrete slab");
+    Check(!object.ReferenceEquals(upperSurfaceOptions, baseOptions), "material option lists should be type-specific");
+
+    var beforeCount = upperSurfaceOptions.Count;
+    upperSurfaceOptions.Add("用户自定义材料");
+    Check(
+        PavementLayerTemplateLabels.MaterialOptionsForLayerType(PavementLayerType.UpperSurface).Count == beforeCount,
+        "material option callers should receive a copy so custom text never mutates shared recommendations");
 }
 
 static void PavementLayerTemplateApplyUsesUniqueResponsePathContract()
@@ -1588,6 +1608,15 @@ static void PavementLayerTemplateWindowContainsRequiredEditorContracts()
     Check(source.Contains("drawTopEdge") && source.Contains("index == 0"), "pavement preview should draw shared layer boundaries once to avoid false intersections");
     Check(source.Contains("颜色 RGB"), "pavement editor should expose per-layer RGB color editing");
     Check(source.Contains("ColorRBox") && source.Contains("ColorGBox") && source.Contains("ColorBBox"), "pavement editor should keep RGB text boxes in layer controls");
+    Check(source.Contains("var nameBox = new ComboBox"), "pavement editor should use an editable material ComboBox for layer names");
+    Check(source.Contains("ItemsSource = PavementLayerTemplateLabels.MaterialOptionsForLayerType(layer.Type)"), "pavement material ComboBox should initialize from the selected layer type");
+    Check(source.Contains("IsEditable = true") && source.Contains("IsTextSearchEnabled = true") && source.Contains("StaysOpenOnEdit = true"), "pavement material ComboBox should allow searchable custom text entry");
+    Check(source.Contains("UpdateMaterialOptions(controls)") && source.Contains("controls.NameBox.Text"), "pavement material options should refresh by layer type while preserving typed text");
+    Check(source.Contains("SyncSelectedMaterialText(sender)") &&
+        source.Contains("e is SelectionChangedEventArgs") &&
+        source.Contains("comboBox.SelectedItem is string selectedMaterial") &&
+        source.Contains("comboBox.Text = selectedMaterial"),
+        "pavement material ComboBox should copy selected recommendation text into editable Text only for selection changes, leaving typed edits deletable");
     Check(source.Contains("LayerColor(PavementLayerTemplateLayerDto layer, int index)"), "pavement preview should derive color from layer RGB");
     Check(source.Contains("DefaultColorForLayerIndex(index)"), "pavement preview should fall back to the shared default palette");
     Check(source.Contains("Color.FromRgb(ToByte(layer.ColorR), ToByte(layer.ColorG), ToByte(layer.ColorB))"), "pavement preview should draw layer edges with user RGB");
@@ -1629,6 +1658,23 @@ static void PavementLayerTemplateCreateWizardWindowContainsRequiredContracts()
     Check(editorSource.Contains("MessageBox.Show(this, \"是否删除选中部件？\""), "pavement editor should confirm deleting the selected component");
 }
 
+static void PavementLayerTemplateCreateRequestUsesMainlinePresetWithoutShowingWizard()
+{
+    var root = FindRepoRoot();
+    var command = File.ReadAllText(
+        Path.Combine(root, "src", "ui", "wpf", "RoadProto.Terrain.UI", "AutoCad", "PavementLayerTemplateDialogCommands.cs"),
+        Encoding.UTF8);
+
+    Check(
+        command.Contains("PavementLayerTemplatePresetFactory.Create(") &&
+        command.Contains("PavementSurfaceType.Asphalt") &&
+        command.Contains("PavementLayerTemplateRoadSegmentType.MainlineLane"),
+        "pavement create request should initialize the editor with the asphalt mainline lane preset");
+    Check(
+        !command.Contains("new PavementLayerTemplateCreateWizardWindow(request)"),
+        "pavement create request should bypass the wizard window while keeping the wizard source available");
+}
+
 static void PavementLayerTemplateRibbonAndCommandSourceContractsExist()
 {
     var root = FindRepoRoot();
@@ -1665,9 +1711,11 @@ PavementLayerTemplateXmlFileRejectsMalformedXml();
 PavementLayerTemplateApplyUsesUniqueResponsePathContract();
 PavementLayerTemplateEnumsExposeWizardLayerTypes();
 PavementLayerTemplatePresetFactoryBuildsDocumentDefaults();
+PavementLayerMaterialOptionsFollowLayerTypeAndAllowCustomNames();
 SubgradeTemplateWindowContainsPavementTemplateBindingControls();
 SubgradeTemplateManagedCommandPreservesPickAction();
 PavementLayerTemplateWindowContainsRequiredEditorContracts();
 PavementLayerTemplateCreateWizardWindowContainsRequiredContracts();
+PavementLayerTemplateCreateRequestUsesMainlinePresetWithoutShowingWizard();
 PavementLayerTemplateRibbonAndCommandSourceContractsExist();
 Console.WriteLine("All RoadProto managed bridge tests passed.");

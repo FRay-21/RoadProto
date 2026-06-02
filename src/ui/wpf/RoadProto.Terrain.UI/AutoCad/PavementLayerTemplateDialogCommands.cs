@@ -50,16 +50,12 @@ public sealed class PavementLayerTemplateDialogCommands
 
             if (request.ShowCreateWizard)
             {
-                var wizard = new PavementLayerTemplateCreateWizardWindow(request);
-                if (wizard.ShowDialog() != true || wizard.SelectedTemplate == null)
-                {
-                    var cancelled = CreateCancelledResponse(request, false);
-                    PavementLayerTemplateDialogFile.WriteResponse(request.ResponsePath, cancelled);
-                    SendApplyCommand(document, request.ResponsePath);
-                    return;
-                }
-
-                ApplyTemplate(request, wizard.SelectedTemplate);
+                // 创建向导暂按当前原型意见绕过；恢复时继续使用保留的 PavementLayerTemplateCreateWizardWindow。
+                ApplyTemplate(
+                    request,
+                    PavementLayerTemplatePresetFactory.Create(
+                        PavementSurfaceType.Asphalt,
+                        PavementLayerTemplateRoadSegmentType.MainlineLane));
             }
 
             var window = new PavementLayerTemplateWindow(request);

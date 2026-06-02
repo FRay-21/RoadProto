@@ -137,7 +137,7 @@ void pavementLayerTemplateDocumentationAndVersionContracts()
     CHECK(reuseDoc.find("内侧 = closer to road centerline") != std::string::npos);
     CHECK(reuseDoc.find("路面结构层创建向导") != std::string::npos);
     CHECK(reuseDoc.find("沥青封层") != std::string::npos);
-    CHECK(reuseDoc.find("搭板层") != std::string::npos);
+    CHECK(reuseDoc.find("搭板") != std::string::npos);
 
     CHECK(std::filesystem::exists(root / "docs" / "business" / "cross_section" / L"横断面图配置.md"));
     const auto sectionConfigDoc = readTextFileForTests(
@@ -169,7 +169,7 @@ void pavementLayerTemplateDocumentationAndVersionContracts()
     CHECK(versionLog.find("是否可作为稳定测试版本：是。核心测试 Debug/Release、托管 bridge 测试、WPF Release 构建和 ARX Release 构建已验证") != std::string::npos);
     CHECK(versionLog.find("新增路面结构层创建向导") != std::string::npos);
     CHECK(versionLog.find("沥青封层") != std::string::npos);
-    CHECK(versionLog.find("搭板层") != std::string::npos);
+    CHECK(versionLog.find("搭板") != std::string::npos);
     CHECK(versionLog.find("v0.1.31_20260527_SectionDrawingConfig") != std::string::npos);
     CHECK(versionLog.find("RoadProto_v0.1.31_20260527_SectionDrawingConfig.arx") != std::string::npos);
     CHECK(versionLog.find("SectionDrawingConfigModel") != std::string::npos);
@@ -181,7 +181,7 @@ void pavementLayerTemplateDocumentationAndVersionContracts()
     CHECK(readme.find("RD_SECTION_PAVEMENT_LAYER_TEMPLATE_CREATE") != std::string::npos);
     CHECK(readme.find("RD_SECTION_DRAWING_CONFIG") != std::string::npos);
     CHECK(readme.find("RD_DRAWING_PAVEMENT_QUANTITY_TABLE") != std::string::npos);
-    CHECK(readme.find("运行创建命令后先打开路面结构层创建向导") != std::string::npos);
+    CHECK(readme.find("运行创建命令后直接打开原有 WPF 参数窗口") != std::string::npos);
     CHECK(readme.find("绘制横断面") != std::string::npos);
     CHECK(readme.find("构造物") != std::string::npos);
     CHECK(readme.find("横断面图配置") != std::string::npos);
@@ -190,7 +190,7 @@ void pavementLayerTemplateDocumentationAndVersionContracts()
     CHECK(moduleIndex.find("路面结构层模板") != std::string::npos);
     CHECK(moduleIndex.find(".rpavement.xml") != std::string::npos);
     CHECK(moduleIndex.find("结构层三维边界线和弱化填充面") != std::string::npos);
-    CHECK(moduleIndex.find("路面结构层创建向导") != std::string::npos);
+    CHECK(moduleIndex.find("直接套用“沥青路面-主线行车道”预设") != std::string::npos);
     CHECK(moduleIndex.find("批量绘制横断面") != std::string::npos);
     CHECK(moduleIndex.find("构造物范围") != std::string::npos);
     CHECK(moduleIndex.find("横断面图配置") != std::string::npos);
@@ -1156,7 +1156,7 @@ void pavementLayerTemplateRulesNormalizeThicknessAndCodes()
     CHECK(std::wstring(pavementLayerTypeCode(PavementLayerType::AsphaltSeal)) == L"AsphaltSeal");
     CHECK(std::wstring(pavementLayerTypeDisplayName(PavementLayerType::AsphaltSeal)) == L"沥青封层");
     CHECK(std::wstring(pavementLayerTypeCode(PavementLayerType::ApproachSlab)) == L"ApproachSlab");
-    CHECK(std::wstring(pavementLayerTypeDisplayName(PavementLayerType::ApproachSlab)) == L"搭板层");
+    CHECK(std::wstring(pavementLayerTypeDisplayName(PavementLayerType::ApproachSlab)) == L"搭板");
     CHECK(pavementLayerTypeFromCode(L"Base") == PavementLayerType::Base);
     CHECK(pavementLayerTypeFromCode(L"AsphaltSeal") == PavementLayerType::AsphaltSeal);
     CHECK(pavementLayerTypeFromCode(L"ApproachSlab") == PavementLayerType::ApproachSlab);

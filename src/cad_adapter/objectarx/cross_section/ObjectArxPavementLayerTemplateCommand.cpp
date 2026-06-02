@@ -139,7 +139,7 @@ void writeCreatedMessage(
 void runPavementLayerTemplateCreateCommand()
 {
     auto& editor = app::ApplicationContext::instance().editor();
-    editor.writeMessage(L"RD_SECTION_PAVEMENT_LAYER_TEMPLATE_CREATE: 正在打开路面结构层创建向导。");
+    editor.writeMessage(L"RD_SECTION_PAVEMENT_LAYER_TEMPLATE_CREATE: 正在打开路面结构层模板参数窗口。");
 
     PavementLayerTemplateCreateInput input;
     const PavementLayerTemplateCreateService service;

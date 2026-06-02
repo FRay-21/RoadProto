@@ -424,9 +424,35 @@ public partial class PavementLayerTemplateWindow : Window
             return;
         }
 
+        if (e is SelectionChangedEventArgs)
+        {
+            SyncSelectedMaterialText(sender);
+        }
+
         ApplyLayerInputs();
         RefreshLayerFieldVisibility();
         DrawPreview();
+    }
+
+    private void SyncSelectedMaterialText(object sender)
+    {
+        if (sender is not ComboBox comboBox || !comboBox.IsEditable)
+        {
+            return;
+        }
+
+        if (comboBox.SelectedItem is string selectedMaterial && comboBox.Text != selectedMaterial)
+        {
+            _applyingLayerInputs = true;
+            try
+            {
+                comboBox.Text = selectedMaterial;
+            }
+            finally
+            {
+                _applyingLayerInputs = false;
+            }
+        }
     }
 
     private void RefreshLayerGroups()
@@ -472,7 +498,16 @@ public partial class PavementLayerTemplateWindow : Window
             IsEditable = false,
         };
         SelectComboValue(typeBox, layer.Type);
-        var nameBox = new TextBox { Height = 26, Text = layer.Name };
+        var nameBox = new ComboBox
+        {
+            Height = 26,
+            ItemsSource = PavementLayerTemplateLabels.MaterialOptionsForLayerType(layer.Type),
+            IsEditable = true,
+            IsTextSearchEnabled = true,
+            StaysOpenOnEdit = true,
+            MinWidth = 220,
+            Text = layer.Name,
+        };
         var colorRBox = new TextBox { Height = 26, Width = 45, Text = ClampColor(layer.ColorR).ToString(CultureInfo.InvariantCulture) };
         var colorGBox = new TextBox { Height = 26, Width = 45, Text = ClampColor(layer.ColorG).ToString(CultureInfo.InvariantCulture) };
         var colorBBox = new TextBox { Height = 26, Width = 45, Text = ClampColor(layer.ColorB).ToString(CultureInfo.InvariantCulture) };
@@ -547,7 +582,8 @@ public partial class PavementLayerTemplateWindow : Window
         panel.Children.Add(outerSlopeRow);
 
         typeBox.SelectionChanged += LayerInput_Changed;
-        nameBox.TextChanged += LayerInput_Changed;
+        nameBox.SelectionChanged += LayerInput_Changed;
+        nameBox.AddHandler(TextBox.TextChangedEvent, new TextChangedEventHandler(LayerInput_Changed));
         colorRBox.TextChanged += LayerInput_Changed;
         colorGBox.TextChanged += LayerInput_Changed;
         colorBBox.TextChanged += LayerInput_Changed;
@@ -682,6 +718,7 @@ public partial class PavementLayerTemplateWindow : Window
                 layer.Name = string.IsNullOrWhiteSpace(controls.NameBox.Text)
                     ? PavementLayerTemplateLabels.LayerTypeLabel(layer.Type)
                     : controls.NameBox.Text.Trim();
+                UpdateMaterialOptions(controls);
                 layer.ColorR = ReadColorChannel(controls.ColorRBox.Text, layer.ColorR);
                 layer.ColorG = ReadColorChannel(controls.ColorGBox.Text, layer.ColorG);
                 layer.ColorB = ReadColorChannel(controls.ColorBBox.Text, layer.ColorB);
@@ -749,6 +786,24 @@ public partial class PavementLayerTemplateWindow : Window
         finally
         {
             _applyingLayerInputs = false;
+        }
+    }
+
+    private void UpdateMaterialOptions(LayerControls controls)
+    {
+        var text = controls.NameBox.Text;
+        var type = SelectedValue(controls.TypeBox, PavementLayerType.UpperSurface);
+        var options = PavementLayerTemplateLabels.MaterialOptionsForLayerType(type);
+        if (controls.NameBox.ItemsSource is IEnumerable<string> currentOptions &&
+            currentOptions.SequenceEqual(options))
+        {
+            return;
+        }
+
+        controls.NameBox.ItemsSource = options;
+        if (controls.NameBox.Text != text)
+        {
+            controls.NameBox.Text = text;
         }
     }
 
@@ -1879,7 +1934,7 @@ public partial class PavementLayerTemplateWindow : Window
         public LayerControls(
             int layerIndex,
             ComboBox typeBox,
-            TextBox nameBox,
+            ComboBox nameBox,
             TextBox colorRBox,
             TextBox colorGBox,
             TextBox colorBBox,
@@ -1944,7 +1999,7 @@ public partial class PavementLayerTemplateWindow : Window
 
         public int LayerIndex { get; }
         public ComboBox TypeBox { get; }
-        public TextBox NameBox { get; }
+        public ComboBox NameBox { get; }
         public TextBox ColorRBox { get; }
         public TextBox ColorGBox { get; }
         public TextBox ColorBBox { get; }

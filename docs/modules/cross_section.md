@@ -5,7 +5,7 @@
 - 模块名称：横断面设计
 - 模块编码：`CROSS_SECTION`
 - 命令前缀：`RD_SECTION_`
-- 当前状态：已实现路基模板独立实体创建、边坡模板独立实体创建、路面结构层模板独立实体创建、路面结构层创建向导、向导内外侧厚度/加宽/坡度编辑、每层 RGB 颜色、每层填充类型/角度/比例、当前层编辑、结构层新增/删除、索引颜色选择、可折叠显示的路面结构层模板高级通用参数、WPF 参数窗口、`.rpavement.xml` 导入导出、二维预览、双击编辑入口、桥接回写、路基部件点选绑定结构层模板和插入点夹点移动；已实现横断面戴帽道路模型创建、编辑、WPF 路基模板范围表、左右边坡模板组、构造物范围表、模板组管理入口、生成进度反馈、构造物范围按左侧/右侧/两侧跳过边坡放坡、`DnRoadModelEntity` 三维道路模型网格线框实体、路面结构层弱化填充面和层色边线、断面地面快照、按采样桩号查看横断面预览、预览拖动缩放、批量绘制横断面和 `DnRoadModelSectionDrawingEntity` 自定义实体落图，落图外框和桩号文字使用白色；已实现横断面图配置、CSV 导入导出、路基类型多选、按同桩号同路基部件行优先级绘制图上路面结构层、带厚度字段的清表 tab 配置、地面线下方清表面域绘制、结构层面域顶点夹点手动编辑和双击横断面图二次编辑。
+- 当前状态：已实现路基模板独立实体创建、边坡模板独立实体创建、路面结构层模板独立实体创建、路面结构层模板新建时直接套用“沥青路面-主线行车道”预设并打开参数窗口、原创建向导代码保留、每层 RGB 颜色、每层填充类型/角度/比例、当前层编辑、结构层新增/删除、索引颜色选择、可折叠显示的路面结构层模板高级通用参数、WPF 参数窗口、`.rpavement.xml` 导入导出、二维预览、双击编辑入口、桥接回写、路基部件点选绑定结构层模板和插入点夹点移动；已实现横断面戴帽道路模型创建、编辑、WPF 路基模板范围表、左右边坡模板组、构造物范围表、模板组管理入口、生成进度反馈、构造物范围按左侧/右侧/两侧跳过边坡放坡、`DnRoadModelEntity` 三维道路模型网格线框实体、路面结构层弱化填充面和层色边线、断面地面快照、按采样桩号查看横断面预览、预览拖动缩放、批量绘制横断面和 `DnRoadModelSectionDrawingEntity` 自定义实体落图，落图外框和桩号文字使用白色；已实现横断面图配置、CSV 导入导出、路基类型多选、按同桩号同路基部件行优先级绘制图上路面结构层、带厚度字段的清表 tab 配置、地面线下方清表面域绘制、结构层面域顶点夹点手动编辑和双击横断面图二次编辑。
 
 ## 命令清单
 
@@ -69,9 +69,9 @@
 | cad_adapter | `src/cad_adapter/objectarx/cross_section/SectionDrawingConfigDialogBridge.*` | 横断面图配置 WPF 请求/响应文件桥接 |
 | WPF | `src/ui/wpf/RoadProto.Terrain.UI/SubgradeTemplateWindow.xaml` | 参数窗口和二维预览 |
 | WPF | `src/ui/wpf/RoadProto.Terrain.UI/SlopeTemplateWindow.xaml` | 边坡模板参数窗口和二维线框预览 |
-| WPF | `src/ui/wpf/RoadProto.Terrain.UI/PavementLayerTemplateWindow.xaml` | 路面结构层模板参数窗口、当前层编辑、预览点击选层、当前部件上/下新增、选中部件确认删除、索引颜色、填充显示方式、填充角度/比例、显示全部通用参数折叠区、固定模型尺寸的白色引线式层名厚度标注、加宽尺寸箭头、坡度侧边标注、二维预览和 `.rpavement.xml` 导入导出 |
-| WPF | `src/ui/wpf/RoadProto.Terrain.UI/PavementLayerTemplateCreateWizardWindow.xaml` | 路面结构层创建向导，按路面类型和适应路段类型选择文档预设，并在同一层行中快速调整各层内外侧厚度、内外侧加宽和内外侧坡度 |
-| WPF | `src/ui/wpf/RoadProto.Terrain.UI/Bridge/PavementLayerTemplatePresetFactory.cs` | 路面结构层创建向导文档预设工厂 |
+| WPF | `src/ui/wpf/RoadProto.Terrain.UI/PavementLayerTemplateWindow.xaml` | 路面结构层模板参数窗口、当前层编辑、材料名称可编辑下拉推荐项、预览点击选层、当前部件上/下新增、选中部件确认删除、索引颜色、填充显示方式、填充角度/比例、显示全部通用参数折叠区、固定模型尺寸的白色引线式层名厚度标注、加宽尺寸箭头、坡度侧边标注、二维预览和 `.rpavement.xml` 导入导出 |
+| WPF | `src/ui/wpf/RoadProto.Terrain.UI/PavementLayerTemplateCreateWizardWindow.xaml` | 暂时保留的路面结构层创建向导源码，恢复后可按路面类型和适应路段类型选择文档预设 |
+| WPF | `src/ui/wpf/RoadProto.Terrain.UI/Bridge/PavementLayerTemplatePresetFactory.cs` | 路面结构层文档预设工厂，当前新建流程默认取“沥青路面-主线行车道”预设 |
 | WPF | `src/ui/wpf/RoadProto.Terrain.UI/StationValueTableWindow.xaml` | 变宽/变坡二级表格 |
 | WPF | `src/ui/wpf/RoadProto.Terrain.UI/RoadModelWindow.xaml` | 横断面戴帽窗口、路基模板范围表、左右边坡模板组、构造物范围表、组内模板管理和生成入口 |
 | WPF | `src/ui/wpf/RoadProto.Terrain.UI/RoadModelSectionViewerWindow.xaml` | 查看横断面窗口、桩号列表、支持拖动缩放的预览图、图例和绘制横断面按钮 |
@@ -121,8 +121,8 @@
 ## 2026-05-20 更新
 
 - 新增路面结构层模板完整工作流：独立实体创建、双击编辑、WPF 桥接回写和 `.rpavement.xml` 导入导出。
-- 路面结构层类型固定为上面层、中面层、下面层、沥青封层、基层、底基层、垫层和搭板层；厚度支持等厚和内外侧非等厚。
-- 路面结构层模板创建流程新增创建向导；向导仅用于新建模板，双击或 handle 编辑既有模板时仍直接打开原有 WPF 参数窗口。
+- 路面结构层类型固定为上面层、中面层、下面层、沥青封层、基层、底基层、垫层和搭板；厚度支持等厚和内外侧非等厚。
+- 路面结构层模板创建流程当前绕过创建向导，直接套用“沥青路面-主线行车道”预设并打开原有 WPF 参数窗口；向导源码保留，双击或 handle 编辑既有模板时仍直接打开同一窗口。
 - 路基模板部件可点选 DWG 中的路面结构层模板实体并保存 handle；所有部件类型均可绑定。
 - 横断面道路模型生成时读取绑定的结构层模板，生成结构层三维边界线并由 `DnRoadModelEntity` 显示为弱化填充面和层色边线。
 - 查看横断面窗口在路基模板线、边坡模板线和地面线之外显示 `结构层`。

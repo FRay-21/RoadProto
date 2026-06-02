@@ -427,7 +427,7 @@ const wchar_t* pavementLayerTypeDisplayName(PavementLayerType type)
     case PavementLayerType::AsphaltSeal:
         return L"\u6ca5\u9752\u5c01\u5c42";
     case PavementLayerType::ApproachSlab:
-        return L"\u642d\u677f\u5c42";
+        return L"\u642d\u677f";
     default:
         return L"\u4e0a\u9762\u5c42";
     }

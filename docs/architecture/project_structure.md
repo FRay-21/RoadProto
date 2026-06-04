@@ -14,6 +14,7 @@ src/
     version/
   cad_adapter/
     objectarx/
+      agent/              # Agent 原型规划：受控工具网关的 ObjectARX 执行落点
     transaction/
     selection/
     entity/
@@ -33,6 +34,7 @@ src/
     quantity/
     relation/
   application/
+    agent/                # Agent 原型规划：工具请求解析、schema 校验和参数转换
     terrain/
     alignment/
     intersection/
@@ -40,6 +42,7 @@ src/
     cross_section/
     drawing_quantity/
   modules/
+    agent/                # Agent 原型规划：AI_AGENT 模块注册和命令元数据
     terrain/
     alignment/
     interchange/
@@ -57,8 +60,13 @@ src/
         Bridge/
         ViewModels/
     resources/
+  agent/                  # Agent 原型规划：本地 sidecar 和相关测试
+    RoadProto.Agent.Host/
+    RoadProto.Agent.Tests/
 docs/
+  agent/                  # Agent 原型规划：总览、工具协议和 skill 文档
   business/
+    agent/                # Agent 原型规划：设计软件原型 Agent 业务文档
   rules/
   modules/
   reuse/

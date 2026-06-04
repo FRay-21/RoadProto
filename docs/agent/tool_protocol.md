@@ -9,9 +9,11 @@
   "tool": "cross_section.subgrade_template.create",
   "requestId": "uuid",
   "arguments": {},
-  "resultPath": "%TEMP%/RoadProtoAgentToolResult_<pid>_<requestId>.json"
+  "resultPath": "%TEMP%/RoadProtoAgent/RoadProtoAgentToolResult_<pid>_<requestId>.json"
 }
 ```
+
+示例中的 `resultPath` 不是模型可自由填写的字段；实际执行时必须由受信任宿主 WPF 或本地 Agent 后端注入，并且必须位于 RoadProto Agent 专用临时目录。
 
 ## 请求字段白名单
 

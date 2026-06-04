@@ -275,6 +275,77 @@ public sealed class AgentAdminApiTests : IDisposable
         Assert.Equal(new Uri("https://api.openai.com/v1/chat/completions"), handler.LastRequestUri);
         Assert.Equal("Bearer", handler.LastAuthorizationScheme);
         Assert.Equal("sk-test-secret", handler.LastAuthorizationParameter);
+        Assert.Equal(1, handler.CallCount);
+    }
+
+    [Fact]
+    public async Task TestingModelProfileWithCorruptedSecretReturnsReadableMessage()
+    {
+        using var handler = new StubChatHandler();
+        using var httpClient = new HttpClient(handler);
+        using var factory = CreateFactory(services =>
+        {
+            services.AddSingleton(new OpenAiCompatibleChatClient(httpClient));
+        });
+        using var client = factory.CreateClient();
+
+        using var createResponse = await client.PostAsJsonAsync(
+            "/api/admin/model-profiles",
+            new UpsertModelProfileRequest(
+                "openai",
+                "OpenAICompatible",
+                "https://api.openai.com/v1",
+                "gpt-4.1",
+                0.2,
+                60,
+                "sk-test-secret",
+                true));
+        Assert.Equal(HttpStatusCode.OK, createResponse.StatusCode);
+        await File.WriteAllBytesAsync(
+            Path.Combine(root, "secrets", AgentSecretStore.CreateSecretId("openai") + ".bin"),
+            Encoding.UTF8.GetBytes("not a dpapi payload"));
+
+        using var response = await client.PostAsync("/api/admin/model-profiles/openai/test", null);
+
+        Assert.NotEqual(HttpStatusCode.InternalServerError, response.StatusCode);
+        var body = await ReadResponseTextAsync(response);
+        Assert.True(
+            body.Contains("API Key 无法读取", StringComparison.Ordinal)
+                || body.Contains("重新保存", StringComparison.Ordinal),
+            $"Unexpected response body: {body}");
+        Assert.Equal(0, handler.CallCount);
+    }
+
+    [Fact]
+    public async Task TestingUnsupportedModelProviderReturnsReadableMessage()
+    {
+        using var handler = new StubChatHandler();
+        using var httpClient = new HttpClient(handler);
+        using var factory = CreateFactory(services =>
+        {
+            services.AddSingleton(new OpenAiCompatibleChatClient(httpClient));
+        });
+        using var client = factory.CreateClient();
+
+        using var createResponse = await client.PostAsJsonAsync(
+            "/api/admin/model-profiles",
+            new UpsertModelProfileRequest(
+                "local",
+                "LocalOnly",
+                "https://api.openai.com/v1",
+                "local-model",
+                0.2,
+                60,
+                "sk-test-secret",
+                true));
+        Assert.Equal(HttpStatusCode.OK, createResponse.StatusCode);
+
+        using var response = await client.PostAsync("/api/admin/model-profiles/local/test", null);
+
+        Assert.NotEqual(HttpStatusCode.InternalServerError, response.StatusCode);
+        var body = await ReadResponseTextAsync(response);
+        Assert.Contains("暂不支持连接测试", body, StringComparison.Ordinal);
+        Assert.Equal(0, handler.CallCount);
     }
 
     [Fact]
@@ -400,8 +471,27 @@ public sealed class AgentAdminApiTests : IDisposable
         return multipart;
     }
 
+    private static async Task<string> ReadResponseTextAsync(HttpResponseMessage response)
+    {
+        var text = await response.Content.ReadAsStringAsync();
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            return string.Empty;
+        }
+
+        try
+        {
+            return System.Text.Json.JsonSerializer.Deserialize<string>(text) ?? text;
+        }
+        catch (System.Text.Json.JsonException)
+        {
+            return text;
+        }
+    }
+
     private sealed class StubChatHandler : HttpMessageHandler
     {
+        public int CallCount { get; private set; }
         public Uri? LastRequestUri { get; private set; }
         public string? LastAuthorizationScheme { get; private set; }
         public string? LastAuthorizationParameter { get; private set; }
@@ -410,6 +500,7 @@ public sealed class AgentAdminApiTests : IDisposable
             HttpRequestMessage request,
             CancellationToken cancellationToken)
         {
+            CallCount++;
             LastRequestUri = request.RequestUri;
             LastAuthorizationScheme = request.Headers.Authorization?.Scheme;
             LastAuthorizationParameter = request.Headers.Authorization?.Parameter;

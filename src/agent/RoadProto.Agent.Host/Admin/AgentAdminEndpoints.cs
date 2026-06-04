@@ -1,3 +1,4 @@
+using System.Security.Cryptography;
 using System.Text.RegularExpressions;
 using RoadProto.Agent.Host.Providers;
 
@@ -165,9 +166,26 @@ public static class AgentAdminEndpoints
                 return Results.NotFound();
             }
 
-            var apiKey = string.IsNullOrWhiteSpace(profile.SecretId)
-                ? string.Empty
-                : await secrets.ReadAsync(profile.SecretId, cancellationToken).ConfigureAwait(false) ?? string.Empty;
+            if (!string.Equals(profile.Provider, "OpenAICompatible", StringComparison.OrdinalIgnoreCase))
+            {
+                return Results.Ok($"当前模型 Provider {profile.Provider} 暂不支持连接测试。");
+            }
+
+            string apiKey;
+            try
+            {
+                apiKey = string.IsNullOrWhiteSpace(profile.SecretId)
+                    ? string.Empty
+                    : await secrets.ReadAsync(profile.SecretId, cancellationToken).ConfigureAwait(false) ?? string.Empty;
+            }
+            catch (Exception ex) when (ex is CryptographicException
+                or IOException
+                or UnauthorizedAccessException
+                or InvalidOperationException)
+            {
+                return Results.Ok("模型 API Key 无法读取或已损坏。请重新保存该模型的 API Key。");
+            }
+
             var result = await modelClient.TestConnectionAsync(profile, apiKey, cancellationToken).ConfigureAwait(false);
             return Results.Ok(result);
         });

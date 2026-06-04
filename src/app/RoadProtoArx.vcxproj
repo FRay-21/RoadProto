@@ -94,6 +94,8 @@
     <ClCompile Include="..\domain\terrain\TerrainTriangleSpatialIndex.cpp" />
     <ClCompile Include="..\domain\terrain\TerrainTinBuilder.cpp" />
     <ClCompile Include="..\application\alignment\AlignmentCreateService.cpp" />
+    <ClCompile Include="..\application\agent\AgentJsonValue.cpp" />
+    <ClCompile Include="..\application\agent\AgentToolRequest.cpp" />
     <ClCompile Include="..\application\cross_section\RoadModelBuildService.cpp" />
     <ClCompile Include="..\application\cross_section\PavementLayerTemplateCreateService.cpp" />
     <ClCompile Include="..\application\cross_section\SlopeTemplateCreateService.cpp" />

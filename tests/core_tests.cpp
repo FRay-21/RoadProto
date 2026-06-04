@@ -1,6 +1,7 @@
 #include "application/cross_section/RoadModelBuildService.h"
 #include "application/cross_section/PavementLayerTemplateCreateService.h"
 #include "application/cross_section/SubgradeTemplateCreateService.h"
+#include "application/agent/AgentToolRequest.h"
 #include "application/profile/ProfileGradeGraphCreateService.h"
 #include "application/profile/ProfileVerticalCurveCreateService.h"
 #include "application/profile/ProfileVerticalCurveEditService.h"
@@ -8145,6 +8146,92 @@ void terrainTriangleSpatialIndexFiltersCrossSectionCandidates()
     CHECK(diagonalCandidates.size() < triangles.size() / 2);
 }
 
+void agentToolRequestParsesSubgradeTemplateCreateJson()
+{
+    using roadproto::application::agent::parseAgentToolRequestJson;
+
+    const std::string json =
+        "{"
+        "\"tool\":\"cross_section.subgrade_template.create\","
+        "\"requestId\":\"agent-001\","
+        "\"resultPath\":\"C:/Temp/result.json\","
+        "\"arguments\":{"
+        "\"templateName\":\"K1\","
+        "\"displayScale\":20,"
+        "\"roadGrade\":\"SecondClass\","
+        "\"insertionPoint\":{\"mode\":\"Explicit\",\"x\":10,\"y\":20,\"z\":0},"
+        "\"componentSource\":\"DefaultByRoadGrade\","
+        "\"components\":[]"
+        "}"
+        "}";
+
+    std::wstring error;
+    const auto request = parseAgentToolRequestJson(json, error);
+    CHECK(error.empty());
+    CHECK(request.succeeded);
+    CHECK(request.tool == L"cross_section.subgrade_template.create");
+    CHECK(request.requestId == L"agent-001");
+    CHECK(request.resultPath == L"C:/Temp/result.json");
+    CHECK(request.arguments.templateName == L"K1");
+    CHECK(std::fabs(request.arguments.displayScale - 20.0) < 1.0e-9);
+    CHECK(request.arguments.roadGrade == L"SecondClass");
+    CHECK(request.arguments.insertionPoint.mode == L"Explicit");
+    CHECK(std::fabs(request.arguments.insertionPoint.x - 10.0) < 1.0e-9);
+    CHECK(std::fabs(request.arguments.insertionPoint.y - 20.0) < 1.0e-9);
+}
+
+void agentToolRequestRejectsUnknownTool()
+{
+    using roadproto::application::agent::parseAgentToolRequestJson;
+
+    const std::string json =
+        "{"
+        "\"tool\":\"acad.command.free_text\","
+        "\"requestId\":\"agent-002\","
+        "\"arguments\":{}"
+        "}";
+
+    std::wstring error;
+    const auto request = parseAgentToolRequestJson(json, error);
+    CHECK(!request.succeeded);
+    CHECK(error.find(L"Unsupported agent tool") != std::wstring::npos);
+}
+
+void agentJsonValueParsesUtf8StringsArraysBooleansAndNull()
+{
+    using roadproto::application::agent::AgentJsonValue;
+    using roadproto::application::agent::parseAgentJson;
+
+    const std::string json =
+        "{"
+        "\"name\":\"中文模板\","
+        "\"escaped\":\"line\\ntext\","
+        "\"enabled\":true,"
+        "\"missing\":null,"
+        "\"values\":[1,false,\"K1\"]"
+        "}";
+
+    AgentJsonValue value;
+    std::wstring error;
+    CHECK(parseAgentJson(json, value, error));
+    CHECK(error.empty());
+    CHECK(value.isObject());
+    CHECK(value.find(L"name") != nullptr);
+    CHECK(value.find(L"name")->stringValue == L"中文模板");
+    CHECK(value.find(L"escaped") != nullptr);
+    CHECK(value.find(L"escaped")->stringValue == L"line\ntext");
+    CHECK(value.find(L"enabled") != nullptr);
+    CHECK(value.find(L"enabled")->booleanValue);
+    CHECK(value.find(L"missing") != nullptr);
+    CHECK(value.find(L"missing")->type == AgentJsonValue::Type::Null);
+    CHECK(value.find(L"values") != nullptr);
+    CHECK(value.find(L"values")->isArray());
+    CHECK(value.find(L"values")->arrayValue.size() == 3);
+    CHECK(value.find(L"values")->arrayValue[0].numberValue == 1.0);
+    CHECK(!value.find(L"values")->arrayValue[1].booleanValue);
+    CHECK(value.find(L"values")->arrayValue[2].stringValue == L"K1");
+}
+
 } // namespace
 
 int main()
@@ -8278,6 +8365,9 @@ int main()
     terrainTinBuilderCreatesTrianglesAndRejectsCollinearInput();
     terrainSurfaceQueryInterpolatesElevationInsideTriangle();
     terrainTriangleSpatialIndexFiltersCrossSectionCandidates();
+    agentToolRequestParsesSubgradeTemplateCreateJson();
+    agentToolRequestRejectsUnknownTool();
+    agentJsonValueParsesUtf8StringsArraysBooleansAndNull();
     terrainMeshFileRoundTripsTinData();
     terrainMeshFileRejectsInvalidFiles();
     stationFormatterFormatsEngineeringStations();

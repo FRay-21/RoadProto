@@ -91,6 +91,8 @@
     <ClCompile Include="..\src\application\cross_section\PavementLayerTemplateCreateService.cpp" />
     <ClCompile Include="..\src\application\cross_section\SlopeTemplateCreateService.cpp" />
     <ClCompile Include="..\src\application\cross_section\SubgradeTemplateCreateService.cpp" />
+    <ClCompile Include="..\src\application\agent\AgentJsonValue.cpp" />
+    <ClCompile Include="..\src\application\agent\AgentToolRequest.cpp" />
     <ClCompile Include="..\src\application\terrain\TerrainUpdateSampleService.cpp" />
     <ClCompile Include="..\src\modules\cross_section\CrossSectionModule.cpp" />
     <ClCompile Include="..\src\modules\drawing_quantity\DrawingQuantityModule.cpp" />

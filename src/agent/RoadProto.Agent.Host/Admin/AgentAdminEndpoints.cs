@@ -1,4 +1,5 @@
 using System.Text.RegularExpressions;
+using RoadProto.Agent.Host.Providers;
 
 namespace RoadProto.Agent.Host.Admin;
 
@@ -142,6 +143,33 @@ public static class AgentAdminEndpoints
             config.DefaultModelProfile = profile.Name;
             await store.SaveAsync(config, cancellationToken).ConfigureAwait(false);
             return Results.Ok(ToResponse(profile, config.DefaultModelProfile));
+        });
+
+        app.MapPost("/api/admin/model-profiles/{name}/test", async (
+            string name,
+            AgentConfigurationStore store,
+            AgentSecretStore secrets,
+            OpenAiCompatibleChatClient modelClient,
+            CancellationToken cancellationToken) =>
+        {
+            if (!IsValidProfileName(name))
+            {
+                return Results.BadRequest("模型 Profile 名称只能包含字母、数字、下划线和连字符。");
+            }
+
+            var config = await store.LoadAsync(cancellationToken).ConfigureAwait(false);
+            var profile = config.ModelProfiles.FirstOrDefault(item =>
+                string.Equals(item.Name, name, StringComparison.OrdinalIgnoreCase));
+            if (profile == null)
+            {
+                return Results.NotFound();
+            }
+
+            var apiKey = string.IsNullOrWhiteSpace(profile.SecretId)
+                ? string.Empty
+                : await secrets.ReadAsync(profile.SecretId, cancellationToken).ConfigureAwait(false) ?? string.Empty;
+            var result = await modelClient.TestConnectionAsync(profile, apiKey, cancellationToken).ConfigureAwait(false);
+            return Results.Ok(result);
         });
 
         MapDocumentEndpoints(app, "/api/admin/skills", AgentDocumentKind.Skill);

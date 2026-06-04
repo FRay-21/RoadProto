@@ -189,6 +189,95 @@ public sealed class AgentAdminApiTests : IDisposable
     }
 
     [Fact]
+    public async Task CanChangeDefaultModelProfile()
+    {
+        using var factory = CreateFactory();
+        using var client = factory.CreateClient();
+
+        using var openAiResponse = await client.PostAsJsonAsync(
+            "/api/admin/model-profiles",
+            new UpsertModelProfileRequest(
+                "openai",
+                "OpenAICompatible",
+                "https://api.openai.com/v1",
+                "gpt-4.1",
+                0.2,
+                60,
+                null,
+                true));
+        using var deepSeekResponse = await client.PostAsJsonAsync(
+            "/api/admin/model-profiles",
+            new UpsertModelProfileRequest(
+                "deepseek",
+                "OpenAICompatible",
+                "https://api.deepseek.com/v1",
+                "deepseek-chat",
+                0.2,
+                60,
+                null,
+                false));
+
+        Assert.Equal(HttpStatusCode.OK, openAiResponse.StatusCode);
+        Assert.Equal(HttpStatusCode.OK, deepSeekResponse.StatusCode);
+
+        using var defaultResponse = await client.PostAsync("/api/admin/model-profiles/deepseek/default", null);
+
+        Assert.Equal(HttpStatusCode.OK, defaultResponse.StatusCode);
+        var status = await client.GetFromJsonAsync<AdminStatusResponse>("/api/admin/status");
+        Assert.NotNull(status);
+        Assert.Equal("deepseek", status.DefaultModelProfile);
+
+        var profiles = await client.GetFromJsonAsync<List<ModelProfileResponse>>("/api/admin/model-profiles");
+        Assert.Contains(profiles!, profile => profile.Name == "openai" && !profile.IsDefault);
+        Assert.Contains(profiles!, profile => profile.Name == "deepseek" && profile.IsDefault);
+    }
+
+    [Fact]
+    public async Task TestingMissingModelProfileReturnsNotFound()
+    {
+        using var factory = CreateFactory();
+        using var client = factory.CreateClient();
+
+        using var response = await client.PostAsync("/api/admin/model-profiles/missing/test", null);
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task CanTestModelProfileConnectionWithStoredSecret()
+    {
+        using var handler = new StubChatHandler();
+        using var httpClient = new HttpClient(handler);
+        using var factory = CreateFactory(services =>
+        {
+            services.AddSingleton(new OpenAiCompatibleChatClient(httpClient));
+        });
+        using var client = factory.CreateClient();
+
+        using var createResponse = await client.PostAsJsonAsync(
+            "/api/admin/model-profiles",
+            new UpsertModelProfileRequest(
+                "openai",
+                "OpenAICompatible",
+                "https://api.openai.com/v1",
+                "gpt-4.1",
+                0.2,
+                60,
+                "sk-test-secret",
+                true));
+
+        Assert.Equal(HttpStatusCode.OK, createResponse.StatusCode);
+
+        using var testResponse = await client.PostAsync("/api/admin/model-profiles/openai/test", null);
+
+        Assert.Equal(HttpStatusCode.OK, testResponse.StatusCode);
+        Assert.Equal("OK", await testResponse.Content.ReadFromJsonAsync<string>());
+        Assert.Equal(new Uri("https://api.openai.com/v1/chat/completions"), handler.LastRequestUri);
+        Assert.Equal("Bearer", handler.LastAuthorizationScheme);
+        Assert.Equal("sk-test-secret", handler.LastAuthorizationParameter);
+    }
+
+    [Fact]
     public async Task ProfileNamesWithUnderscoreAndDashUseDistinctSecretFiles()
     {
         using var factory = CreateFactory();
@@ -289,7 +378,7 @@ public sealed class AgentAdminApiTests : IDisposable
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
     }
 
-    private WebApplicationFactory<Program> CreateFactory()
+    private WebApplicationFactory<Program> CreateFactory(Action<IServiceCollection>? configureServices = null)
     {
         return new WebApplicationFactory<Program>().WithWebHostBuilder(builder =>
         {
@@ -297,6 +386,7 @@ public sealed class AgentAdminApiTests : IDisposable
             {
                 services.AddSingleton(new AgentLocalPaths(root));
                 services.PostConfigure<RoadProtoAgentOptions>(options => options.ModelProfiles.Clear());
+                configureServices?.Invoke(services);
             });
         });
     }
@@ -308,5 +398,31 @@ public sealed class AgentAdminApiTests : IDisposable
         fileContent.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("text/markdown");
         multipart.Add(fileContent, "file", fileName);
         return multipart;
+    }
+
+    private sealed class StubChatHandler : HttpMessageHandler
+    {
+        public Uri? LastRequestUri { get; private set; }
+        public string? LastAuthorizationScheme { get; private set; }
+        public string? LastAuthorizationParameter { get; private set; }
+
+        protected override Task<HttpResponseMessage> SendAsync(
+            HttpRequestMessage request,
+            CancellationToken cancellationToken)
+        {
+            LastRequestUri = request.RequestUri;
+            LastAuthorizationScheme = request.Headers.Authorization?.Scheme;
+            LastAuthorizationParameter = request.Headers.Authorization?.Parameter;
+
+            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent(
+                    """
+                    {"choices":[{"message":{"content":"OK"}}]}
+                    """,
+                    Encoding.UTF8,
+                    "application/json")
+            });
+        }
     }
 }

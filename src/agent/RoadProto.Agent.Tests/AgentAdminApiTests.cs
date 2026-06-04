@@ -1,5 +1,6 @@
 using System.Net;
 using System.Net.Http.Json;
+using System.Text;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.DependencyInjection;
@@ -190,6 +191,53 @@ public sealed class AgentAdminApiTests : IDisposable
         Assert.True(profile.HasApiKey);
     }
 
+    [Fact]
+    public async Task CanUploadPatchAndDeleteSkillDocument()
+    {
+        using var factory = CreateFactory();
+        using var client = factory.CreateClient();
+        using var uploadContent = CreateMultipart("skills.md", "# Skill\n内容");
+
+        using var uploadResponse = await client.PostAsync("/api/admin/skills/upload", uploadContent);
+
+        Assert.Equal(HttpStatusCode.OK, uploadResponse.StatusCode);
+        var uploaded = await uploadResponse.Content.ReadFromJsonAsync<DocumentResponse>();
+        Assert.NotNull(uploaded);
+        Assert.True(uploaded.Enabled);
+        Assert.Equal("skills.md", uploaded.DisplayName);
+
+        var skills = await client.GetFromJsonAsync<List<DocumentResponse>>("/api/admin/skills");
+        var skill = Assert.Single(skills!);
+        Assert.Equal(uploaded.Id, skill.Id);
+
+        using var patchResponse = await client.PatchAsJsonAsync(
+            $"/api/admin/skills/{uploaded.Id}",
+            new UpdateDocumentRequest(false, "disabled skill"));
+
+        Assert.Equal(HttpStatusCode.OK, patchResponse.StatusCode);
+        var patched = await patchResponse.Content.ReadFromJsonAsync<DocumentResponse>();
+        Assert.NotNull(patched);
+        Assert.False(patched.Enabled);
+        Assert.Equal("disabled skill", patched.DisplayName);
+
+        using var deleteResponse = await client.DeleteAsync($"/api/admin/skills/{uploaded.Id}");
+
+        Assert.Equal(HttpStatusCode.NoContent, deleteResponse.StatusCode);
+        Assert.Empty(await client.GetFromJsonAsync<List<DocumentResponse>>("/api/admin/skills") ?? []);
+    }
+
+    [Fact]
+    public async Task UploadKnowledgeRejectsNonMarkdown()
+    {
+        using var factory = CreateFactory();
+        using var client = factory.CreateClient();
+        using var uploadContent = CreateMultipart("notes.txt", "not markdown");
+
+        using var response = await client.PostAsync("/api/admin/knowledge/upload", uploadContent);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
     private WebApplicationFactory<Program> CreateFactory()
     {
         return new WebApplicationFactory<Program>().WithWebHostBuilder(builder =>
@@ -200,5 +248,14 @@ public sealed class AgentAdminApiTests : IDisposable
                 services.PostConfigure<RoadProtoAgentOptions>(options => options.ModelProfiles.Clear());
             });
         });
+    }
+
+    private static MultipartFormDataContent CreateMultipart(string fileName, string content)
+    {
+        var multipart = new MultipartFormDataContent();
+        var fileContent = new ByteArrayContent(Encoding.UTF8.GetBytes(content));
+        fileContent.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("text/markdown");
+        multipart.Add(fileContent, "file", fileName);
+        return multipart;
     }
 }

@@ -144,7 +144,78 @@ public static class AgentAdminEndpoints
             return Results.Ok(ToResponse(profile, config.DefaultModelProfile));
         });
 
+        MapDocumentEndpoints(app, "/api/admin/skills", AgentDocumentKind.Skill);
+        MapDocumentEndpoints(app, "/api/admin/knowledge", AgentDocumentKind.Knowledge);
+
         return app;
+    }
+
+    private static void MapDocumentEndpoints(
+        WebApplication app,
+        string routePrefix,
+        AgentDocumentKind kind)
+    {
+        app.MapGet(routePrefix, async (
+            AgentDocumentStore documents,
+            CancellationToken cancellationToken) =>
+        {
+            var list = await documents.ListAsync(kind, cancellationToken).ConfigureAwait(false);
+            return Results.Ok(list.Select(ToResponse).ToList());
+        });
+
+        app.MapPost(routePrefix + "/upload", async (
+            IFormFile file,
+            AgentDocumentStore documents,
+            CancellationToken cancellationToken) =>
+        {
+            try
+            {
+                var document = await documents.UploadMarkdownAsync(kind, file, cancellationToken).ConfigureAwait(false);
+                return Results.Ok(ToResponse(document));
+            }
+            catch (InvalidOperationException ex)
+            {
+                return Results.BadRequest(ex.Message);
+            }
+        }).DisableAntiforgery();
+
+        app.MapPatch(routePrefix + "/{id}", async (
+            string id,
+            UpdateDocumentRequest? request,
+            AgentDocumentStore documents,
+            CancellationToken cancellationToken) =>
+        {
+            if (request == null)
+            {
+                return Results.BadRequest("文档更新请求不能为空。");
+            }
+
+            try
+            {
+                var document = await documents.UpdateAsync(kind, id, request, cancellationToken).ConfigureAwait(false);
+                return Results.Ok(ToResponse(document));
+            }
+            catch (KeyNotFoundException)
+            {
+                return Results.NotFound();
+            }
+        });
+
+        app.MapDelete(routePrefix + "/{id}", async (
+            string id,
+            AgentDocumentStore documents,
+            CancellationToken cancellationToken) =>
+        {
+            try
+            {
+                var deleted = await documents.DeleteAsync(kind, id, cancellationToken).ConfigureAwait(false);
+                return deleted ? Results.NoContent() : Results.NotFound();
+            }
+            catch (InvalidOperationException ex)
+            {
+                return Results.BadRequest(ex.Message);
+            }
+        });
     }
 
     private static string? ValidateUpsertRequest(UpsertModelProfileRequest request)
@@ -193,5 +264,16 @@ public static class AgentAdminEndpoints
             profile.HasApiKey,
             profile.ApiKeyMask,
             string.Equals(profile.Name, defaultProfile, StringComparison.OrdinalIgnoreCase));
+    }
+
+    private static DocumentResponse ToResponse(StoredAgentDocument document)
+    {
+        return new DocumentResponse(
+            document.Id,
+            document.DisplayName,
+            document.Enabled,
+            document.BuiltIn,
+            document.SizeBytes,
+            document.UpdatedAt);
     }
 }

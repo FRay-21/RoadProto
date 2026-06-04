@@ -1,32 +1,30 @@
-using Microsoft.Extensions.Options;
+using RoadProto.Agent.Host.Admin;
 using RoadProto.Agent.Host.Models;
 using RoadProto.Agent.Host.Providers;
-using RoadProto.Agent.Host.Skills;
 using RoadProto.Agent.Host.Tools;
 
 namespace RoadProto.Agent.Host.Services;
 
 public sealed class AgentChatService
 {
-    private const string DefaultSystemPrompt =
-        "你是 RoadProto 设计软件原型 Agent。回答软件操作和道路设计原型问题。"
-        + "模型返回只作为普通回复，不自动执行工具。可执行工具由本地 planner 生成并由用户确认。";
-
     private readonly SubgradeTemplateToolPlanner planner;
-    private readonly MarkdownSkillRepository skills;
+    private readonly AgentConfigurationStore configurations;
+    private readonly AgentSecretStore secrets;
+    private readonly AgentPromptContextService promptContext;
     private readonly OpenAiCompatibleChatClient modelClient;
-    private readonly RoadProtoAgentOptions options;
 
     public AgentChatService(
         SubgradeTemplateToolPlanner planner,
-        MarkdownSkillRepository skills,
-        OpenAiCompatibleChatClient modelClient,
-        IOptions<RoadProtoAgentOptions> options)
+        AgentConfigurationStore configurations,
+        AgentSecretStore secrets,
+        AgentPromptContextService promptContext,
+        OpenAiCompatibleChatClient modelClient)
     {
         this.planner = planner;
-        this.skills = skills;
+        this.configurations = configurations;
+        this.secrets = secrets;
+        this.promptContext = promptContext;
         this.modelClient = modelClient;
-        this.options = options.Value;
     }
 
     public async Task<AgentChatResponse> ReplyAsync(
@@ -56,7 +54,8 @@ public sealed class AgentChatService
             return new AgentChatResponse(guidance, null, false);
         }
 
-        var profile = FindProfile(request.ModelProfile);
+        var config = await configurations.LoadAsync(cancellationToken).ConfigureAwait(false);
+        var profile = FindProfile(config, request.ModelProfile);
         if (profile == null)
         {
             return new AgentChatResponse(
@@ -73,20 +72,27 @@ public sealed class AgentChatService
                 false);
         }
 
+        var apiKey = string.IsNullOrWhiteSpace(profile.SecretId)
+            ? null
+            : await secrets.ReadAsync(profile.SecretId, cancellationToken).ConfigureAwait(false);
+        var systemPrompt = await promptContext.BuildSystemPromptAsync(cancellationToken).ConfigureAwait(false);
         var reply = await modelClient.CompleteAsync(
             profile,
-            CreateSystemPrompt(),
+            systemPrompt,
             message,
+            apiKey ?? string.Empty,
             cancellationToken).ConfigureAwait(false);
 
         return new AgentChatResponse(reply, null, false);
     }
 
-    private ModelProfileOptions? FindProfile(string? requestedName)
+    private static StoredModelProfile? FindProfile(
+        AgentRuntimeConfiguration config,
+        string? requestedName)
     {
         if (!string.IsNullOrWhiteSpace(requestedName))
         {
-            var requestedProfile = options.ModelProfiles.FirstOrDefault(item =>
+            var requestedProfile = config.ModelProfiles.FirstOrDefault(item =>
                 string.Equals(item.Name, requestedName, StringComparison.OrdinalIgnoreCase));
             if (requestedProfile != null)
             {
@@ -94,17 +100,16 @@ public sealed class AgentChatService
             }
         }
 
-        return options.ModelProfiles.FirstOrDefault();
-    }
-
-    private string CreateSystemPrompt()
-    {
-        var skill = skills.ReadSubgradeTemplateCreateSkill();
-        if (string.IsNullOrWhiteSpace(skill))
+        if (!string.IsNullOrWhiteSpace(config.DefaultModelProfile))
         {
-            return DefaultSystemPrompt;
+            var defaultProfile = config.ModelProfiles.FirstOrDefault(item =>
+                string.Equals(item.Name, config.DefaultModelProfile, StringComparison.OrdinalIgnoreCase));
+            if (defaultProfile != null)
+            {
+                return defaultProfile;
+            }
         }
 
-        return DefaultSystemPrompt + "\n\n可用 skill：\n" + skill;
+        return config.ModelProfiles.FirstOrDefault();
     }
 }

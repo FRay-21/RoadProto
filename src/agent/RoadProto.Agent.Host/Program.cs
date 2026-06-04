@@ -15,6 +15,7 @@ builder.Services.AddSingleton(serviceProvider => new AgentConfigurationStore(
     serviceProvider.GetRequiredService<AgentLocalPaths>(),
     serviceProvider.GetRequiredService<IOptions<RoadProtoAgentOptions>>().Value));
 builder.Services.AddSingleton<AgentSecretStore>();
+builder.Services.AddSingleton<AgentDocumentStore>();
 builder.Services.AddSingleton<SubgradeTemplateToolPlanner>();
 builder.Services.AddSingleton<OpenAiCompatibleChatClient>();
 builder.Services.AddSingleton(serviceProvider =>
@@ -22,6 +23,7 @@ builder.Services.AddSingleton(serviceProvider =>
     var root = FindRepositoryRoot(AppContext.BaseDirectory);
     return new MarkdownSkillRepository(root);
 });
+builder.Services.AddSingleton<AgentPromptContextService>();
 builder.Services.AddSingleton<AgentChatService>();
 
 var app = builder.Build();

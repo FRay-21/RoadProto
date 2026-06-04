@@ -136,6 +136,60 @@ public sealed class AgentAdminApiTests : IDisposable
         Assert.Equal(0, status.ModelProfileCount);
     }
 
+    [Fact]
+    public async Task ProfileNamesWithUnderscoreAndDashUseDistinctSecretFiles()
+    {
+        using var factory = CreateFactory();
+        using var client = factory.CreateClient();
+
+        using var underResponse = await client.PostAsJsonAsync(
+            "/api/admin/model-profiles",
+            new UpsertModelProfileRequest(
+                "a_b",
+                "OpenAICompatible",
+                "https://api.openai.com/v1",
+                "gpt-4.1",
+                0.2,
+                60,
+                "sk-under",
+                true));
+        using var dashResponse = await client.PostAsJsonAsync(
+            "/api/admin/model-profiles",
+            new UpsertModelProfileRequest(
+                "a-b",
+                "OpenAICompatible",
+                "https://api.deepseek.com/v1",
+                "deepseek-chat",
+                0.2,
+                60,
+                "sk-dash",
+                false));
+        var underSecretPath = Path.Combine(
+            root,
+            "secrets",
+            AgentSecretStore.CreateSecretId("a_b") + ".bin");
+        var dashSecretPath = Path.Combine(
+            root,
+            "secrets",
+            AgentSecretStore.CreateSecretId("a-b") + ".bin");
+
+        Assert.Equal(HttpStatusCode.OK, underResponse.StatusCode);
+        Assert.Equal(HttpStatusCode.OK, dashResponse.StatusCode);
+        Assert.NotEqual(underSecretPath, dashSecretPath);
+        Assert.True(File.Exists(underSecretPath));
+        Assert.True(File.Exists(dashSecretPath));
+
+        using var deleteUnderResponse = await client.DeleteAsync("/api/admin/model-profiles/a_b");
+
+        Assert.Equal(HttpStatusCode.NoContent, deleteUnderResponse.StatusCode);
+        Assert.False(File.Exists(underSecretPath));
+        Assert.True(File.Exists(dashSecretPath));
+        var profiles = await client.GetFromJsonAsync<List<ModelProfileResponse>>("/api/admin/model-profiles");
+        var profile = Assert.Single(profiles!);
+        Assert.Equal("a-b", profile.Name);
+        Assert.True(profile.HasApiKey);
+    }
+
     private WebApplicationFactory<Program> CreateFactory()
     {
         return new WebApplicationFactory<Program>().WithWebHostBuilder(builder =>

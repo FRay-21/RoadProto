@@ -7,7 +7,7 @@ namespace RoadProto.Agent.Host.Admin;
 public sealed class AgentSecretStore
 {
     private static readonly Regex SecretIdPattern = new(
-        "^[a-z0-9][a-z0-9-]{0,63}$",
+        "^[a-z0-9][a-z0-9_-]{0,63}$",
         RegexOptions.Compiled | RegexOptions.CultureInvariant);
 
     private readonly AgentLocalPaths paths;
@@ -70,7 +70,7 @@ public sealed class AgentSecretStore
         return "profile-" + new string(profileName
             .Trim()
             .ToLowerInvariant()
-            .Select(ch => char.IsLetterOrDigit(ch) ? ch : '-')
+            .Select(ch => char.IsLetterOrDigit(ch) || ch == '_' || ch == '-' ? ch : '-')
             .ToArray()).Trim('-');
     }
 
@@ -90,7 +90,7 @@ public sealed class AgentSecretStore
     {
         if (string.IsNullOrWhiteSpace(secretId) || !SecretIdPattern.IsMatch(secretId))
         {
-            throw new InvalidOperationException("SecretId 必须是 1 到 64 位的小写字母、数字或连字符 slug。");
+            throw new InvalidOperationException("SecretId 必须是 1 到 64 位的小写字母、数字、下划线或连字符 slug。");
         }
 
         var secretsRoot = Path.GetFullPath(paths.SecretsDirectory);

@@ -49,6 +49,11 @@ public static class AgentToolExecutionFile
             directory,
             $"RoadProtoAgentToolResult_{processId}_{safeRequestId}.json");
 
+        if (File.Exists(resultPath))
+        {
+            File.Delete(resultPath);
+        }
+
         using var stream = File.Create(requestPath);
         using var writer = new Utf8JsonWriter(stream, new JsonWriterOptions { Indented = true });
         writer.WriteStartObject();

@@ -230,7 +230,7 @@ public partial class AgentAssistantControl : UserControl
             var paths = AgentToolExecutionFile.WriteToolRequest(pendingToolCall);
             var requestPath = paths.RequestPath.Replace('\\', '/');
             document.SendStringToExecute($"RD_AI_EXECUTE_TOOL_FILE \"{requestPath}\"\n", true, false, true);
-            AddMessage("Agent", "已提交工具执行请求，请按 CAD 命令行提示完成操作。", false);
+            AddMessage("Agent", $"已提交工具执行请求。结果文件：{paths.ResultPath}", false);
             pendingToolCall = null;
             RemovePendingToolCard();
         }

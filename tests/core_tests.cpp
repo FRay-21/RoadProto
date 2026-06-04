@@ -8725,6 +8725,35 @@ void agentToolGatewaySourceContracts()
     CHECK(commandSource.find("std::isfinite") != std::string::npos);
     CHECK(commandSource.find("mode != L\"PickInCad\"") != std::string::npos);
     CHECK(commandSource.find("request.resultPath") != std::string::npos);
+    CHECK(commandSource.find("jsonEscape") != std::string::npos);
+    CHECK(commandSource.find("writeResultFile") != std::string::npos);
+    CHECK(commandSource.find("writeFailureResult") != std::string::npos);
+    CHECK(commandSource.find("\"succeeded\": true") != std::string::npos);
+    CHECK(commandSource.find("\"succeeded\": false") != std::string::npos);
+    CHECK(commandSource.find("\"entityHandle\"") != std::string::npos);
+    CHECK(commandSource.find("\"entityType\": \"DnSubgradeTemplateEntity\"") != std::string::npos);
+    CHECK(commandSource.find("\"errorCode\"") != std::string::npos);
+    CHECK(commandSource.find("InvalidArguments") != std::string::npos);
+    CHECK(commandSource.find("InvalidInsertionPoint") != std::string::npos);
+    CHECK(commandSource.find("CreateEntityFailed") != std::string::npos);
+    CHECK(commandSource.find("Cancelled") != std::string::npos);
+    CHECK(commandSource.find("case L'\\\\'") != std::string::npos);
+    CHECK(commandSource.find("case L'\\\"'") != std::string::npos);
+    CHECK(commandSource.find("case L'\\n'") != std::string::npos);
+    CHECK(commandSource.find("case L'\\r'") != std::string::npos);
+    CHECK(commandSource.find("case L'\\t'") != std::string::npos);
+
+    const auto uiRoot = root / "src" / "ui" / "wpf" / "RoadProto.Terrain.UI";
+    const auto executionFileSource = readTextFileForTests(
+        uiRoot / "AutoCad" / "AgentToolExecutionFile.cs");
+    CHECK(executionFileSource.find("RoadProtoAgent") != std::string::npos);
+    CHECK(executionFileSource.find("AgentToolExecutionPaths") != std::string::npos);
+    CHECK(executionFileSource.find("RequestPath") != std::string::npos);
+    CHECK(executionFileSource.find("ResultPath") != std::string::npos);
+    CHECK(executionFileSource.find("File.Delete(resultPath)") != std::string::npos);
+
+    const auto assistantSource = readTextFileForTests(uiRoot / "AgentAssistantControl.xaml.cs");
+    CHECK(assistantSource.find("结果文件：{paths.ResultPath}") != std::string::npos);
 }
 
 } // namespace

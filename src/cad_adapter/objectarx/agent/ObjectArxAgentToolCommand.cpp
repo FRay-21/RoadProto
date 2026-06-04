@@ -13,6 +13,7 @@
 
 #include <Windows.h>
 #include <cmath>
+#include <cstdint>
 #include <cwctype>
 #include <filesystem>
 #include <fstream>
@@ -156,6 +157,122 @@ bool validateTrustedResultPath(const std::wstring& resultPath, std::wstring& err
     return true;
 }
 
+std::string unicodeEscape4(unsigned int value)
+{
+    static constexpr char kHex[] = "0123456789ABCDEF";
+    std::string result = "\\u0000";
+    result[2] = kHex[(value >> 12) & 0x0F];
+    result[3] = kHex[(value >> 8) & 0x0F];
+    result[4] = kHex[(value >> 4) & 0x0F];
+    result[5] = kHex[value & 0x0F];
+    return result;
+}
+
+std::string jsonEscape(const std::wstring& value)
+{
+    std::string result;
+    result.reserve(value.size());
+    for (const auto item : value) {
+        switch (item) {
+        case L'\\':
+            result += "\\\\";
+            break;
+        case L'\"':
+            result += "\\\"";
+            break;
+        case L'\b':
+            result += "\\b";
+            break;
+        case L'\f':
+            result += "\\f";
+            break;
+        case L'\n':
+            result += "\\n";
+            break;
+        case L'\r':
+            result += "\\r";
+            break;
+        case L'\t':
+            result += "\\t";
+            break;
+        default: {
+            const auto code = static_cast<unsigned int>(item);
+            if (code < 0x20) {
+                result += unicodeEscape4(code);
+            } else if (code <= 0x7E) {
+                result.push_back(static_cast<char>(code));
+            } else if (code <= 0xFFFF) {
+                result += unicodeEscape4(code);
+            } else {
+                const auto adjusted = code - 0x10000;
+                result += unicodeEscape4(0xD800 + ((adjusted >> 10) & 0x3FF));
+                result += unicodeEscape4(0xDC00 + (adjusted & 0x3FF));
+            }
+            break;
+        }
+        }
+    }
+    return result;
+}
+
+void writeResultFile(
+    const std::wstring& resultPath,
+    const std::wstring& requestId,
+    const std::wstring& tool,
+    bool succeeded,
+    const std::wstring& message,
+    const std::wstring& errorCode = L"",
+    const std::wstring& handle = L"")
+{
+    if (resultPath.empty()) {
+        return;
+    }
+
+    const auto outputPath = std::filesystem::path(resultPath);
+    std::error_code directoryError;
+    std::filesystem::create_directories(outputPath.parent_path(), directoryError);
+
+    std::ofstream output(outputPath, std::ios::binary);
+    if (!output) {
+        return;
+    }
+
+    output << "{\n";
+    output << R"(  "requestId": ")" << jsonEscape(requestId) << "\",\n";
+    output << R"(  "tool": ")" << jsonEscape(tool) << "\",\n";
+    if (succeeded) {
+        output << R"(  "succeeded": true,)" << "\n";
+        output << R"(  "entityHandle": ")" << jsonEscape(handle) << "\",\n";
+        output << R"(  "entityType": "DnSubgradeTemplateEntity",)" << "\n";
+        output << R"(  "message": ")" << jsonEscape(message) << "\"\n";
+    } else {
+        output << R"(  "succeeded": false,)" << "\n";
+        output << R"(  "errorCode": ")" << jsonEscape(errorCode) << "\",\n";
+        output << R"(  "message": ")" << jsonEscape(message) << "\"\n";
+    }
+    output << "}\n";
+}
+
+void writeFailureResult(
+    const application::agent::AgentToolRequest& request,
+    const std::wstring& errorCode,
+    const std::wstring& message)
+{
+    writeResultFile(request.resultPath, request.requestId, request.tool, false, message, errorCode);
+}
+
+void writeSuccessResult(const application::agent::AgentToolRequest& request, const std::wstring& handle)
+{
+    writeResultFile(
+        request.resultPath,
+        request.requestId,
+        request.tool,
+        true,
+        L"已创建路基模板实体。",
+        L"",
+        handle);
+}
+
 std::string readBinaryFile(const std::filesystem::path& path)
 {
     std::ifstream input(path, std::ios::binary);
@@ -268,18 +385,24 @@ void runAgentExecuteToolFileCommand()
 
     const auto dataResult = application::agent::buildSubgradeTemplateToolData(request.arguments, error);
     if (!dataResult.succeeded) {
-        editor.writeError(error.empty() ? L"Agent 路基模板参数无效。" : error);
+        const auto message = error.empty() ? L"Agent 路基模板参数无效。" : error;
+        writeFailureResult(request, L"InvalidArguments", message);
+        editor.writeError(message);
         return;
     }
 
     AcGePoint3d insertionPoint(0.0, 0.0, 0.0);
     bool shouldPrompt = false;
     if (!validateInsertionPointRequest(request.arguments.insertionPoint, insertionPoint, shouldPrompt, error)) {
-        editor.writeError(error.empty() ? L"Agent 插入点参数无效。" : error);
+        const auto message = error.empty() ? L"Agent 插入点参数无效。" : error;
+        writeFailureResult(request, L"InvalidInsertionPoint", message);
+        editor.writeError(message);
         return;
     }
     if (shouldPrompt && !promptInsertionPoint(insertionPoint)) {
-        editor.writeWarning(L"Agent 路基模板创建已取消。");
+        const auto message = L"Agent 路基模板创建已取消。";
+        writeFailureResult(request, L"Cancelled", message);
+        editor.writeWarning(message);
         return;
     }
 
@@ -290,11 +413,14 @@ void runAgentExecuteToolFileCommand()
     AcDbObjectId entityId;
     if (!appendEntityToModelSpace(entity, entityId)) {
         delete entity;
-        editor.writeError(L"Agent 插入 DnSubgradeTemplateEntity 失败。");
+        const auto message = L"Agent 插入 DnSubgradeTemplateEntity 失败。";
+        writeFailureResult(request, L"CreateEntityFailed", message);
+        editor.writeError(message);
         return;
     }
 
     const auto handle = entityHandleText(entity);
+    writeSuccessResult(request, handle);
     entity->close();
     acedUpdateDisplay();
     editor.writeMessage(L"Agent 已创建路基模板实体，handle: " + handle);

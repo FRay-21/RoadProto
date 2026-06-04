@@ -35,6 +35,55 @@ public sealed class AgentAdminApiTests : IDisposable
     }
 
     [Fact]
+    public async Task AdminPageServesStaticConsole()
+    {
+        using var factory = CreateFactory();
+        using var client = factory.CreateClient();
+
+        using var response = await client.GetAsync("/admin");
+        var html = await response.Content.ReadAsStringAsync();
+
+        Assert.True(
+            response.IsSuccessStatusCode || response.StatusCode == HttpStatusCode.Redirect,
+            $"Unexpected status code: {response.StatusCode}");
+        Assert.Contains("text/html", response.Content.Headers.ContentType?.MediaType ?? string.Empty);
+        Assert.True(
+            html.Contains("RoadProto Agent", StringComparison.Ordinal)
+                || html.Contains("模型配置", StringComparison.Ordinal),
+            "Admin page should contain the RoadProto Agent console shell.");
+
+        using var slashResponse = await client.GetAsync("/admin/");
+        var slashHtml = await slashResponse.Content.ReadAsStringAsync();
+
+        Assert.True(slashResponse.IsSuccessStatusCode, $"Unexpected /admin/ status code: {slashResponse.StatusCode}");
+        Assert.Contains("text/html", slashResponse.Content.Headers.ContentType?.MediaType ?? string.Empty);
+        Assert.Contains("模型配置", slashHtml, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task AdminStaticAssetsAreServed()
+    {
+        using var factory = CreateFactory();
+        using var client = factory.CreateClient();
+
+        using var cssResponse = await client.GetAsync("/admin/admin.css");
+        using var jsResponse = await client.GetAsync("/admin/admin.js");
+        var css = await cssResponse.Content.ReadAsStringAsync();
+        var js = await jsResponse.Content.ReadAsStringAsync();
+
+        Assert.True(cssResponse.IsSuccessStatusCode, $"CSS status code: {cssResponse.StatusCode}");
+        Assert.True(jsResponse.IsSuccessStatusCode, $"JS status code: {jsResponse.StatusCode}");
+        Assert.True(
+            cssResponse.Content.Headers.ContentType?.MediaType?.Contains("css", StringComparison.OrdinalIgnoreCase) == true
+                || css.Contains("admin-shell", StringComparison.Ordinal),
+            "Admin CSS should be served with a stylesheet content type or known shell styles.");
+        Assert.True(
+            jsResponse.Content.Headers.ContentType?.MediaType?.Contains("javascript", StringComparison.OrdinalIgnoreCase) == true
+                || js.Contains("/api/admin/status", StringComparison.Ordinal),
+            "Admin JS should be served with a JavaScript content type or known status loader.");
+    }
+
+    [Fact]
     public async Task CanCreateDefaultModelProfileWithEncryptedKey()
     {
         using var factory = CreateFactory();

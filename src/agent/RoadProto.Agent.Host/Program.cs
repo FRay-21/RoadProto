@@ -28,6 +28,9 @@ builder.Services.AddSingleton<AgentChatService>();
 
 var app = builder.Build();
 
+app.UseDefaultFiles();
+app.UseStaticFiles();
+
 app.MapGet("/health", () => Results.Ok(new { status = "ok" }));
 
 app.MapPost("/api/chat", async (

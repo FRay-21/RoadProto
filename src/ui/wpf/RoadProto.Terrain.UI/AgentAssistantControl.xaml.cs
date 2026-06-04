@@ -42,17 +42,19 @@ public partial class AgentAssistantControl : UserControl
     private async Task SendCurrentMessageAsync()
     {
         var text = InputBox.Text.Trim();
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            return;
+        }
+
         InputBox.Clear();
         SetSendingState(true);
 
         try
         {
             var priorHistory = history.ToList();
-            if (!string.IsNullOrWhiteSpace(text))
-            {
-                AddMessage("用户", text, true);
-                history.Add(new AgentChatMessage { Role = "user", Content = text });
-            }
+            AddMessage("用户", text, true);
+            history.Add(new AgentChatMessage { Role = "user", Content = text });
 
             var request = new AgentChatRequest
             {
@@ -70,6 +72,11 @@ public partial class AgentAssistantControl : UserControl
             {
                 pendingToolCall = response.ToolCall;
                 AddToolConfirmation(response.ToolCall);
+            }
+            else
+            {
+                pendingToolCall = null;
+                RemovePendingToolCard();
             }
         }
         finally

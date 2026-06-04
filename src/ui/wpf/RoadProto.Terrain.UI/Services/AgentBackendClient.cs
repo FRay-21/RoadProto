@@ -81,7 +81,15 @@ public sealed class AgentBackendClient
 
         try
         {
-            return JsonSerializer.Deserialize<AgentChatResponse>(responseText, JsonOptions);
+            var response = JsonSerializer.Deserialize<AgentChatResponse>(responseText, JsonOptions);
+            if (response == null)
+            {
+                return null;
+            }
+
+            return string.IsNullOrWhiteSpace(response.Reply) && response.ToolCall == null
+                ? null
+                : response;
         }
         catch
         {

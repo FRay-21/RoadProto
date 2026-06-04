@@ -21,6 +21,7 @@ using CoreApplication = Autodesk.AutoCAD.ApplicationServices.Core.Application;
 [assembly: CommandClass(typeof(RoadProto.Terrain.UI.AutoCad.RoadModelDialogCommands))]
 [assembly: CommandClass(typeof(RoadProto.Terrain.UI.AutoCad.RoadModelSectionViewerCommands))]
 [assembly: CommandClass(typeof(RoadProto.Terrain.UI.AutoCad.SectionDrawingConfigDialogCommands))]
+[assembly: CommandClass(typeof(RoadProto.Terrain.UI.AutoCad.AgentAssistantCommands))]
 
 namespace RoadProto.Terrain.UI.AutoCad;
 
@@ -51,6 +52,8 @@ public sealed class RoadProtoRibbonExtension : IExtensionApplication
     private const string DrawingQuantityPanelId = "ROADPROTO_DRAWING_QUANTITY_PANEL";
     private const string PavementQuantityTableButtonId = "ROADPROTO_RD_DRAWING_PAVEMENT_QUANTITY_TABLE";
     private const string PavementStructureLegendButtonId = "ROADPROTO_RD_DRAWING_PAVEMENT_STRUCTURE_LEGEND";
+    private const string AgentPanelId = "ROADPROTO_AGENT_PANEL";
+    private const string AgentAssistantButtonId = "ROADPROTO_RD_AI_ASSISTANT_OPEN";
     private const string TerrainTinDxfName = "DNTERRAINTINENTITY";
     private const string RoadCenterlineDxfName = "DNROADCENTERLINEENTITY";
     private const string ProfileGradeGraphDxfName = "DNPROFILEGRADEGRAPHENTITY";
@@ -363,6 +366,27 @@ public sealed class RoadProtoRibbonExtension : IExtensionApplication
                 "路面结构图例",
                 "选择道路模型或横断面图并绘制路面结构层图例",
                 "RD_DRAWING_PAVEMENT_STRUCTURE_LEGEND "));
+        }
+
+        var agentPanel = tab.Panels.FirstOrDefault(item => item.Source.Id == AgentPanelId);
+        if (agentPanel == null)
+        {
+            var source = new RibbonPanelSource
+            {
+                Id = AgentPanelId,
+                Title = "Agent",
+            };
+            agentPanel = new RibbonPanel { Source = source };
+            tab.Panels.Add(agentPanel);
+        }
+
+        if (!agentPanel.Source.Items.OfType<RibbonButton>().Any(item => item.Id == AgentAssistantButtonId))
+        {
+            agentPanel.Source.Items.Add(CreateAgentCommandButton(
+                AgentAssistantButtonId,
+                "AI 助手",
+                "打开 RoadProto 设计软件原型 Agent 面板",
+                "RD_AI_ASSISTANT_OPEN "));
         }
 
         tab.IsActive = true;
@@ -923,6 +947,25 @@ public sealed class RoadProtoRibbonExtension : IExtensionApplication
         };
     }
 
+    private static RibbonButton CreateAgentCommandButton(string id, string text, string toolTip, string command)
+    {
+        var icon = CreateAgentIcon();
+        return new RibbonButton
+        {
+            Id = id,
+            Text = text,
+            ShowText = true,
+            ShowImage = true,
+            Image = icon,
+            LargeImage = icon,
+            Size = RibbonItemSize.Standard,
+            Orientation = Orientation.Horizontal,
+            ToolTip = toolTip,
+            CommandParameter = command,
+            CommandHandler = new SendCommandHandler(),
+        };
+    }
+
     private static ImageSource CreateTerrainIcon()
     {
         var drawingGroup = new DrawingGroup();
@@ -1016,6 +1059,28 @@ public sealed class RoadProtoRibbonExtension : IExtensionApplication
             new SolidColorBrush(Color.FromRgb(120, 120, 120)),
             null,
             Geometry.Parse("M 1,16 L 3,13 L 3,17 L 1,19 Z M 21,13 L 23,16 L 23,19 L 21,17 Z")));
+        drawingGroup.Freeze();
+        return new DrawingImage(drawingGroup);
+    }
+
+    private static ImageSource CreateAgentIcon()
+    {
+        var drawingGroup = new DrawingGroup();
+        var framePen = new Pen(new SolidColorBrush(Color.FromRgb(77, 182, 255)), 1.2);
+        var signalPen = new Pen(new SolidColorBrush(Color.FromRgb(255, 198, 73)), 1.4);
+
+        drawingGroup.Children.Add(new GeometryDrawing(
+            new SolidColorBrush(Color.FromRgb(26, 34, 46)),
+            framePen,
+            Geometry.Parse("M 4,6 L 20,6 Q 22,6 22,8 L 22,17 Q 22,19 20,19 L 12,19 L 8,23 L 8,19 L 4,19 Q 2,19 2,17 L 2,8 Q 2,6 4,6 Z")));
+        drawingGroup.Children.Add(new GeometryDrawing(
+            new SolidColorBrush(Color.FromRgb(77, 182, 255)),
+            null,
+            Geometry.Parse("M 7,10 L 9,10 L 9,16 L 7,16 Z M 11,8 L 13,8 L 13,16 L 11,16 Z M 15,12 L 17,12 L 17,16 L 15,16 Z")));
+        drawingGroup.Children.Add(new GeometryDrawing(
+            null,
+            signalPen,
+            Geometry.Parse("M 6,4 L 8,2 L 10,4 M 18,3 L 20,1 L 22,3 M 19,11 C 21,11 22,12 22,14")));
         drawingGroup.Freeze();
         return new DrawingImage(drawingGroup);
     }

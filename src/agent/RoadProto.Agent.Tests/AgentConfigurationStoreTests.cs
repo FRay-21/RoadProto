@@ -1,3 +1,4 @@
+using System.Text.Json;
 using RoadProto.Agent.Host.Admin;
 using RoadProto.Agent.Host.Providers;
 using Xunit;
@@ -77,6 +78,48 @@ public sealed class AgentConfigurationStoreTests : IDisposable
     }
 
     [Fact]
+    public async Task StoreReplacesExistingConfigWithReadableJson()
+    {
+        var store = new AgentConfigurationStore(new AgentLocalPaths(root), new RoadProtoAgentOptions());
+        await store.SaveAsync(new AgentRuntimeConfiguration
+        {
+            DefaultModelProfile = "old",
+            ModelProfiles =
+            [
+                new StoredModelProfile
+                {
+                    Name = "old",
+                    BaseUrl = "https://old.example/v1",
+                    Model = "old-model"
+                }
+            ]
+        });
+
+        await store.SaveAsync(new AgentRuntimeConfiguration
+        {
+            DefaultModelProfile = "new",
+            ModelProfiles =
+            [
+                new StoredModelProfile
+                {
+                    Name = "new",
+                    BaseUrl = "https://new.example/v1",
+                    Model = "new-model"
+                }
+            ]
+        });
+
+        var json = await File.ReadAllTextAsync(Path.Combine(root, "config.json"));
+        var parsed = JsonSerializer.Deserialize<AgentRuntimeConfiguration>(
+            json,
+            new JsonSerializerOptions(JsonSerializerDefaults.Web));
+
+        Assert.NotNull(parsed);
+        Assert.Equal("new", parsed.DefaultModelProfile);
+        Assert.Equal("new-model", parsed.ModelProfiles.Single().Model);
+    }
+
+    [Fact]
     public async Task StoreBacksUpCorruptedConfigAndReturnsEmptyConfig()
     {
         Directory.CreateDirectory(root);
@@ -90,8 +133,48 @@ public sealed class AgentConfigurationStoreTests : IDisposable
     }
 
     [Fact]
+    public async Task StoreCreatesDistinctBackupsForRepeatedCorruptedConfigs()
+    {
+        Directory.CreateDirectory(root);
+        var configPath = Path.Combine(root, "config.json");
+        var store = new AgentConfigurationStore(new AgentLocalPaths(root), new RoadProtoAgentOptions());
+
+        await File.WriteAllTextAsync(configPath, "{ invalid json 1");
+        await store.LoadAsync();
+        await File.WriteAllTextAsync(configPath, "{ invalid json 2");
+        await store.LoadAsync();
+
+        Assert.Equal(2, Directory.GetFiles(root, "config.corrupt.*.json").Length);
+    }
+
+    [Fact]
+    public void StoredAgentDocumentUpdatedAtDefaultsToUnset()
+    {
+        var document = new StoredAgentDocument();
+
+        Assert.Equal(default, document.UpdatedAt);
+    }
+
+    [Theory]
+    [InlineData("../bad")]
+    [InlineData("bad:name")]
+    [InlineData("")]
+    public async Task SecretStoreRejectsInvalidSecretIds(string secretId)
+    {
+        var secrets = new AgentSecretStore(new AgentLocalPaths(root));
+
+        await Assert.ThrowsAsync<InvalidOperationException>(
+            () => secrets.DeleteAsync(secretId));
+    }
+
+    [Fact]
     public async Task SecretStoreEncryptsAndMasksApiKey()
     {
+        if (!OperatingSystem.IsWindows())
+        {
+            return;
+        }
+
         var secrets = new AgentSecretStore(new AgentLocalPaths(root));
 
         await secrets.SaveAsync("profile-openai", "sk-test-secret-123456");

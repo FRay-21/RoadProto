@@ -29,7 +29,7 @@ public sealed class StoredAgentDocument
     public bool Enabled { get; set; } = true;
     public bool BuiltIn { get; set; }
     public long SizeBytes { get; set; }
-    public DateTimeOffset UpdatedAt { get; set; } = DateTimeOffset.UtcNow;
+    public DateTimeOffset UpdatedAt { get; set; }
 }
 
 public sealed record AdminStatusResponse(

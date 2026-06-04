@@ -43,8 +43,8 @@ public sealed class AgentConfigurationStore
             {
                 var backup = Path.Combine(
                     paths.Root,
-                    $"config.corrupt.{DateTimeOffset.UtcNow:yyyyMMddHHmmss}.json");
-                File.Move(paths.ConfigPath, backup, overwrite: true);
+                    $"config.corrupt.{DateTimeOffset.UtcNow:yyyyMMddHHmmssfffffff}.{Guid.NewGuid():N}.json");
+                File.Move(paths.ConfigPath, backup, overwrite: false);
                 return new AgentRuntimeConfiguration();
             }
         }
@@ -57,16 +57,66 @@ public sealed class AgentConfigurationStore
     public async Task SaveAsync(AgentRuntimeConfiguration config, CancellationToken cancellationToken = default)
     {
         await gate.WaitAsync(cancellationToken).ConfigureAwait(false);
+        string? tempPath = null;
         try
         {
             paths.Ensure();
-            await using var stream = File.Create(paths.ConfigPath);
-            await JsonSerializer.SerializeAsync(stream, config, JsonOptions, cancellationToken).ConfigureAwait(false);
+            tempPath = Path.Combine(paths.Root, $"config.{Guid.NewGuid():N}.tmp");
+            await using (var stream = new FileStream(
+                tempPath,
+                FileMode.CreateNew,
+                FileAccess.Write,
+                FileShare.None,
+                bufferSize: 8192,
+                FileOptions.WriteThrough))
+            {
+                await JsonSerializer.SerializeAsync(stream, config, JsonOptions, cancellationToken).ConfigureAwait(false);
+                await stream.FlushAsync(cancellationToken).ConfigureAwait(false);
+                stream.Flush(flushToDisk: true);
+            }
+
+            CommitTempConfig(tempPath);
+            tempPath = null;
         }
         finally
         {
+            if (tempPath != null && File.Exists(tempPath))
+            {
+                File.Delete(tempPath);
+            }
+
             gate.Release();
         }
+    }
+
+    private void CommitTempConfig(string tempPath)
+    {
+        for (var attempt = 0; attempt < 2; attempt++)
+        {
+            if (File.Exists(paths.ConfigPath))
+            {
+                try
+                {
+                    File.Replace(tempPath, paths.ConfigPath, destinationBackupFileName: null, ignoreMetadataErrors: true);
+                    return;
+                }
+                catch (FileNotFoundException)
+                {
+                    continue;
+                }
+            }
+
+            try
+            {
+                File.Move(tempPath, paths.ConfigPath);
+                return;
+            }
+            catch (IOException) when (File.Exists(paths.ConfigPath))
+            {
+            }
+        }
+
+        File.Replace(tempPath, paths.ConfigPath, destinationBackupFileName: null, ignoreMetadataErrors: true);
     }
 
     private AgentRuntimeConfiguration SeedFromOptions()

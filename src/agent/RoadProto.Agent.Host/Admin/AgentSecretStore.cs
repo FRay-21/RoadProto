@@ -1,10 +1,15 @@
 using System.Security.Cryptography;
 using System.Text;
+using System.Text.RegularExpressions;
 
 namespace RoadProto.Agent.Host.Admin;
 
 public sealed class AgentSecretStore
 {
+    private static readonly Regex SecretIdPattern = new(
+        "^[a-z0-9][a-z0-9-]{0,63}$",
+        RegexOptions.Compiled | RegexOptions.CultureInvariant);
+
     private readonly AgentLocalPaths paths;
 
     public AgentSecretStore(AgentLocalPaths paths)
@@ -14,13 +19,13 @@ public sealed class AgentSecretStore
 
     public async Task SaveAsync(string secretId, string apiKey, CancellationToken cancellationToken = default)
     {
+        var path = GetSecretPath(secretId);
         if (!OperatingSystem.IsWindows())
         {
             throw new PlatformNotSupportedException("AgentSecretStore requires Windows CurrentUser DPAPI.");
         }
 
         paths.Ensure();
-        var path = GetSecretPath(secretId);
         var protectedBytes = ProtectedData.Protect(
             Encoding.UTF8.GetBytes(apiKey),
             optionalEntropy: null,
@@ -30,12 +35,12 @@ public sealed class AgentSecretStore
 
     public async Task<string?> ReadAsync(string secretId, CancellationToken cancellationToken = default)
     {
+        var path = GetSecretPath(secretId);
         if (!OperatingSystem.IsWindows())
         {
             throw new PlatformNotSupportedException("AgentSecretStore requires Windows CurrentUser DPAPI.");
         }
 
-        var path = GetSecretPath(secretId);
         if (!File.Exists(path))
         {
             return null;
@@ -83,12 +88,22 @@ public sealed class AgentSecretStore
 
     private string GetSecretPath(string secretId)
     {
-        var fileName = Path.GetFileName(secretId);
-        if (!string.Equals(fileName, secretId, StringComparison.Ordinal))
+        if (string.IsNullOrWhiteSpace(secretId) || !SecretIdPattern.IsMatch(secretId))
         {
-            throw new InvalidOperationException("SecretId 不能包含路径片段。");
+            throw new InvalidOperationException("SecretId 必须是 1 到 64 位的小写字母、数字或连字符 slug。");
         }
 
-        return Path.Combine(paths.SecretsDirectory, fileName + ".bin");
+        var secretsRoot = Path.GetFullPath(paths.SecretsDirectory);
+        var comparison = OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;
+        var rootPrefix = secretsRoot.EndsWith(Path.DirectorySeparatorChar)
+            ? secretsRoot
+            : secretsRoot + Path.DirectorySeparatorChar;
+        var fullPath = Path.GetFullPath(Path.Combine(secretsRoot, secretId + ".bin"));
+        if (!fullPath.StartsWith(rootPrefix, comparison))
+        {
+            throw new InvalidOperationException("SecretId 不能解析到密钥目录之外。");
+        }
+
+        return fullPath;
     }
 }

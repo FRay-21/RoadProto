@@ -56,6 +56,10 @@ public sealed class AgentAdminApiTests : IDisposable
         Assert.Contains("text/html", slashResponse.Content.Headers.ContentType?.MediaType ?? string.Empty);
         Assert.Contains("RoadProto Agent", slashHtml, StringComparison.Ordinal);
         Assert.Contains("模型配置", slashHtml, StringComparison.Ordinal);
+        Assert.Contains("id=\"skill-upload\"", slashHtml, StringComparison.Ordinal);
+        Assert.Contains("id=\"skill-list\"", slashHtml, StringComparison.Ordinal);
+        Assert.Contains("id=\"knowledge-upload\"", slashHtml, StringComparison.Ordinal);
+        Assert.Contains("id=\"knowledge-list\"", slashHtml, StringComparison.Ordinal);
 
         var adminPageUri = new Uri("http://localhost/admin/");
         Assert.Equal("/admin/admin.css", new Uri(adminPageUri, "./admin.css").AbsolutePath);
@@ -435,6 +439,22 @@ public sealed class AgentAdminApiTests : IDisposable
 
         Assert.Equal(HttpStatusCode.NoContent, deleteResponse.StatusCode);
         Assert.Empty(await client.GetFromJsonAsync<List<DocumentResponse>>("/api/admin/skills") ?? []);
+    }
+
+    [Fact]
+    public async Task CanUploadSkillThroughAdminApi()
+    {
+        using var factory = CreateFactory();
+        using var client = factory.CreateClient();
+        using var uploadContent = CreateMultipart("road-skill.md", "# Road Skill\n道路设计 Skill");
+
+        using var uploadResponse = await client.PostAsync("/api/admin/skills/upload", uploadContent);
+
+        Assert.Equal(HttpStatusCode.OK, uploadResponse.StatusCode);
+        var skills = await client.GetFromJsonAsync<List<DocumentResponse>>("/api/admin/skills");
+        var skill = Assert.Single(skills!);
+        Assert.Equal("road-skill.md", skill.DisplayName);
+        Assert.True(skill.Enabled);
     }
 
     [Fact]

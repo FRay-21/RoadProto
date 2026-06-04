@@ -57,6 +57,8 @@
         <code id="storage-root">-</code>
       </section>
 
+      <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+
       <section id="profiles-view" class="view is-active" aria-labelledby="profiles-title">
         <div class="section-heading">
           <div>
@@ -65,7 +67,6 @@
           </div>
           <button id="refresh-button" class="button button-secondary" type="button">刷新</button>
         </div>
-        <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
         <div class="profile-layout">
           <div class="list-surface profile-list-panel">
             <div class="panel-title">
@@ -146,10 +147,20 @@
             <p class="eyebrow">Prompt Context</p>
             <h2 id="skills-title">Skill 文档</h2>
           </div>
-          <span class="section-note">Task 6 将接入上传与启停管理</span>
+          <span class="section-note">只接受 Markdown .md</span>
+        </div>
+        <div class="document-upload">
+          <div>
+            <strong>上传 Skill 文档</strong>
+            <span>选择一个 Markdown .md 文件加入 Prompt Context。</span>
+          </div>
+          <div class="document-upload-controls">
+            <input id="skill-upload" type="file" accept=".md,text/markdown">
+            <button id="skill-upload-button" class="button button-primary" type="button">上传</button>
+          </div>
         </div>
         <div id="skill-list" class="list-surface">
-          <div class="empty-state">当前页面壳已预留 Skill 文档列表区域。</div>
+          <div class="empty-state">正在读取 Skill 文档列表。</div>
         </div>
       </section>
 
@@ -159,10 +170,20 @@
             <p class="eyebrow">Knowledge Base</p>
             <h2 id="knowledge-title">知识库</h2>
           </div>
-          <span class="section-note">Task 6 将接入知识库上传与状态管理</span>
+          <span class="section-note">只接受 Markdown .md</span>
+        </div>
+        <div class="document-upload">
+          <div>
+            <strong>上传知识库 Markdown</strong>
+            <span>选择一个 Markdown .md 文件加入知识库。</span>
+          </div>
+          <div class="document-upload-controls">
+            <input id="knowledge-upload" type="file" accept=".md,text/markdown">
+            <button id="knowledge-upload-button" class="button button-primary" type="button">上传</button>
+          </div>
         </div>
         <div id="knowledge-list" class="list-surface">
-          <div class="empty-state">当前页面壳已预留知识库列表区域。</div>
+          <div class="empty-state">正在读取知识库列表。</div>
         </div>
       </section>
 

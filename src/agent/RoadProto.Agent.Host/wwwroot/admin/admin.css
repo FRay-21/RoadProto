@@ -255,6 +255,48 @@ h2 {
   padding: 14px;
 }
 
+.document-upload {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  margin-bottom: 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  box-shadow: var(--shadow);
+  padding: 14px;
+}
+
+.document-upload strong,
+.document-upload span {
+  display: block;
+}
+
+.document-upload strong {
+  font-size: 15px;
+}
+
+.document-upload span {
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.document-upload-controls {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  min-width: min(100%, 420px);
+}
+
+.document-upload-controls input[type="file"] {
+  min-width: 0;
+  max-width: 260px;
+  color: var(--muted);
+}
+
 .button {
   min-height: 38px;
   border: 1px solid var(--line);
@@ -358,6 +400,16 @@ h2 {
   font-size: 12px;
   font-weight: 700;
   white-space: nowrap;
+}
+
+.badge-success {
+  background: #edf7f1;
+  color: var(--accent-strong);
+}
+
+.badge-muted {
+  background: #eef1ee;
+  color: #5d665f;
 }
 
 .profile-list {
@@ -493,6 +545,60 @@ h2 {
   color: var(--rose);
 }
 
+.document-list {
+  display: grid;
+  gap: 10px;
+}
+
+.document-item {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 14px;
+  align-items: center;
+  min-height: 86px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface-strong);
+  padding: 12px;
+}
+
+.document-main {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+
+.document-title-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.document-title-row strong {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.document-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px 12px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.document-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.document-actions .button {
+  min-width: 72px;
+}
+
 @media (max-width: 880px) {
   .admin-shell {
     grid-template-columns: 1fr;
@@ -531,6 +637,19 @@ h2 {
   .profile-form {
     min-height: 0;
   }
+
+  .document-upload,
+  .document-item {
+    grid-template-columns: 1fr;
+  }
+
+  .document-upload {
+    display: grid;
+  }
+
+  .document-upload-controls {
+    justify-content: flex-start;
+  }
 }
 
 @media (max-width: 560px) {
@@ -563,5 +682,18 @@ h2 {
 
   .form-actions .button {
     width: 100%;
+  }
+
+  .document-upload-controls,
+  .document-actions {
+    display: grid;
+    width: 100%;
+  }
+
+  .document-upload-controls input[type="file"],
+  .document-upload-controls .button,
+  .document-actions .button {
+    width: 100%;
+    max-width: none;
   }
 }

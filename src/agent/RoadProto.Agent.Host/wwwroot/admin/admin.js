@@ -23,6 +23,10 @@ const presets = {
 
 const state = {
   profiles: [],
+  documents: {
+    skills: [],
+    knowledge: []
+  },
   selectedName: "",
   editingNew: true
 };
@@ -55,9 +59,27 @@ const profileFields = {
   toast: document.getElementById("toast")
 };
 
+const documentFields = {
+  skills: {
+    endpoint: "/api/admin/skills",
+    label: "Skill 文档",
+    list: document.getElementById("skill-list"),
+    upload: document.getElementById("skill-upload"),
+    uploadButton: document.getElementById("skill-upload-button")
+  },
+  knowledge: {
+    endpoint: "/api/admin/knowledge",
+    label: "知识库",
+    list: document.getElementById("knowledge-list"),
+    upload: document.getElementById("knowledge-upload"),
+    uploadButton: document.getElementById("knowledge-upload-button")
+  }
+};
+
 document.addEventListener("DOMContentLoaded", () => {
   bindNavigation();
   bindProfileForm();
+  bindDocumentControls();
   refreshAll();
 });
 
@@ -108,16 +130,34 @@ function bindProfileForm() {
   });
 }
 
+function bindDocumentControls() {
+  Object.entries(documentFields).forEach(([kind, fields]) => {
+    fields.uploadButton.addEventListener("click", async () => {
+      await uploadDocument(kind, fields.upload.files?.[0] || null);
+    });
+
+    fields.upload.addEventListener("change", () => {
+      if (fields.upload.files?.length) {
+        showToast(`已选择 ${fields.upload.files[0].name}，点击上传。`);
+      }
+    });
+  });
+}
+
 async function refreshAll() {
   setStatusMessage("正在读取状态");
   try {
-    const [status, profiles] = await Promise.all([
-      requestJson("/api/admin/status"),
-      requestJson("/api/admin/model-profiles")
+    const [status, profiles, skills, knowledge] = await Promise.all([
+      loadStatus(),
+      loadProfiles(),
+      loadDocuments("skills"),
+      loadDocuments("knowledge")
     ]);
 
     renderStatus(status);
     state.profiles = Array.isArray(profiles) ? profiles : [];
+    state.documents.skills = Array.isArray(skills) ? skills : [];
+    state.documents.knowledge = Array.isArray(knowledge) ? knowledge : [];
     if (!state.profiles.some((profile) => profile.name === state.selectedName)) {
       state.selectedName = state.profiles.find((profile) => profile.isDefault)?.name
         || state.profiles[0]?.name
@@ -125,6 +165,8 @@ async function refreshAll() {
     }
 
     renderProfileList();
+    renderDocumentList("skills");
+    renderDocumentList("knowledge");
     if (state.selectedName) {
       selectProfile(state.selectedName);
     } else {
@@ -137,7 +179,29 @@ async function refreshAll() {
     setStatusMessage("读取失败", "is-error");
     showToast(`读取管理数据失败：${message}`, "is-error");
     renderProfileError(`无法读取 Profile：${message}`);
+    renderDocumentError("skills", `无法读取 Skill 文档：${message}`);
+    renderDocumentError("knowledge", `无法读取知识库：${message}`);
   }
+}
+
+async function loadStatus() {
+  return requestJson("/api/admin/status");
+}
+
+async function loadProfiles() {
+  return requestJson("/api/admin/model-profiles");
+}
+
+async function loadDocuments(kind) {
+  const fields = documentFields[kind];
+  if (!fields) {
+    throw new Error(`未知文档类型：${kind}`);
+  }
+
+  const documents = await requestJson(fields.endpoint);
+  state.documents[kind] = Array.isArray(documents) ? documents : [];
+  renderDocumentList(kind);
+  return state.documents[kind];
 }
 
 function renderStatus(status) {
@@ -203,6 +267,90 @@ function renderProfileError(text) {
   errorState.className = "empty-state is-error";
   errorState.textContent = text;
   profileFields.list.appendChild(errorState);
+}
+
+function renderDocumentList(kind) {
+  const fields = documentFields[kind];
+  const documents = state.documents[kind] || [];
+  fields.list.textContent = "";
+
+  if (documents.length === 0) {
+    const emptyState = document.createElement("div");
+    emptyState.className = "empty-state";
+    emptyState.textContent = `暂无${fields.label}，请上传 Markdown .md 文件。`;
+    fields.list.appendChild(emptyState);
+    return;
+  }
+
+  const list = document.createElement("div");
+  list.className = "document-list";
+
+  documents.forEach((documentItem) => {
+    const item = document.createElement("article");
+    item.className = "document-item";
+
+    const main = document.createElement("div");
+    main.className = "document-main";
+
+    const titleRow = document.createElement("div");
+    titleRow.className = "document-title-row";
+
+    const title = document.createElement("strong");
+    title.textContent = documentItem.displayName || documentItem.id || "未命名文档";
+    titleRow.appendChild(title);
+
+    const enabledBadge = document.createElement("span");
+    enabledBadge.className = documentItem.enabled ? "badge badge-success" : "badge badge-muted";
+    enabledBadge.textContent = documentItem.enabled ? "enabled" : "disabled";
+    titleRow.appendChild(enabledBadge);
+
+    const meta = document.createElement("div");
+    meta.className = "document-meta";
+    meta.append(
+      createMetaItem(documentItem.builtIn ? "built-in" : "user uploaded"),
+      createMetaItem(formatBytes(documentItem.sizeBytes)),
+      createMetaItem(formatDate(documentItem.updatedAt))
+    );
+
+    main.append(titleRow, meta);
+
+    const actions = document.createElement("div");
+    actions.className = "document-actions";
+
+    const toggleButton = document.createElement("button");
+    toggleButton.className = "button button-secondary";
+    toggleButton.type = "button";
+    toggleButton.textContent = documentItem.enabled ? "禁用" : "启用";
+    toggleButton.addEventListener("click", async () => {
+      await updateDocument(kind, documentItem.id, !documentItem.enabled);
+    });
+    actions.appendChild(toggleButton);
+
+    if (!documentItem.builtIn) {
+      const deleteButton = document.createElement("button");
+      deleteButton.className = "button button-danger";
+      deleteButton.type = "button";
+      deleteButton.textContent = "删除";
+      deleteButton.addEventListener("click", async () => {
+        await deleteDocument(kind, documentItem.id);
+      });
+      actions.appendChild(deleteButton);
+    }
+
+    item.append(main, actions);
+    list.appendChild(item);
+  });
+
+  fields.list.appendChild(list);
+}
+
+function renderDocumentError(kind, text) {
+  const fields = documentFields[kind];
+  fields.list.textContent = "";
+  const errorState = document.createElement("div");
+  errorState.className = "empty-state is-error";
+  errorState.textContent = text;
+  fields.list.appendChild(errorState);
 }
 
 function selectProfile(name) {
@@ -331,6 +479,91 @@ async function testSelectedProfile() {
   }
 }
 
+async function uploadDocument(kind, file) {
+  const fields = documentFields[kind];
+  if (!file) {
+    showToast(`请先选择要上传的${fields.label} Markdown .md 文件。`, "is-error");
+    fields.upload.focus();
+    return;
+  }
+
+  if (!file.name.toLowerCase().endsWith(".md")) {
+    showToast("只支持上传 Markdown .md 文件。", "is-error");
+    fields.upload.value = "";
+    fields.upload.focus();
+    return;
+  }
+
+  const formData = new FormData();
+  formData.append("file", file);
+  fields.uploadButton.disabled = true;
+  showToast(`正在上传${fields.label}。`);
+
+  try {
+    const uploaded = await requestJson(`${fields.endpoint}/upload`, {
+      method: "POST",
+      body: formData
+    });
+
+    showToast(`已上传：${uploaded?.displayName || file.name}`, "is-ok");
+    fields.upload.value = "";
+    const [status] = await Promise.all([
+      loadStatus(),
+      loadDocuments(kind)
+    ]);
+    renderStatus(status);
+    setStatusMessage("状态正常", "is-ok");
+  } catch (error) {
+    showToast(`上传失败：${getErrorMessage(error)}`, "is-error");
+  } finally {
+    fields.uploadButton.disabled = false;
+  }
+}
+
+async function updateDocument(kind, id, enabled) {
+  const fields = documentFields[kind];
+  try {
+    await requestJson(`${fields.endpoint}/${encodeURIComponent(id)}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ enabled, displayName: null })
+    });
+
+    showToast(`已${enabled ? "启用" : "禁用"}${fields.label}。`, "is-ok");
+    const [status] = await Promise.all([
+      loadStatus(),
+      loadDocuments(kind)
+    ]);
+    renderStatus(status);
+    setStatusMessage("状态正常", "is-ok");
+  } catch (error) {
+    showToast(`更新失败：${getErrorMessage(error)}`, "is-error");
+  }
+}
+
+async function deleteDocument(kind, id) {
+  const fields = documentFields[kind];
+  if (!window.confirm(`确认删除这个${fields.label}？`)) {
+    return;
+  }
+
+  try {
+    await requestJson(`${fields.endpoint}/${encodeURIComponent(id)}`, {
+      method: "DELETE"
+    });
+
+    showToast(`已删除${fields.label}。`, "is-ok");
+    const [status] = await Promise.all([
+      loadStatus(),
+      loadDocuments(kind)
+    ]);
+    renderStatus(status);
+    setStatusMessage("状态正常", "is-ok");
+  } catch (error) {
+    showToast(`删除失败：${getErrorMessage(error)}`, "is-error");
+  }
+}
+
 async function requestJson(url, options = {}) {
   const response = await fetch(url, {
     headers: { Accept: "application/json", ...(options.headers || {}) },
@@ -388,6 +621,42 @@ function detectPreset(profile) {
 
 function formatCount(value) {
   return Number.isFinite(value) ? String(value) : "0";
+}
+
+function createMetaItem(text) {
+  const item = document.createElement("span");
+  item.textContent = text;
+  return item;
+}
+
+function formatBytes(value) {
+  const bytes = Number(value);
+  if (!Number.isFinite(bytes) || bytes <= 0) {
+    return "0 B";
+  }
+
+  if (bytes < 1024) {
+    return `${Math.round(bytes)} B`;
+  }
+
+  if (bytes < 1024 * 1024) {
+    return `${(bytes / 1024).toFixed(1)} KB`;
+  }
+
+  return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
+}
+
+function formatDate(value) {
+  if (!value) {
+    return "未记录更新时间";
+  }
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return "未记录更新时间";
+  }
+
+  return date.toLocaleString("zh-CN", { hour12: false });
 }
 
 function readNumber(value, fallback) {

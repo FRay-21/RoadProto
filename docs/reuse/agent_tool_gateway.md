@@ -14,6 +14,7 @@ Agent 工具网关提供从受控 Agent 工具 JSON 到 C++ application/cad_adap
 - 新工具必须有业务文档、Agent skill 文档和协议说明。
 - WPF 只展示确认卡片和结果，不直接读写 CAD 实体。
 - Agent 后端只生成意图、回复和工具调用候选，不依赖 ObjectARX。
+- `/admin` 管理控制台只管理模型 Profile、API Key、skill 和知识库 Markdown，不直接执行工具；CAD 写入仍必须经过 WPF 确认卡片和 C++ 白名单工具网关。
 
 ## 首版工具
 

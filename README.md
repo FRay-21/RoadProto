@@ -178,8 +178,9 @@ UI   -> 只负责参数收集和展示
   - 业务文档：`docs/business/drawing_quantity/路面结构图例.md`
 - 设计软件原型 Agent：命令 `RD_AI_ASSISTANT_OPEN`
   - 可通过 AutoCAD 右侧 WPF Agent 面板进行问答、操作咨询和受控工具调用确认。
-  - 本地 `.NET 8` Agent sidecar 固定监听 `http://127.0.0.1:17831`，提供 `/health` 和 `/api/chat`。
-  - 模型 Provider 使用 OpenAI-compatible `/chat/completions`，配置模板支持 OpenAI、DeepSeek 和 DashScope/阿里百炼/千问等兼容接口，API Key 只从环境变量读取。
+  - 本地 `.NET 8` Agent sidecar 固定监听 `http://127.0.0.1:17831`，提供 `/health`、`/api/chat` 和独立浏览器管理控制台 `/admin`。
+  - 管理控制台支持模型 Profile 配置、连接测试、Windows 当前用户加密保存 API Key、Markdown skill 上传和 Markdown 知识库上传。
+  - 模型 Provider 使用 OpenAI-compatible `/chat/completions`，配置支持 OpenAI、DeepSeek 和 DashScope/阿里百炼/千问等兼容接口；`appsettings` 中的 profile 仍可作为首次启动 seed。
   - 首个自动化工具为 `cross_section.subgrade_template.create`，通过 `RD_AI_EXECUTE_TOOL_FILE` 在 C++ 白名单工具网关中创建 `DnSubgradeTemplateEntity` 路基模板实体。
   - 当前已通过自动化构建与测试；AutoCAD 2021 图形界面的完整端到端点验仍待手工执行，因此暂不标记为稳定版本。
   - 业务文档：`docs/business/agent/设计软件原型Agent.md`
@@ -229,7 +230,13 @@ dotnet build src\agent\RoadProto.Agent.Host\RoadProto.Agent.Host.csproj -c Relea
 dotnet run --project src\agent\RoadProto.Agent.Host\RoadProto.Agent.Host.csproj
 ```
 
-后端默认监听 `http://127.0.0.1:17831`。模型配置可参考 `src/agent/RoadProto.Agent.Host/appsettings.example.json`；API Key 通过 `OPENAI_API_KEY`、`DEEPSEEK_API_KEY` 或 `DASHSCOPE_API_KEY` 等环境变量提供。
+后端默认监听 `http://127.0.0.1:17831`。启动后端后可打开本地管理控制台：
+
+```text
+http://127.0.0.1:17831/admin
+```
+
+管理控制台支持模型 Profile 配置、连接测试、Windows 当前用户加密保存 API Key、Markdown skill 上传和 Markdown 知识库上传。API Key 保存在 `%LOCALAPPDATA%\RoadProto\Agent\secrets\`，不会写入仓库。模型配置可参考 `src/agent/RoadProto.Agent.Host/appsettings.example.json`；这些配置会在本地 `config.json` 不存在时作为首次启动 seed。
 
 在 AutoCAD 2021 中手动验证当前 RoadProto 流程：
 
@@ -268,7 +275,7 @@ artifacts\x64\Debug\RoadProtoCoreTests.exe
 - 纵断面竖曲线规则：默认创建、对称二次抛物线计算、BVC/EVC、高低点、任意桩号高程和坡度、PVI 增删、半径更新和命令元数据。
 - 横断面道路模型规则：模板优先级解析、采样点收集、竖曲线高程、路基模板三维部件线生成、路面结构层模板内外侧语义和线框生成、边坡模板默认值和几何约束、边坡模板组优先级、构造物范围按左侧/右侧/两侧跳过边坡放坡、TIN 地面剖切交地、断面地面快照、断面节点链、三维网格线框生成、生成进度回调、采样桩号持久化、横断面查看预览、横断面图配置 CSV、同一路基部件配置行优先级、路基类型多选、结构层面域夹点手动编辑、命令元数据、WPF Bridge 和 ObjectARX 实体源码契约。
 - 出图出表规则：路面工程量统计表命令元数据、横断面图实体当前面域优先采样、构造物切段、旧道路模型部件名反推、部件/结构层双模式聚合、结构层平面投影面积、平均断面法体积、依照路面面积方法体积和带格式 `.xls` 写出；路面结构图例命令元数据、模板列规划、表头列宽、结构图示不写层类型文字、厚度厘米表达、底部图例不合并和普通 CAD 图元绘制契约。
-- Agent 原型规则：`AI_AGENT` 模块命令元数据、Agent 工具 JSON 解析、请求大小限制、顶层字段白名单、`resultPath` 专用临时目录限制、路基模板工具参数映射、无效参数拒绝、工具执行结果 JSON 写回，以及 `.NET 8` 后端 planner、OpenAI-compatible Provider、API Key 缺失提示和 WPF Agent 客户端源码契约。
+- Agent 原型规则：`AI_AGENT` 模块命令元数据、Agent 工具 JSON 解析、请求大小限制、顶层字段白名单、`resultPath` 专用临时目录限制、路基模板工具参数映射、无效参数拒绝、工具执行结果 JSON 写回，以及 `.NET 8` 后端 planner、OpenAI-compatible Provider、管理控制台配置读写、DPAPI API Key 保存、Markdown skill/知识库上传、prompt 上下文组装和 WPF Agent 客户端源码契约。
 
 ## 新增命令流程
 

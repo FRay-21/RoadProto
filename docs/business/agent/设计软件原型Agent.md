@@ -19,20 +19,36 @@
 - 本地 Agent 后端不依赖 ObjectARX，不直接操作 DWG。
 - C++ 工具网关只执行白名单工具，不执行任意 AutoCAD 命令字符串。
 - 首版工具只创建 `DnSubgradeTemplateEntity`；未提供任意实体修改、删除或命令执行能力。
-- API Key 只从环境变量读取，不写入仓库或 DWG。
+- API Key 由独立浏览器管理控制台输入，并使用 Windows 当前用户 DPAPI 加密保存到本机 `%LOCALAPPDATA%\RoadProto\Agent\secrets\`；不写入仓库或 DWG。
+- 管理控制台不直接执行 CAD 工具；所有 CAD 写入仍必须通过 WPF 确认卡片和 C++ 白名单工具网关。
+
+## 管理控制台
+
+`RoadProto.Agent.Host` 提供独立浏览器管理控制台 `/admin`。启动后端后可访问：
+
+```text
+http://127.0.0.1:17831/admin
+```
+
+该页面用于配置 OpenAI-compatible 模型 Profile、输入并加密保存 API Key、执行模型连接测试、导入 Markdown skill 和导入 Markdown 知识库。模型 Profile 支持 OpenAI、DeepSeek、DashScope/阿里百炼/千问等兼容接口，也支持自定义 OpenAI-compatible Base URL。
+
+管理控制台保存的配置位于 `%LOCALAPPDATA%\RoadProto\Agent\config.json`；API Key 以 Windows 当前用户 DPAPI 加密文件形式保存到 `%LOCALAPPDATA%\RoadProto\Agent\secrets\`。上传的 skill 和知识库 Markdown 分别保存到 `%LOCALAPPDATA%\RoadProto\Agent\skills\` 和 `%LOCALAPPDATA%\RoadProto\Agent\knowledge\`。这些本机配置文件不进入 Git 仓库，不写入 DWG。
+
+后端在处理普通问答时，会把默认系统提示、内置路基模板创建 skill、启用的用户 skill 和启用的知识库 Markdown 组合为 system prompt。工具意图仍由本地 planner 优先识别；模型返回只作为普通回复，不自动执行工具。
 
 ## 业务流程
 
 1. 用户启动本地 Agent sidecar，默认监听 `http://127.0.0.1:17831`。
-2. 用户在 AutoCAD 中运行 `RD_AI_ASSISTANT_OPEN`，或点击 Ribbon 的 `Agent / AI 助手`。
-3. WPF 打开右侧 Agent 面板，并通过 `/health` 检查本地后端状态。
-4. 用户输入自然语言需求。
-5. 后端优先使用本地规则 planner 和 Agent skill 文档识别创建路基模板意图；普通问答可交给配置的 OpenAI-compatible 模型 Provider。
-6. 若识别出 `cross_section.subgrade_template.create`，WPF 展示工具确认卡片，确认前不执行 CAD 写入。
-7. 用户确认后，WPF 在 `%TEMP%\RoadProtoAgent\` 生成受控请求文件和结果文件路径。
-8. WPF 发送 `RD_AI_EXECUTE_TOOL_FILE`，由 C++ 工具网关读取请求、校验工具名、参数、插入点和结果路径。
-9. 工具网关复用现有路基模板领域模型、创建服务和 ObjectARX 实体创建能力，生成 `DnSubgradeTemplateEntity`。
-10. 工具网关写回固定结构结果 JSON，包含成功状态、实体 handle、实体类型、错误码或提示信息。
+2. 用户可先打开 `/admin` 管理控制台，配置默认模型 Profile、API Key、skill 和知识库 Markdown。
+3. 用户在 AutoCAD 中运行 `RD_AI_ASSISTANT_OPEN`，或点击 Ribbon 的 `Agent / AI 助手`。
+4. WPF 打开右侧 Agent 面板，并通过 `/health` 检查本地后端状态。
+5. 用户输入自然语言需求。
+6. 后端优先使用本地规则 planner 和 Agent skill 文档识别创建路基模板意图；普通问答可交给管理控制台配置的默认 OpenAI-compatible 模型 Provider。
+7. 若识别出 `cross_section.subgrade_template.create`，WPF 展示工具确认卡片，确认前不执行 CAD 写入。
+8. 用户确认后，WPF 在 `%TEMP%\RoadProtoAgent\` 生成受控请求文件和结果文件路径。
+9. WPF 发送 `RD_AI_EXECUTE_TOOL_FILE`，由 C++ 工具网关读取请求、校验工具名、参数、插入点和结果路径。
+10. 工具网关复用现有路基模板领域模型、创建服务和 ObjectARX 实体创建能力，生成 `DnSubgradeTemplateEntity`。
+11. 工具网关写回固定结构结果 JSON，包含成功状态、实体 handle、实体类型、错误码或提示信息。
 
 ## 首版路基模板参数
 
@@ -42,6 +58,6 @@
 
 ## 验证状态
 
-- 自动化验证已通过：`RoadProto.sln` Release 构建、核心测试、Agent 后端测试、Agent Host Release 构建和 WPF Release 构建。
+- 自动化验证已通过：Agent 后端测试、Agent Host Release 构建和管理控制台浏览器点验；`RoadProto.sln` Release 构建、核心测试和 WPF Release 构建仍按当前分支最终验证结果记录。
 - Core Console 脚本烟测尝试受限于本机脚本加载路径/命令注册验证，未形成可采信的命令级结果文件。
-- 图形界面验证仍需在 AutoCAD 2021 中手工执行：加载 ARX 和托管 DLL，启动 Agent sidecar，打开 `RD_AI_ASSISTANT_OPEN`，输入路基模板创建需求，确认工具卡片，并检查 DWG 中生成的 `DnSubgradeTemplateEntity`。
+- 图形界面验证仍需在 AutoCAD 2021 中手工执行：加载 ARX 和托管 DLL，启动 Agent sidecar，打开 `/admin` 配置模型与 Markdown 文档，打开 `RD_AI_ASSISTANT_OPEN`，输入路基模板创建需求，确认工具卡片，并检查 DWG 中生成的 `DnSubgradeTemplateEntity`。

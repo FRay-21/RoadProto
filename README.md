@@ -173,6 +173,10 @@ UI   -> 只负责参数收集和展示
   - 结构图示宽度固定 `20cm`，厚度按厘米 `1:1` 绘制；结构图示内部不写结构层类型文字，底部图例按结构层出现顺序逐项绘制，不合并同填充类型或同层名。
   - 命令只绘制普通 CAD 图元，不生成自定义实体。
   - 业务文档：`docs/business/drawing_quantity/路面结构图例.md`
+- 设计软件原型 Agent：命令 `RD_AI_ASSISTANT_OPEN`
+  - 打开 AutoCAD 右侧 WPF Agent 面板。
+  - 首版支持通过受控工具调用自动创建路基模板。
+  - 业务文档：`docs/business/agent/设计软件原型Agent.md`
 - 平交口模块：命令 `RD_INTERSECTION_INFO`
   - 示例演示新增模块可以通过框架完成注册、命令暴露和 Ribbon 元数据挂接。
   - 业务文档：`docs/business/intersection/平交口模块框架说明.md`

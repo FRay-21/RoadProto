@@ -1,5 +1,12 @@
 # 版本记录
 
+## v0.1.32_20260604_AgentPrototype
+
+- 新增设计软件原型 Agent 设计与实现入口。
+- 新增右侧 WPF Agent 面板规划、`.NET 8` 本地 Agent sidecar、C++ 白名单工具网关和 RoadProto Agent skill 文档体系。
+- 首个自动化原子函数为 `cross_section.subgrade_template.create`，用于自动创建 `DnSubgradeTemplateEntity` 路基模板实体。
+- 是否可作为稳定测试版本：否。该版本为 Agent 原型开发版本，需要完成 ARX、WPF 和后端联调后再标记稳定。
+
 ## 未发布 - 2026-05-29
 
 - 阶段：路面结构层创建向导内外侧参数与部件增删交互调整。

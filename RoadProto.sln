@@ -8,6 +8,10 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "RoadProtoCoreTests", "tests
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RoadProto.Terrain.UI", "src\ui\wpf\RoadProto.Terrain.UI\RoadProto.Terrain.UI.csproj", "{5F9F1249-4D85-43CF-A17E-69D6E6100470}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RoadProto.Agent.Host", "src\agent\RoadProto.Agent.Host\RoadProto.Agent.Host.csproj", "{F4981078-039D-40E3-B668-38167304E0E2}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RoadProto.Agent.Tests", "src\agent\RoadProto.Agent.Tests\RoadProto.Agent.Tests.csproj", "{1E1B37E5-2F4B-44A2-8635-8936A40458B5}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|x64 = Debug|x64
@@ -26,6 +30,14 @@ Global
 		{5F9F1249-4D85-43CF-A17E-69D6E6100470}.Debug|x64.Build.0 = Debug|Any CPU
 		{5F9F1249-4D85-43CF-A17E-69D6E6100470}.Release|x64.ActiveCfg = Release|Any CPU
 		{5F9F1249-4D85-43CF-A17E-69D6E6100470}.Release|x64.Build.0 = Release|Any CPU
+		{F4981078-039D-40E3-B668-38167304E0E2}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{F4981078-039D-40E3-B668-38167304E0E2}.Debug|x64.Build.0 = Debug|Any CPU
+		{F4981078-039D-40E3-B668-38167304E0E2}.Release|x64.ActiveCfg = Release|Any CPU
+		{F4981078-039D-40E3-B668-38167304E0E2}.Release|x64.Build.0 = Release|Any CPU
+		{1E1B37E5-2F4B-44A2-8635-8936A40458B5}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{1E1B37E5-2F4B-44A2-8635-8936A40458B5}.Debug|x64.Build.0 = Debug|Any CPU
+		{1E1B37E5-2F4B-44A2-8635-8936A40458B5}.Release|x64.ActiveCfg = Release|Any CPU
+		{1E1B37E5-2F4B-44A2-8635-8936A40458B5}.Release|x64.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

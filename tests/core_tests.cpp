@@ -8728,6 +8728,8 @@ void agentToolGatewaySourceContracts()
     CHECK(commandSource.find("jsonEscape") != std::string::npos);
     CHECK(commandSource.find("writeResultFile") != std::string::npos);
     CHECK(commandSource.find("writeFailureResult") != std::string::npos);
+    CHECK(commandSource.find("readResultTargetForParseFailure") != std::string::npos);
+    CHECK(commandSource.find("writeParseFailureResult") != std::string::npos);
     CHECK(commandSource.find("\"succeeded\": true") != std::string::npos);
     CHECK(commandSource.find("\"succeeded\": false") != std::string::npos);
     CHECK(commandSource.find("\"entityHandle\"") != std::string::npos);
@@ -8737,6 +8739,7 @@ void agentToolGatewaySourceContracts()
     CHECK(commandSource.find("InvalidInsertionPoint") != std::string::npos);
     CHECK(commandSource.find("CreateEntityFailed") != std::string::npos);
     CHECK(commandSource.find("Cancelled") != std::string::npos);
+    CHECK(commandSource.find("ParseError") != std::string::npos);
     CHECK(commandSource.find("case L'\\\\'") != std::string::npos);
     CHECK(commandSource.find("case L'\\\"'") != std::string::npos);
     CHECK(commandSource.find("case L'\\n'") != std::string::npos);

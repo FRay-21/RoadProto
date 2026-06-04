@@ -29,6 +29,12 @@ namespace {
 
 constexpr std::uintmax_t kMaxAgentToolRequestFileBytes = 1024 * 1024;
 
+struct AgentResultTarget {
+    std::wstring requestId;
+    std::wstring tool;
+    std::wstring resultPath;
+};
+
 std::wstring trimCommandPath(std::wstring path)
 {
     while (!path.empty() && std::iswspace(path.front()) != 0) {
@@ -273,6 +279,51 @@ void writeSuccessResult(const application::agent::AgentToolRequest& request, con
         handle);
 }
 
+bool readOptionalTopLevelString(
+    const application::agent::AgentJsonValue& root,
+    const std::wstring& key,
+    std::wstring& target)
+{
+    const auto* value = root.find(key);
+    if (value == nullptr || value->type != application::agent::AgentJsonValue::Type::String) {
+        return false;
+    }
+
+    target = value->stringValue;
+    return true;
+}
+
+bool readResultTargetForParseFailure(
+    const std::string& requestJson,
+    AgentResultTarget& target,
+    std::wstring& errorMessage)
+{
+    application::agent::AgentJsonValue root;
+    if (!application::agent::parseAgentJson(requestJson, root, errorMessage) || !root.isObject()) {
+        return false;
+    }
+
+    readOptionalTopLevelString(root, L"requestId", target.requestId);
+    readOptionalTopLevelString(root, L"tool", target.tool);
+    readOptionalTopLevelString(root, L"resultPath", target.resultPath);
+    if (target.resultPath.empty()) {
+        return false;
+    }
+
+    return validateTrustedResultPath(target.resultPath, errorMessage);
+}
+
+void writeParseFailureResult(const std::string& requestJson, const std::wstring& message)
+{
+    AgentResultTarget target;
+    std::wstring extractionError;
+    if (!readResultTargetForParseFailure(requestJson, target, extractionError)) {
+        return;
+    }
+
+    writeResultFile(target.resultPath, target.requestId, target.tool, false, message, L"ParseError");
+}
+
 std::string readBinaryFile(const std::filesystem::path& path)
 {
     std::ifstream input(path, std::ios::binary);
@@ -372,9 +423,12 @@ void runAgentExecuteToolFileCommand()
         return;
     }
 
-    const auto request = application::agent::parseAgentToolRequestJson(readBinaryFile(requestPath), error);
+    const auto requestJson = readBinaryFile(requestPath);
+    const auto request = application::agent::parseAgentToolRequestJson(requestJson, error);
     if (!request.succeeded) {
-        editor.writeError(error.empty() ? L"Agent 工具请求解析失败。" : error);
+        const auto message = error.empty() ? L"Agent 工具请求解析失败。" : error;
+        writeParseFailureResult(requestJson, message);
+        editor.writeError(message);
         return;
     }
 

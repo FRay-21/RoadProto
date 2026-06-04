@@ -8232,6 +8232,115 @@ void agentJsonValueParsesUtf8StringsArraysBooleansAndNull()
     CHECK(value.find(L"values")->arrayValue[2].stringValue == L"K1");
 }
 
+void agentJsonValueParsesUnicodeEscapesAndSurrogatePairs()
+{
+    using roadproto::application::agent::AgentJsonValue;
+    using roadproto::application::agent::parseAgentJson;
+
+    AgentJsonValue value;
+    std::wstring error;
+    CHECK(parseAgentJson("{\"han\":\"\\u4E2D\\u6587\",\"emoji\":\"\\uD83D\\uDE00\"}", value, error));
+    CHECK(error.empty());
+    CHECK(value.find(L"han") != nullptr);
+    CHECK(value.find(L"han")->stringValue == L"中文");
+    CHECK(value.find(L"emoji") != nullptr);
+    CHECK(value.find(L"emoji")->stringValue == L"\U0001F600");
+}
+
+void agentJsonValueRejectsInvalidUtf8ControlCharsAndNumbers()
+{
+    using roadproto::application::agent::AgentJsonValue;
+    using roadproto::application::agent::parseAgentJson;
+
+    AgentJsonValue value;
+    std::wstring error;
+    CHECK(!parseAgentJson(std::string("{\"bad\":\"") + static_cast<char>(0x01) + "\"}", value, error));
+    CHECK(error.find(L"control") != std::wstring::npos);
+
+    error.clear();
+    CHECK(!parseAgentJson(std::string("{\"bad\":\"") + static_cast<char>(0xC3) + static_cast<char>(0x28) + "\"}", value, error));
+    CHECK(error.find(L"UTF-8") != std::wstring::npos);
+
+    error.clear();
+    CHECK(!parseAgentJson("{\"n\":01}", value, error));
+    CHECK(error.find(L"number") != std::wstring::npos);
+
+    error.clear();
+    CHECK(!parseAgentJson("{\"n\":1.}", value, error));
+    CHECK(error.find(L"number") != std::wstring::npos);
+}
+
+void agentJsonValueParseClearsPreviousObjectAndArrayState()
+{
+    using roadproto::application::agent::AgentJsonValue;
+    using roadproto::application::agent::parseAgentJson;
+
+    AgentJsonValue value;
+    std::wstring error;
+    CHECK(parseAgentJson("{\"stale\":1}", value, error));
+    CHECK(value.find(L"stale") != nullptr);
+
+    error.clear();
+    CHECK(parseAgentJson("[]", value, error));
+    CHECK(value.isArray());
+    CHECK(value.objectValue.empty());
+
+    error.clear();
+    CHECK(parseAgentJson("null", value, error));
+    CHECK(value.type == AgentJsonValue::Type::Null);
+    CHECK(value.arrayValue.empty());
+}
+
+void agentToolRequestRejectsMissingOrWrongTypeTool()
+{
+    using roadproto::application::agent::parseAgentToolRequestJson;
+
+    std::wstring error;
+    auto request = parseAgentToolRequestJson("{\"requestId\":\"agent-003\",\"arguments\":{}}", error);
+    CHECK(!request.succeeded);
+    CHECK(error.find(L"tool") != std::wstring::npos);
+
+    error.clear();
+    request = parseAgentToolRequestJson("{\"tool\":123,\"arguments\":{}}", error);
+    CHECK(!request.succeeded);
+    CHECK(error.find(L"tool") != std::wstring::npos);
+    CHECK(error.find(L"string") != std::wstring::npos);
+}
+
+void agentToolRequestRejectsWrongTypeArgumentFields()
+{
+    using roadproto::application::agent::parseAgentToolRequestJson;
+
+    const auto requestJson = [](const std::string& argumentJson) {
+        return std::string("{\"tool\":\"cross_section.subgrade_template.create\",\"arguments\":") + argumentJson + "}";
+    };
+
+    std::wstring error;
+    auto request = parseAgentToolRequestJson(requestJson("{\"displayScale\":\"bad\"}"), error);
+    CHECK(!request.succeeded);
+    CHECK(error.find(L"arguments.displayScale") != std::wstring::npos);
+
+    error.clear();
+    request = parseAgentToolRequestJson(requestJson("{\"templateName\":123}"), error);
+    CHECK(!request.succeeded);
+    CHECK(error.find(L"arguments.templateName") != std::wstring::npos);
+
+    error.clear();
+    request = parseAgentToolRequestJson(requestJson("{\"insertionPoint\":\"x\"}"), error);
+    CHECK(!request.succeeded);
+    CHECK(error.find(L"arguments.insertionPoint") != std::wstring::npos);
+
+    error.clear();
+    request = parseAgentToolRequestJson(requestJson("{\"components\":{}}"), error);
+    CHECK(!request.succeeded);
+    CHECK(error.find(L"arguments.components") != std::wstring::npos);
+
+    error.clear();
+    request = parseAgentToolRequestJson(requestJson("{\"components\":[1]}"), error);
+    CHECK(!request.succeeded);
+    CHECK(error.find(L"arguments.components[0]") != std::wstring::npos);
+}
+
 } // namespace
 
 int main()
@@ -8368,6 +8477,11 @@ int main()
     agentToolRequestParsesSubgradeTemplateCreateJson();
     agentToolRequestRejectsUnknownTool();
     agentJsonValueParsesUtf8StringsArraysBooleansAndNull();
+    agentJsonValueParsesUnicodeEscapesAndSurrogatePairs();
+    agentJsonValueRejectsInvalidUtf8ControlCharsAndNumbers();
+    agentJsonValueParseClearsPreviousObjectAndArrayState();
+    agentToolRequestRejectsMissingOrWrongTypeTool();
+    agentToolRequestRejectsWrongTypeArgumentFields();
     terrainMeshFileRoundTripsTinData();
     terrainMeshFileRejectsInvalidFiles();
     stationFormatterFormatsEngineeringStations();

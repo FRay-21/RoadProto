@@ -1,29 +1,74 @@
 #include "application/agent/AgentToolRequest.h"
 
 #include <cmath>
+#include <sstream>
 
 namespace roadproto::application::agent {
 namespace {
 
-std::wstring stringOrDefault(const AgentJsonValue* value, const std::wstring& fallback)
+bool readOptionalString(
+    const AgentJsonValue* owner,
+    const std::wstring& key,
+    const std::wstring& fieldPath,
+    std::wstring& target,
+    std::wstring& errorMessage)
 {
-    return value != nullptr && value->type == AgentJsonValue::Type::String
-        ? value->stringValue
-        : fallback;
+    const auto* value = owner->find(key);
+    if (value == nullptr) {
+        return true;
+    }
+    if (value->type != AgentJsonValue::Type::String) {
+        errorMessage = fieldPath + L" must be a string.";
+        return false;
+    }
+    target = value->stringValue;
+    return true;
 }
 
-double numberOrDefault(const AgentJsonValue* value, double fallback)
+bool readOptionalNumber(
+    const AgentJsonValue* owner,
+    const std::wstring& key,
+    const std::wstring& fieldPath,
+    double& target,
+    std::wstring& errorMessage)
 {
-    return value != nullptr && value->type == AgentJsonValue::Type::Number
-        ? value->numberValue
-        : fallback;
+    const auto* value = owner->find(key);
+    if (value == nullptr) {
+        return true;
+    }
+    if (value->type != AgentJsonValue::Type::Number) {
+        errorMessage = fieldPath + L" must be a number.";
+        return false;
+    }
+    target = value->numberValue;
+    return true;
 }
 
-bool boolOrDefault(const AgentJsonValue* value, bool fallback)
+bool readRequiredString(
+    const AgentJsonValue* owner,
+    const std::wstring& key,
+    const std::wstring& fieldPath,
+    std::wstring& target,
+    std::wstring& errorMessage)
 {
-    return value != nullptr && value->type == AgentJsonValue::Type::Boolean
-        ? value->booleanValue
-        : fallback;
+    const auto* value = owner->find(key);
+    if (value == nullptr) {
+        errorMessage = fieldPath + L" is required.";
+        return false;
+    }
+    if (value->type != AgentJsonValue::Type::String) {
+        errorMessage = fieldPath + L" must be a string.";
+        return false;
+    }
+    target = value->stringValue;
+    return true;
+}
+
+std::wstring componentPath(std::size_t index)
+{
+    std::wostringstream output;
+    output << L"arguments.components[" << index << L"]";
+    return output.str();
 }
 
 } // namespace
@@ -40,14 +85,18 @@ AgentToolRequest parseAgentToolRequestJson(const std::string& text, std::wstring
     }
 
     AgentToolRequest request;
-    request.tool = stringOrDefault(root.find(L"tool"), L"");
+    if (!readRequiredString(&root, L"tool", L"tool", request.tool, errorMessage)) {
+        return {};
+    }
     if (request.tool != L"cross_section.subgrade_template.create") {
         errorMessage = L"Unsupported agent tool: " + request.tool;
         return {};
     }
 
-    request.requestId = stringOrDefault(root.find(L"requestId"), L"");
-    request.resultPath = stringOrDefault(root.find(L"resultPath"), L"");
+    if (!readOptionalString(&root, L"requestId", L"requestId", request.requestId, errorMessage) ||
+        !readOptionalString(&root, L"resultPath", L"resultPath", request.resultPath, errorMessage)) {
+        return {};
+    }
 
     const auto* arguments = root.find(L"arguments");
     if (arguments == nullptr || !arguments->isObject()) {
@@ -55,46 +104,86 @@ AgentToolRequest parseAgentToolRequestJson(const std::string& text, std::wstring
         return {};
     }
 
-    request.arguments.templateName = stringOrDefault(arguments->find(L"templateName"), L"默认路基模板");
-    request.arguments.displayScale = numberOrDefault(arguments->find(L"displayScale"), 10.0);
-    request.arguments.roadGrade = stringOrDefault(arguments->find(L"roadGrade"), L"Expressway");
-    request.arguments.roadCenterlineHandle = stringOrDefault(arguments->find(L"roadCenterlineHandle"), L"");
-    request.arguments.componentSource = stringOrDefault(arguments->find(L"componentSource"), L"DefaultByRoadGrade");
+    if (!readOptionalString(arguments, L"templateName", L"arguments.templateName", request.arguments.templateName, errorMessage) ||
+        !readOptionalNumber(arguments, L"displayScale", L"arguments.displayScale", request.arguments.displayScale, errorMessage) ||
+        !readOptionalString(arguments, L"roadGrade", L"arguments.roadGrade", request.arguments.roadGrade, errorMessage) ||
+        !readOptionalString(arguments, L"roadCenterlineHandle", L"arguments.roadCenterlineHandle", request.arguments.roadCenterlineHandle, errorMessage) ||
+        !readOptionalString(arguments, L"componentSource", L"arguments.componentSource", request.arguments.componentSource, errorMessage)) {
+        return {};
+    }
 
     const auto* insertionPoint = arguments->find(L"insertionPoint");
-    if (insertionPoint != nullptr && insertionPoint->isObject()) {
-        request.arguments.insertionPoint.mode = stringOrDefault(insertionPoint->find(L"mode"), L"PickInCad");
-        if (const auto* x = insertionPoint->find(L"x"); x != nullptr && x->type == AgentJsonValue::Type::Number) {
+    if (insertionPoint != nullptr) {
+        if (!insertionPoint->isObject()) {
+            errorMessage = L"arguments.insertionPoint must be an object.";
+            return {};
+        }
+        if (!readOptionalString(insertionPoint, L"mode", L"arguments.insertionPoint.mode", request.arguments.insertionPoint.mode, errorMessage)) {
+            return {};
+        }
+        if (const auto* x = insertionPoint->find(L"x"); x != nullptr) {
+            if (x->type != AgentJsonValue::Type::Number) {
+                errorMessage = L"arguments.insertionPoint.x must be a number.";
+                return {};
+            }
             request.arguments.insertionPoint.x = x->numberValue;
             request.arguments.insertionPoint.hasX = true;
         }
-        if (const auto* y = insertionPoint->find(L"y"); y != nullptr && y->type == AgentJsonValue::Type::Number) {
+        if (const auto* y = insertionPoint->find(L"y"); y != nullptr) {
+            if (y->type != AgentJsonValue::Type::Number) {
+                errorMessage = L"arguments.insertionPoint.y must be a number.";
+                return {};
+            }
             request.arguments.insertionPoint.y = y->numberValue;
             request.arguments.insertionPoint.hasY = true;
         }
-        if (const auto* z = insertionPoint->find(L"z"); z != nullptr && z->type == AgentJsonValue::Type::Number) {
+        if (const auto* z = insertionPoint->find(L"z"); z != nullptr) {
+            if (z->type != AgentJsonValue::Type::Number) {
+                errorMessage = L"arguments.insertionPoint.z must be a number.";
+                return {};
+            }
             request.arguments.insertionPoint.z = z->numberValue;
             request.arguments.insertionPoint.hasZ = true;
         }
     }
 
     const auto* components = arguments->find(L"components");
-    if (components != nullptr && components->isArray()) {
-        for (const auto& item : components->arrayValue) {
+    if (components != nullptr) {
+        if (!components->isArray()) {
+            errorMessage = L"arguments.components must be an array.";
+            return {};
+        }
+        for (std::size_t i = 0; i < components->arrayValue.size(); ++i) {
+            const auto& item = components->arrayValue[i];
+            const auto path = componentPath(i);
             if (!item.isObject()) {
-                errorMessage = L"Agent subgrade component must be an object.";
+                errorMessage = path + L" must be an object.";
                 return {};
             }
             AgentToolSubgradeComponent component;
-            component.side = stringOrDefault(item.find(L"side"), L"Right");
-            component.type = stringOrDefault(item.find(L"type"), L"TravelLane");
-            if (const auto* width = item.find(L"width"); width != nullptr && width->type == AgentJsonValue::Type::Number) {
+            if (!readOptionalString(&item, L"side", path + L".side", component.side, errorMessage) ||
+                !readOptionalString(&item, L"type", path + L".type", component.type, errorMessage)) {
+                return {};
+            }
+            if (component.side.empty()) {
+                component.side = L"Right";
+            }
+            if (component.type.empty()) {
+                component.type = L"TravelLane";
+            }
+            if (const auto* width = item.find(L"width"); width != nullptr) {
+                if (width->type != AgentJsonValue::Type::Number) {
+                    errorMessage = path + L".width must be a number.";
+                    return {};
+                }
                 component.width = width->numberValue;
                 component.hasWidth = true;
             }
-            component.height = numberOrDefault(item.find(L"height"), 0.0);
-            component.slopeMode = stringOrDefault(item.find(L"slopeMode"), L"Fixed");
-            component.fixedSlope = numberOrDefault(item.find(L"fixedSlope"), 0.0);
+            if (!readOptionalNumber(&item, L"height", path + L".height", component.height, errorMessage) ||
+                !readOptionalString(&item, L"slopeMode", path + L".slopeMode", component.slopeMode, errorMessage) ||
+                !readOptionalNumber(&item, L"fixedSlope", path + L".fixedSlope", component.fixedSlope, errorMessage)) {
+                return {};
+            }
             request.arguments.components.push_back(component);
         }
     }

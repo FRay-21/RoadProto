@@ -5,6 +5,7 @@
 #include <codecvt>
 #include <cstdlib>
 #include <cwctype>
+#include <cstdint>
 #include <locale>
 #include <sstream>
 #include <utility>
@@ -59,6 +60,7 @@ private:
     bool parseArray(AgentJsonValue& value, std::wstring& error);
     bool parseString(std::wstring& value, std::wstring& error);
     bool parseNumber(AgentJsonValue& value, std::wstring& error);
+    bool parseHexCodeUnit(std::uint32_t& value, std::wstring& error);
     bool consume(char expected);
     void skipWhitespace();
 
@@ -67,6 +69,43 @@ private:
 };
 
 } // namespace
+
+int hexValue(char ch)
+{
+    if (ch >= '0' && ch <= '9') {
+        return ch - '0';
+    }
+    if (ch >= 'a' && ch <= 'f') {
+        return ch - 'a' + 10;
+    }
+    if (ch >= 'A' && ch <= 'F') {
+        return ch - 'A' + 10;
+    }
+    return -1;
+}
+
+void appendUtf8CodePoint(std::string& utf8, std::uint32_t codePoint)
+{
+    if (codePoint <= 0x7F) {
+        utf8.push_back(static_cast<char>(codePoint));
+        return;
+    }
+    if (codePoint <= 0x7FF) {
+        utf8.push_back(static_cast<char>(0xC0 | (codePoint >> 6)));
+        utf8.push_back(static_cast<char>(0x80 | (codePoint & 0x3F)));
+        return;
+    }
+    if (codePoint <= 0xFFFF) {
+        utf8.push_back(static_cast<char>(0xE0 | (codePoint >> 12)));
+        utf8.push_back(static_cast<char>(0x80 | ((codePoint >> 6) & 0x3F)));
+        utf8.push_back(static_cast<char>(0x80 | (codePoint & 0x3F)));
+        return;
+    }
+    utf8.push_back(static_cast<char>(0xF0 | (codePoint >> 18)));
+    utf8.push_back(static_cast<char>(0x80 | ((codePoint >> 12) & 0x3F)));
+    utf8.push_back(static_cast<char>(0x80 | ((codePoint >> 6) & 0x3F)));
+    utf8.push_back(static_cast<char>(0x80 | (codePoint & 0x3F)));
+}
 
 bool Parser::parseValue(AgentJsonValue& value, std::wstring& error)
 {
@@ -239,11 +278,46 @@ bool Parser::parseString(std::wstring& value, std::wstring& error)
             case 't':
                 utf8.push_back('\t');
                 break;
+            case 'u':
+            {
+                std::uint32_t codeUnit = 0;
+                if (!parseHexCodeUnit(codeUnit, error)) {
+                    return false;
+                }
+                if (codeUnit >= 0xD800 && codeUnit <= 0xDBFF) {
+                    if (position_ + 2 > text_.size() || text_[position_] != '\\' || text_[position_ + 1] != 'u') {
+                        error = L"Invalid JSON unicode surrogate pair.";
+                        return false;
+                    }
+                    position_ += 2;
+                    std::uint32_t lowSurrogate = 0;
+                    if (!parseHexCodeUnit(lowSurrogate, error)) {
+                        return false;
+                    }
+                    if (lowSurrogate < 0xDC00 || lowSurrogate > 0xDFFF) {
+                        error = L"Invalid JSON unicode surrogate pair.";
+                        return false;
+                    }
+                    const auto codePoint = 0x10000 + ((codeUnit - 0xD800) << 10) + (lowSurrogate - 0xDC00);
+                    appendUtf8CodePoint(utf8, codePoint);
+                    break;
+                }
+                if (codeUnit >= 0xDC00 && codeUnit <= 0xDFFF) {
+                    error = L"Invalid JSON unicode surrogate pair.";
+                    return false;
+                }
+                appendUtf8CodePoint(utf8, codeUnit);
+                break;
+            }
             default:
                 error = L"Unsupported JSON string escape.";
                 return false;
             }
             continue;
+        }
+        if (static_cast<unsigned char>(ch) < 0x20) {
+            error = L"Unescaped control character in JSON string.";
+            return false;
         }
         utf8.push_back(ch);
     }
@@ -257,12 +331,33 @@ bool Parser::parseNumber(AgentJsonValue& value, std::wstring& error)
     const auto start = position_;
     if (text_[position_] == '-') {
         ++position_;
+        if (position_ >= text_.size()) {
+            error = L"Invalid JSON number.";
+            return false;
+        }
     }
-    while (position_ < text_.size() && text_[position_] >= '0' && text_[position_] <= '9') {
+
+    if (position_ >= text_.size() || text_[position_] < '0' || text_[position_] > '9') {
+        error = L"Invalid JSON number.";
+        return false;
+    }
+    if (text_[position_] == '0') {
         ++position_;
+        if (position_ < text_.size() && text_[position_] >= '0' && text_[position_] <= '9') {
+            error = L"Invalid JSON number.";
+            return false;
+        }
+    } else {
+        while (position_ < text_.size() && text_[position_] >= '0' && text_[position_] <= '9') {
+            ++position_;
+        }
     }
     if (position_ < text_.size() && text_[position_] == '.') {
         ++position_;
+        if (position_ >= text_.size() || text_[position_] < '0' || text_[position_] > '9') {
+            error = L"Invalid JSON number.";
+            return false;
+        }
         while (position_ < text_.size() && text_[position_] >= '0' && text_[position_] <= '9') {
             ++position_;
         }
@@ -271,6 +366,10 @@ bool Parser::parseNumber(AgentJsonValue& value, std::wstring& error)
         ++position_;
         if (position_ < text_.size() && (text_[position_] == '+' || text_[position_] == '-')) {
             ++position_;
+        }
+        if (position_ >= text_.size() || text_[position_] < '0' || text_[position_] > '9') {
+            error = L"Invalid JSON number.";
+            return false;
         }
         while (position_ < text_.size() && text_[position_] >= '0' && text_[position_] <= '9') {
             ++position_;
@@ -287,6 +386,25 @@ bool Parser::parseNumber(AgentJsonValue& value, std::wstring& error)
 
     value.type = AgentJsonValue::Type::Number;
     value.numberValue = parsed;
+    return true;
+}
+
+bool Parser::parseHexCodeUnit(std::uint32_t& value, std::wstring& error)
+{
+    if (position_ + 4 > text_.size()) {
+        error = L"Invalid JSON unicode escape.";
+        return false;
+    }
+
+    value = 0;
+    for (int i = 0; i < 4; ++i) {
+        const auto digit = hexValue(text_[position_++]);
+        if (digit < 0) {
+            error = L"Invalid JSON unicode escape.";
+            return false;
+        }
+        value = (value << 4) | static_cast<std::uint32_t>(digit);
+    }
     return true;
 }
 
@@ -314,7 +432,12 @@ void Parser::skipWhitespace()
 bool parseAgentJson(const std::string& text, AgentJsonValue& value, std::wstring& errorMessage)
 {
     Parser parser(text);
-    return parser.parse(value, errorMessage);
+    AgentJsonValue parsed;
+    if (!parser.parse(parsed, errorMessage)) {
+        return false;
+    }
+    value = parsed;
+    return true;
 }
 
 } // namespace roadproto::application::agent

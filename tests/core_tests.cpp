@@ -8312,6 +8312,33 @@ void agentSubgradeToolMapsExplicitComponents()
     CHECK(std::fabs(mapped.pavementLayerThickness - 0.28) < 1.0e-9);
 }
 
+void agentSubgradeToolRejectsInvalidExplicitWidth()
+{
+    using roadproto::application::agent::AgentSubgradeTemplateCreateArguments;
+    using roadproto::application::agent::AgentToolSubgradeComponent;
+    using roadproto::application::agent::buildSubgradeTemplateToolData;
+
+    AgentSubgradeTemplateCreateArguments arguments;
+    arguments.templateName = L"负宽度模板";
+    arguments.displayScale = 10.0;
+    arguments.roadGrade = L"SecondClass";
+    arguments.componentSource = L"ExplicitComponents";
+
+    AgentToolSubgradeComponent component;
+    component.side = L"Right";
+    component.type = L"TravelLane";
+    component.width = -1.0;
+    component.hasWidth = true;
+    arguments.components.push_back(component);
+
+    std::wstring error;
+    const auto result = buildSubgradeTemplateToolData(arguments, error);
+    CHECK(!result.succeeded);
+    CHECK(!error.empty());
+    CHECK(result.errorMessage == error);
+    CHECK(error.find(L"width") != std::wstring::npos);
+}
+
 void agentToolRequestRejectsUnknownTool()
 {
     using roadproto::application::agent::parseAgentToolRequestJson;
@@ -8610,6 +8637,7 @@ int main()
     agentToolRequestParsesSubgradeComponentDetailFields();
     agentSubgradeToolUsesDefaultComponentsForRoadGrade();
     agentSubgradeToolMapsExplicitComponents();
+    agentSubgradeToolRejectsInvalidExplicitWidth();
     agentToolRequestRejectsUnknownTool();
     agentJsonValueParsesUtf8StringsArraysBooleansAndNull();
     agentJsonValueParsesUnicodeEscapesAndSurrogatePairs();

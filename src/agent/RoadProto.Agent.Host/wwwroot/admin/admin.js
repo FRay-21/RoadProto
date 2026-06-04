@@ -146,18 +146,26 @@ function bindDocumentControls() {
 
 async function refreshAll() {
   setStatusMessage("正在读取状态");
-  try {
-    const [status, profiles, skills, knowledge] = await Promise.all([
-      loadStatus(),
-      loadProfiles(),
-      loadDocuments("skills"),
-      loadDocuments("knowledge")
-    ]);
+  const [statusResult, profilesResult, skillsResult, knowledgeResult] = await Promise.allSettled([
+    loadStatus(),
+    loadProfiles(),
+    loadDocuments("skills"),
+    loadDocuments("knowledge")
+  ]);
 
-    renderStatus(status);
-    state.profiles = Array.isArray(profiles) ? profiles : [];
-    state.documents.skills = Array.isArray(skills) ? skills : [];
-    state.documents.knowledge = Array.isArray(knowledge) ? knowledge : [];
+  let hasFailure = false;
+
+  if (statusResult.status === "fulfilled") {
+    renderStatus(statusResult.value);
+  } else {
+    hasFailure = true;
+    const message = getErrorMessage(statusResult.reason);
+    setStatusMessage("读取失败", "is-error");
+    showToast(`读取状态失败：${message}`, "is-error");
+  }
+
+  if (profilesResult.status === "fulfilled") {
+    state.profiles = Array.isArray(profilesResult.value) ? profilesResult.value : [];
     if (!state.profiles.some((profile) => profile.name === state.selectedName)) {
       state.selectedName = state.profiles.find((profile) => profile.isDefault)?.name
         || state.profiles[0]?.name
@@ -165,22 +173,34 @@ async function refreshAll() {
     }
 
     renderProfileList();
-    renderDocumentList("skills");
-    renderDocumentList("knowledge");
     if (state.selectedName) {
       selectProfile(state.selectedName);
     } else {
       clearProfileForm();
     }
-
-    setStatusMessage("状态正常", "is-ok");
-  } catch (error) {
-    const message = getErrorMessage(error);
-    setStatusMessage("读取失败", "is-error");
-    showToast(`读取管理数据失败：${message}`, "is-error");
+  } else {
+    hasFailure = true;
+    const message = getErrorMessage(profilesResult.reason);
+    showToast(`读取 Profile 失败：${message}`, "is-error");
     renderProfileError(`无法读取 Profile：${message}`);
+  }
+
+  if (skillsResult.status === "rejected") {
+    hasFailure = true;
+    const message = getErrorMessage(skillsResult.reason);
+    showToast(`读取 Skill 文档失败：${message}`, "is-error");
     renderDocumentError("skills", `无法读取 Skill 文档：${message}`);
+  }
+
+  if (knowledgeResult.status === "rejected") {
+    hasFailure = true;
+    const message = getErrorMessage(knowledgeResult.reason);
+    showToast(`读取知识库失败：${message}`, "is-error");
     renderDocumentError("knowledge", `无法读取知识库：${message}`);
+  }
+
+  if (statusResult.status === "fulfilled") {
+    setStatusMessage(hasFailure ? "部分数据读取失败" : "状态正常", hasFailure ? "is-error" : "is-ok");
   }
 }
 

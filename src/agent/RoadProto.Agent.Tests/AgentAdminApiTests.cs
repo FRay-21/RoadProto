@@ -87,6 +87,10 @@ public sealed class AgentAdminApiTests : IDisposable
             jsResponse.Content.Headers.ContentType?.MediaType?.Contains("javascript", StringComparison.OrdinalIgnoreCase) == true
                 || js.Contains("/api/admin/status", StringComparison.Ordinal),
             "Admin JS should be served with a JavaScript content type or known status loader.");
+        Assert.Contains("Promise.allSettled", js, StringComparison.Ordinal);
+        Assert.DoesNotContain("读取管理数据失败", js, StringComparison.Ordinal);
+        Assert.Contains("读取 Skill 文档失败", js, StringComparison.Ordinal);
+        Assert.Contains("读取知识库失败", js, StringComparison.Ordinal);
     }
 
     [Fact]

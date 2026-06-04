@@ -81,6 +81,61 @@ public sealed class AgentAdminApiTests : IDisposable
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
     }
 
+    [Fact]
+    public async Task DeletingDefaultModelProfilePromotesRemainingProfileAndDeletesSecret()
+    {
+        using var factory = CreateFactory();
+        using var client = factory.CreateClient();
+
+        using var openAiResponse = await client.PostAsJsonAsync(
+            "/api/admin/model-profiles",
+            new UpsertModelProfileRequest(
+                "openai",
+                "OpenAICompatible",
+                "https://api.openai.com/v1",
+                "gpt-4.1",
+                0.2,
+                60,
+                "sk-openai-secret",
+                true));
+        using var deepSeekResponse = await client.PostAsJsonAsync(
+            "/api/admin/model-profiles",
+            new UpsertModelProfileRequest(
+                "deepseek",
+                "OpenAICompatible",
+                "https://api.deepseek.com/v1",
+                "deepseek-chat",
+                0.2,
+                60,
+                null,
+                false));
+        var openAiSecretPath = Path.Combine(
+            root,
+            "secrets",
+            AgentSecretStore.CreateSecretId("openai") + ".bin");
+
+        Assert.Equal(HttpStatusCode.OK, openAiResponse.StatusCode);
+        Assert.Equal(HttpStatusCode.OK, deepSeekResponse.StatusCode);
+        Assert.True(File.Exists(openAiSecretPath));
+
+        using var deleteOpenAiResponse = await client.DeleteAsync("/api/admin/model-profiles/openai");
+
+        Assert.Equal(HttpStatusCode.NoContent, deleteOpenAiResponse.StatusCode);
+        var profiles = await client.GetFromJsonAsync<List<ModelProfileResponse>>("/api/admin/model-profiles");
+        var profile = Assert.Single(profiles!);
+        Assert.Equal("deepseek", profile.Name);
+        Assert.True(profile.IsDefault);
+        Assert.False(File.Exists(openAiSecretPath));
+
+        using var deleteDeepSeekResponse = await client.DeleteAsync("/api/admin/model-profiles/deepseek");
+
+        Assert.Equal(HttpStatusCode.NoContent, deleteDeepSeekResponse.StatusCode);
+        var status = await client.GetFromJsonAsync<AdminStatusResponse>("/api/admin/status");
+        Assert.NotNull(status);
+        Assert.Equal(string.Empty, status.DefaultModelProfile);
+        Assert.Equal(0, status.ModelProfileCount);
+    }
+
     private WebApplicationFactory<Program> CreateFactory()
     {
         return new WebApplicationFactory<Program>().WithWebHostBuilder(builder =>

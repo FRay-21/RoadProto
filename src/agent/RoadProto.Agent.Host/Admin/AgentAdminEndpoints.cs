@@ -10,19 +10,6 @@ public static class AgentAdminEndpoints
 
     public static WebApplication MapAgentAdminEndpoints(this WebApplication app)
     {
-        app.MapGet("/admin", () =>
-        {
-            var file = app.Environment.WebRootFileProvider.GetFileInfo("admin/index.html");
-            if (!file.Exists)
-            {
-                return Results.Redirect("/admin/");
-            }
-
-            return Results.File(
-                file.CreateReadStream(),
-                "text/html; charset=utf-8");
-        });
-
         app.MapGet("/api/admin/status", async (
             AgentLocalPaths paths,
             AgentConfigurationStore store,

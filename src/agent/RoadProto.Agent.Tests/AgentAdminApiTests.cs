@@ -38,26 +38,28 @@ public sealed class AgentAdminApiTests : IDisposable
     public async Task AdminPageServesStaticConsole()
     {
         using var factory = CreateFactory();
+        using var redirectClient = factory.CreateClient(new WebApplicationFactoryClientOptions
+        {
+            AllowAutoRedirect = false
+        });
+
+        using var response = await redirectClient.GetAsync("/admin");
+
+        Assert.Equal(HttpStatusCode.Redirect, response.StatusCode);
+        Assert.Equal("/admin/", response.Headers.Location?.OriginalString);
+
         using var client = factory.CreateClient();
-
-        using var response = await client.GetAsync("/admin");
-        var html = await response.Content.ReadAsStringAsync();
-
-        Assert.True(
-            response.IsSuccessStatusCode || response.StatusCode == HttpStatusCode.Redirect,
-            $"Unexpected status code: {response.StatusCode}");
-        Assert.Contains("text/html", response.Content.Headers.ContentType?.MediaType ?? string.Empty);
-        Assert.True(
-            html.Contains("RoadProto Agent", StringComparison.Ordinal)
-                || html.Contains("模型配置", StringComparison.Ordinal),
-            "Admin page should contain the RoadProto Agent console shell.");
-
         using var slashResponse = await client.GetAsync("/admin/");
         var slashHtml = await slashResponse.Content.ReadAsStringAsync();
 
         Assert.True(slashResponse.IsSuccessStatusCode, $"Unexpected /admin/ status code: {slashResponse.StatusCode}");
         Assert.Contains("text/html", slashResponse.Content.Headers.ContentType?.MediaType ?? string.Empty);
+        Assert.Contains("RoadProto Agent", slashHtml, StringComparison.Ordinal);
         Assert.Contains("模型配置", slashHtml, StringComparison.Ordinal);
+
+        var adminPageUri = new Uri("http://localhost/admin/");
+        Assert.Equal("/admin/admin.css", new Uri(adminPageUri, "./admin.css").AbsolutePath);
+        Assert.Equal("/admin/admin.js", new Uri(adminPageUri, "./admin.js").AbsolutePath);
     }
 
     [Fact]

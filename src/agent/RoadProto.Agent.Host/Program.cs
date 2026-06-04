@@ -28,6 +28,17 @@ builder.Services.AddSingleton<AgentChatService>();
 
 var app = builder.Build();
 
+app.Use(async (context, next) =>
+{
+    if (string.Equals(context.Request.Path.Value, "/admin", StringComparison.OrdinalIgnoreCase))
+    {
+        context.Response.Redirect("/admin/");
+        return;
+    }
+
+    await next().ConfigureAwait(false);
+});
+
 app.UseDefaultFiles();
 app.UseStaticFiles();
 

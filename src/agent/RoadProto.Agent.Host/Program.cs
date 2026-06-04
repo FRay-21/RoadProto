@@ -21,7 +21,10 @@ var app = builder.Build();
 
 app.MapGet("/health", () => Results.Ok(new { status = "ok" }));
 
-app.MapPost("/api/chat", async (AgentChatRequest? request, AgentChatService service) =>
+app.MapPost("/api/chat", async (
+    AgentChatRequest? request,
+    AgentChatService service,
+    HttpContext httpContext) =>
 {
     if (request == null || string.IsNullOrWhiteSpace(request.Message))
     {
@@ -32,7 +35,9 @@ app.MapPost("/api/chat", async (AgentChatRequest? request, AgentChatService serv
     }
 
     var validatedRequest = request with { Message = request.Message.Trim() };
-    var response = await service.ReplyAsync(validatedRequest).ConfigureAwait(false);
+    var response = await service.ReplyAsync(
+        validatedRequest,
+        httpContext.RequestAborted).ConfigureAwait(false);
     return Results.Ok(response);
 });
 

@@ -8754,6 +8754,17 @@ void agentToolGatewaySourceContracts()
     CHECK(executionFileSource.find("RequestPath") != std::string::npos);
     CHECK(executionFileSource.find("ResultPath") != std::string::npos);
     CHECK(executionFileSource.find("File.Delete(resultPath)") != std::string::npos);
+    CHECK(executionFileSource.find("System.Text.Json") == std::string::npos);
+    CHECK(executionFileSource.find("JavaScriptSerializer") != std::string::npos);
+
+    const auto backendClientSource = readTextFileForTests(
+        uiRoot / "Services" / "AgentBackendClient.cs");
+    CHECK(backendClientSource.find("System.Text.Json") == std::string::npos);
+    CHECK(backendClientSource.find("JavaScriptSerializer") != std::string::npos);
+
+    const auto wpfProjectSource = readTextFileForTests(uiRoot / "RoadProto.Terrain.UI.csproj");
+    CHECK(wpfProjectSource.find("System.Text.Json") == std::string::npos);
+    CHECK(wpfProjectSource.find("System.Web.Extensions") != std::string::npos);
 
     const auto assistantSource = readTextFileForTests(uiRoot / "AgentAssistantControl.xaml.cs");
     CHECK(assistantSource.find("结果文件：{paths.ResultPath}") != std::string::npos);

@@ -1,7 +1,10 @@
 using System;
+using System.Collections;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
-using System.Text.Json;
+using System.Text;
+using System.Web.Script.Serialization;
 using RoadProto.Terrain.UI.Bridge;
 
 namespace RoadProto.Terrain.UI.AutoCad;
@@ -21,11 +24,8 @@ public sealed class AgentToolExecutionPaths
 
 public static class AgentToolExecutionFile
 {
-    private static readonly JsonSerializerOptions JsonOptions = new()
-    {
-        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-        WriteIndented = true,
-    };
+    private static readonly JavaScriptSerializer Serializer = new();
+    private static readonly Encoding Utf8NoBom = new UTF8Encoding(false);
 
     public static AgentToolExecutionPaths WriteToolRequest(AgentToolCall toolCall)
     {
@@ -54,43 +54,77 @@ public static class AgentToolExecutionFile
             File.Delete(resultPath);
         }
 
-        using var stream = File.Create(requestPath);
-        using var writer = new Utf8JsonWriter(stream, new JsonWriterOptions { Indented = true });
-        writer.WriteStartObject();
-        writer.WriteString("tool", toolCall.Tool);
-        writer.WriteString("requestId", requestId);
-        writer.WritePropertyName("arguments");
-        WriteArguments(writer, toolCall.Arguments);
-        writer.WriteString("resultPath", resultPath);
-        writer.WriteEndObject();
-        writer.Flush();
+        var payload = new Dictionary<string, object?>
+        {
+            ["tool"] = toolCall.Tool,
+            ["requestId"] = requestId,
+            ["arguments"] = NormalizeArguments(toolCall.Arguments),
+            ["resultPath"] = resultPath,
+        };
+        File.WriteAllText(requestPath, Serializer.Serialize(payload), Utf8NoBom);
 
         return new AgentToolExecutionPaths(requestPath, resultPath);
     }
 
-    private static void WriteArguments(Utf8JsonWriter writer, object? arguments)
+    private static object NormalizeArguments(object? arguments)
     {
-        if (arguments == null)
+        return NormalizeJsonValue(arguments) ?? new Dictionary<string, object?>();
+    }
+
+    private static object? NormalizeJsonValue(object? value)
+    {
+        if (value == null)
         {
-            writer.WriteStartObject();
-            writer.WriteEndObject();
-            return;
+            return null;
         }
 
-        if (arguments is JsonElement element)
+        if (value is string || value is bool || value is char || value is byte || value is sbyte ||
+            value is short || value is ushort || value is int || value is uint || value is long ||
+            value is ulong || value is float || value is double || value is decimal)
         {
-            if (element.ValueKind == JsonValueKind.Undefined || element.ValueKind == JsonValueKind.Null)
+            return value;
+        }
+
+        if (value is IDictionary<string, object> stringDictionary)
+        {
+            var normalized = new Dictionary<string, object?>();
+            foreach (var item in stringDictionary)
             {
-                writer.WriteStartObject();
-                writer.WriteEndObject();
-                return;
+                normalized[item.Key] = NormalizeJsonValue(item.Value);
             }
 
-            element.WriteTo(writer);
-            return;
+            return normalized;
         }
 
-        JsonSerializer.Serialize(writer, arguments, arguments.GetType(), JsonOptions);
+        if (value is IDictionary dictionary)
+        {
+            var normalized = new Dictionary<string, object?>();
+            foreach (DictionaryEntry item in dictionary)
+            {
+                var key = item.Key?.ToString();
+                if (string.IsNullOrWhiteSpace(key))
+                {
+                    continue;
+                }
+
+                normalized[key!] = NormalizeJsonValue(item.Value);
+            }
+
+            return normalized;
+        }
+
+        if (value is IEnumerable values)
+        {
+            var normalized = new List<object?>();
+            foreach (var item in values)
+            {
+                normalized.Add(NormalizeJsonValue(item));
+            }
+
+            return normalized;
+        }
+
+        return value;
     }
 
     private static string CreateSafeFileToken(string text)

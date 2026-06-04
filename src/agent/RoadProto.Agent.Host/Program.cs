@@ -1,14 +1,27 @@
 using RoadProto.Agent.Host.Models;
+using RoadProto.Agent.Host.Providers;
+using RoadProto.Agent.Host.Services;
+using RoadProto.Agent.Host.Skills;
 using RoadProto.Agent.Host.Tools;
 
 var builder = WebApplication.CreateBuilder(args);
+
+builder.Services.Configure<RoadProtoAgentOptions>(
+    builder.Configuration.GetSection("RoadProtoAgent"));
 builder.Services.AddSingleton<SubgradeTemplateToolPlanner>();
+builder.Services.AddSingleton<OpenAiCompatibleChatClient>();
+builder.Services.AddSingleton(serviceProvider =>
+{
+    var root = FindRepositoryRoot(AppContext.BaseDirectory);
+    return new MarkdownSkillRepository(root);
+});
+builder.Services.AddSingleton<AgentChatService>();
 
 var app = builder.Build();
 
 app.MapGet("/health", () => Results.Ok(new { status = "ok" }));
 
-app.MapPost("/api/chat", (AgentChatRequest? request, SubgradeTemplateToolPlanner planner) =>
+app.MapPost("/api/chat", async (AgentChatRequest? request, AgentChatService service) =>
 {
     if (request == null || string.IsNullOrWhiteSpace(request.Message))
     {
@@ -18,22 +31,28 @@ app.MapPost("/api/chat", (AgentChatRequest? request, SubgradeTemplateToolPlanner
             false));
     }
 
-    var toolCall = planner.TryPlan(request.Message, out var guidance);
-    if (toolCall != null)
-    {
-        return Results.Ok(new AgentChatResponse(
-            "我识别到你要创建路基模板。请确认工具调用参数。",
-            toolCall,
-            true));
-    }
-
-    return Results.Ok(new AgentChatResponse(
-        guidance ?? "我可以回答 RoadProto 操作问题，也可以在确认后调用受控工具。当前首个工具是创建路基模板。",
-        null,
-        false));
+    var validatedRequest = request with { Message = request.Message.Trim() };
+    var response = await service.ReplyAsync(validatedRequest).ConfigureAwait(false);
+    return Results.Ok(response);
 });
 
 app.Run("http://127.0.0.1:17831");
+
+static string FindRepositoryRoot(string start)
+{
+    var current = new DirectoryInfo(start);
+    while (current != null)
+    {
+        if (Directory.Exists(Path.Combine(current.FullName, "docs", "agent")))
+        {
+            return current.FullName;
+        }
+
+        current = current.Parent;
+    }
+
+    return Directory.GetCurrentDirectory();
+}
 
 public partial class Program
 {

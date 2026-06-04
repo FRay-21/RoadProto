@@ -18,6 +18,6 @@ public sealed class MarkdownSkillRepository
             "skills",
             "cross_section",
             "subgrade_template_create.md");
-        return File.Exists(path) ? File.ReadAllText(path) : string.Empty;
+        return File.Exists(path) ? File.ReadAllText(path, System.Text.Encoding.UTF8) : string.Empty;
     }
 }

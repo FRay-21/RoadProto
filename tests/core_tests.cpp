@@ -8339,6 +8339,174 @@ void agentSubgradeToolRejectsInvalidExplicitWidth()
     CHECK(error.find(L"width") != std::wstring::npos);
 }
 
+void agentSubgradeToolRejectsInvalidRoadGrade()
+{
+    using roadproto::application::agent::AgentSubgradeTemplateCreateArguments;
+    using roadproto::application::agent::buildSubgradeTemplateToolData;
+
+    AgentSubgradeTemplateCreateArguments arguments;
+    arguments.templateName = L"非法等级模板";
+    arguments.displayScale = 10.0;
+    arguments.roadGrade = L"NotARoadGrade";
+    arguments.componentSource = L"DefaultByRoadGrade";
+
+    std::wstring error;
+    const auto result = buildSubgradeTemplateToolData(arguments, error);
+    CHECK(!result.succeeded);
+    CHECK(error.find(L"roadGrade") != std::wstring::npos);
+}
+
+void agentSubgradeToolRejectsInvalidExplicitComponentEnums()
+{
+    using roadproto::application::agent::AgentSubgradeTemplateCreateArguments;
+    using roadproto::application::agent::AgentToolSubgradeComponent;
+    using roadproto::application::agent::buildSubgradeTemplateToolData;
+
+    const auto buildWithComponent = [](const AgentToolSubgradeComponent& component) {
+        AgentSubgradeTemplateCreateArguments arguments;
+        arguments.templateName = L"非法枚举模板";
+        arguments.displayScale = 10.0;
+        arguments.roadGrade = L"SecondClass";
+        arguments.componentSource = L"ExplicitComponents";
+        arguments.components.push_back(component);
+        return arguments;
+    };
+
+    AgentToolSubgradeComponent invalidSide;
+    invalidSide.side = L"Middle";
+    invalidSide.type = L"TravelLane";
+    invalidSide.width = 3.5;
+    invalidSide.hasWidth = true;
+
+    std::wstring error;
+    auto result = buildSubgradeTemplateToolData(buildWithComponent(invalidSide), error);
+    CHECK(!result.succeeded);
+    CHECK(error.find(L"side") != std::wstring::npos);
+
+    AgentToolSubgradeComponent invalidType;
+    invalidType.side = L"Right";
+    invalidType.type = L"MainLane";
+    invalidType.width = 3.5;
+    invalidType.hasWidth = true;
+    error.clear();
+    result = buildSubgradeTemplateToolData(buildWithComponent(invalidType), error);
+    CHECK(!result.succeeded);
+    CHECK(error.find(L"type") != std::wstring::npos);
+
+    AgentToolSubgradeComponent invalidSlopeMode;
+    invalidSlopeMode.side = L"Right";
+    invalidSlopeMode.type = L"TravelLane";
+    invalidSlopeMode.width = 3.5;
+    invalidSlopeMode.hasWidth = true;
+    invalidSlopeMode.slopeMode = L"StationCurve";
+    error.clear();
+    result = buildSubgradeTemplateToolData(buildWithComponent(invalidSlopeMode), error);
+    CHECK(!result.succeeded);
+    CHECK(error.find(L"slopeMode") != std::wstring::npos);
+}
+
+void agentSubgradeToolRejectsMissingExplicitComponentRequiredFields()
+{
+    using roadproto::application::agent::AgentSubgradeTemplateCreateArguments;
+    using roadproto::application::agent::AgentToolSubgradeComponent;
+    using roadproto::application::agent::buildSubgradeTemplateToolData;
+
+    const auto buildWithComponent = [](const AgentToolSubgradeComponent& component) {
+        AgentSubgradeTemplateCreateArguments arguments;
+        arguments.templateName = L"缺字段模板";
+        arguments.displayScale = 10.0;
+        arguments.roadGrade = L"SecondClass";
+        arguments.componentSource = L"ExplicitComponents";
+        arguments.components.push_back(component);
+        return arguments;
+    };
+
+    AgentToolSubgradeComponent missingSide;
+    missingSide.type = L"TravelLane";
+    missingSide.width = 3.5;
+    missingSide.hasWidth = true;
+
+    std::wstring error;
+    auto result = buildSubgradeTemplateToolData(buildWithComponent(missingSide), error);
+    CHECK(!result.succeeded);
+    CHECK(error.find(L"side") != std::wstring::npos);
+
+    AgentToolSubgradeComponent missingType;
+    missingType.side = L"Right";
+    missingType.width = 3.5;
+    missingType.hasWidth = true;
+    error.clear();
+    result = buildSubgradeTemplateToolData(buildWithComponent(missingType), error);
+    CHECK(!result.succeeded);
+    CHECK(error.find(L"type") != std::wstring::npos);
+
+    AgentToolSubgradeComponent missingWidth;
+    missingWidth.side = L"Right";
+    missingWidth.type = L"TravelLane";
+    error.clear();
+    result = buildSubgradeTemplateToolData(buildWithComponent(missingWidth), error);
+    CHECK(!result.succeeded);
+    CHECK(error.find(L"width") != std::wstring::npos);
+}
+
+void agentSubgradeToolRejectsLinkedPavementLayerWithoutHandle()
+{
+    using roadproto::application::agent::AgentSubgradeTemplateCreateArguments;
+    using roadproto::application::agent::AgentToolSubgradeComponent;
+    using roadproto::application::agent::buildSubgradeTemplateToolData;
+
+    AgentToolSubgradeComponent component;
+    component.side = L"Right";
+    component.type = L"TravelLane";
+    component.width = 3.5;
+    component.hasWidth = true;
+    component.pavementLayer.linked = true;
+    component.pavementLayer.name = L"空 handle 路面";
+    component.pavementLayer.thickness = 0.28;
+
+    AgentSubgradeTemplateCreateArguments arguments;
+    arguments.templateName = L"空 handle 模板";
+    arguments.displayScale = 10.0;
+    arguments.roadGrade = L"SecondClass";
+    arguments.componentSource = L"ExplicitComponents";
+    arguments.components.push_back(component);
+
+    std::wstring error;
+    const auto result = buildSubgradeTemplateToolData(arguments, error);
+    CHECK(!result.succeeded);
+    CHECK(error.find(L"pavementLayer.handle") != std::wstring::npos || error.find(L"handle") != std::wstring::npos);
+}
+
+void agentToolRequestRejectsStationValueRowsMissingRequiredFields()
+{
+    using roadproto::application::agent::parseAgentToolRequestJson;
+
+    const auto requestJson = [](const std::string& tableJson) {
+        return std::string(
+            "{"
+            "\"tool\":\"cross_section.subgrade_template.create\","
+            "\"arguments\":{"
+            "\"componentSource\":\"ExplicitComponents\","
+            "\"components\":[{"
+            "\"side\":\"Right\","
+            "\"type\":\"TravelLane\","
+            "\"width\":3.5,") + tableJson +
+            "}]"
+            "}"
+            "}";
+    };
+
+    std::wstring error;
+    auto request = parseAgentToolRequestJson(requestJson("\"wideningTable\":[{\"value\":0.5}]"), error);
+    CHECK(!request.succeeded);
+    CHECK(error.find(L"station") != std::wstring::npos);
+
+    error.clear();
+    request = parseAgentToolRequestJson(requestJson("\"variableSlopeTable\":[{\"station\":100}]"), error);
+    CHECK(!request.succeeded);
+    CHECK(error.find(L"value") != std::wstring::npos);
+}
+
 void agentToolRequestRejectsUnknownTool()
 {
     using roadproto::application::agent::parseAgentToolRequestJson;
@@ -8638,6 +8806,11 @@ int main()
     agentSubgradeToolUsesDefaultComponentsForRoadGrade();
     agentSubgradeToolMapsExplicitComponents();
     agentSubgradeToolRejectsInvalidExplicitWidth();
+    agentSubgradeToolRejectsInvalidRoadGrade();
+    agentSubgradeToolRejectsInvalidExplicitComponentEnums();
+    agentSubgradeToolRejectsMissingExplicitComponentRequiredFields();
+    agentSubgradeToolRejectsLinkedPavementLayerWithoutHandle();
+    agentToolRequestRejectsStationValueRowsMissingRequiredFields();
     agentToolRequestRejectsUnknownTool();
     agentJsonValueParsesUtf8StringsArraysBooleansAndNull();
     agentJsonValueParsesUnicodeEscapesAndSurrogatePairs();

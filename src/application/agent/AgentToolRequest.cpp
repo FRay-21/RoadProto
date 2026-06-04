@@ -25,6 +25,28 @@ bool readOptionalString(
     return true;
 }
 
+bool readOptionalString(
+    const AgentJsonValue* owner,
+    const std::wstring& key,
+    const std::wstring& fieldPath,
+    std::wstring& target,
+    bool& present,
+    std::wstring& errorMessage)
+{
+    const auto* value = owner->find(key);
+    if (value == nullptr) {
+        present = false;
+        return true;
+    }
+    present = true;
+    if (value->type != AgentJsonValue::Type::String) {
+        errorMessage = fieldPath + L" must be a string.";
+        return false;
+    }
+    target = value->stringValue;
+    return true;
+}
+
 bool readOptionalNumber(
     const AgentJsonValue* owner,
     const std::wstring& key,
@@ -35,6 +57,26 @@ bool readOptionalNumber(
     const auto* value = owner->find(key);
     if (value == nullptr) {
         return true;
+    }
+    if (value->type != AgentJsonValue::Type::Number) {
+        errorMessage = fieldPath + L" must be a number.";
+        return false;
+    }
+    target = value->numberValue;
+    return true;
+}
+
+bool readRequiredNumber(
+    const AgentJsonValue* owner,
+    const std::wstring& key,
+    const std::wstring& fieldPath,
+    double& target,
+    std::wstring& errorMessage)
+{
+    const auto* value = owner->find(key);
+    if (value == nullptr) {
+        errorMessage = fieldPath + L" is required.";
+        return false;
     }
     if (value->type != AgentJsonValue::Type::Number) {
         errorMessage = fieldPath + L" must be a number.";
@@ -149,8 +191,8 @@ bool readOptionalStationValueTable(
         }
 
         AgentToolStationValue value;
-        if (!readOptionalNumber(&row, L"station", rowPath.str() + L".station", value.station, errorMessage) ||
-            !readOptionalNumber(&row, L"value", rowPath.str() + L".value", value.value, errorMessage)) {
+        if (!readRequiredNumber(&row, L"station", rowPath.str() + L".station", value.station, errorMessage) ||
+            !readRequiredNumber(&row, L"value", rowPath.str() + L".value", value.value, errorMessage)) {
             return false;
         }
         target.push_back(value);
@@ -268,15 +310,9 @@ AgentToolRequest parseAgentToolRequestJson(const std::string& text, std::wstring
                 return {};
             }
             AgentToolSubgradeComponent component;
-            if (!readOptionalString(&item, L"side", path + L".side", component.side, errorMessage) ||
-                !readOptionalString(&item, L"type", path + L".type", component.type, errorMessage)) {
+            if (!readOptionalString(&item, L"side", path + L".side", component.side, component.hasSide, errorMessage) ||
+                !readOptionalString(&item, L"type", path + L".type", component.type, component.hasType, errorMessage)) {
                 return {};
-            }
-            if (component.side.empty()) {
-                component.side = L"Right";
-            }
-            if (component.type.empty()) {
-                component.type = L"TravelLane";
             }
             if (const auto* width = item.find(L"width"); width != nullptr) {
                 if (width->type != AgentJsonValue::Type::Number) {
@@ -287,7 +323,7 @@ AgentToolRequest parseAgentToolRequestJson(const std::string& text, std::wstring
                 component.hasWidth = true;
             }
             if (!readOptionalNumber(&item, L"height", path + L".height", component.height, errorMessage) ||
-                !readOptionalString(&item, L"slopeMode", path + L".slopeMode", component.slopeMode, errorMessage) ||
+                !readOptionalString(&item, L"slopeMode", path + L".slopeMode", component.slopeMode, component.hasSlopeMode, errorMessage) ||
                 !readOptionalNumber(&item, L"fixedSlope", path + L".fixedSlope", component.fixedSlope, errorMessage) ||
                 !readOptionalColor(&item, path, component.color, errorMessage) ||
                 !readOptionalStationValueTable(&item, L"wideningTable", path + L".wideningTable", component.wideningTable, errorMessage) ||

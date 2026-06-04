@@ -7,6 +7,47 @@ namespace {
 
 using namespace roadproto::domain::cross_section;
 
+void fail(SubgradeTemplateToolDataResult& result, std::wstring& errorMessage, const std::wstring& message)
+{
+    errorMessage = message;
+    result.errorMessage = message;
+}
+
+bool isRoadGradeCode(const std::wstring& code)
+{
+    return code == L"Expressway" ||
+        code == L"FirstClass" ||
+        code == L"SecondClass" ||
+        code == L"ThirdClass" ||
+        code == L"FourthClass" ||
+        code == L"UrbanExpressway" ||
+        code == L"UrbanArterial" ||
+        code == L"UrbanSubArterial" ||
+        code == L"UrbanBranch";
+}
+
+bool isSubgradeSideCode(const std::wstring& code)
+{
+    return code == L"Left" || code == L"Right";
+}
+
+bool isSubgradeComponentTypeCode(const std::wstring& code)
+{
+    return code == L"Median" ||
+        code == L"TravelLane" ||
+        code == L"HardShoulder" ||
+        code == L"EarthShoulder" ||
+        code == L"SideMedian" ||
+        code == L"Sidewalk" ||
+        code == L"BikeLane" ||
+        code == L"CurbStrip";
+}
+
+bool isSubgradeSlopeModeCode(const std::wstring& code)
+{
+    return code == L"Fixed" || code == L"VariableByStation";
+}
+
 SubgradeTemplateRgbColor mapColorOrDefault(
     const AgentToolColor& color,
     SubgradeComponentType type)
@@ -20,12 +61,43 @@ SubgradeTemplateRgbColor mapColorOrDefault(
     return SubgradeTemplateDefaults::defaultColorFor(type);
 }
 
-SubgradeTemplateComponent mapComponent(const AgentToolSubgradeComponent& input)
+bool mapComponent(
+    const AgentToolSubgradeComponent& input,
+    SubgradeTemplateComponent& component,
+    std::wstring& errorMessage)
 {
-    SubgradeTemplateComponent component;
+    if (input.side.empty()) {
+        errorMessage = L"Explicit subgrade component side is required.";
+        return false;
+    }
+    if (!isSubgradeSideCode(input.side)) {
+        errorMessage = L"Invalid explicit subgrade component side.";
+        return false;
+    }
+    if (input.type.empty()) {
+        errorMessage = L"Explicit subgrade component type is required.";
+        return false;
+    }
+    if (!isSubgradeComponentTypeCode(input.type)) {
+        errorMessage = L"Invalid explicit subgrade component type.";
+        return false;
+    }
+    if (!input.hasWidth) {
+        errorMessage = L"Explicit subgrade component width is required.";
+        return false;
+    }
+    if (!input.slopeMode.empty() && !isSubgradeSlopeModeCode(input.slopeMode)) {
+        errorMessage = L"Invalid explicit subgrade component slopeMode.";
+        return false;
+    }
+    if (input.pavementLayer.linked && input.pavementLayer.handle.empty()) {
+        errorMessage = L"Explicit subgrade component pavementLayer.handle is required when pavementLayer.linked is true.";
+        return false;
+    }
+
     component.side = subgradeSideFromCode(input.side, SubgradeSide::Right);
     component.type = subgradeComponentTypeFromCode(input.type, SubgradeComponentType::TravelLane);
-    component.width = input.hasWidth ? input.width : 0.0;
+    component.width = input.width;
     component.height = input.height;
     component.slopeMode = subgradeSlopeModeFromCode(input.slopeMode, SubgradeSlopeMode::Fixed);
     component.fixedSlope = input.fixedSlope;
@@ -42,7 +114,7 @@ SubgradeTemplateComponent mapComponent(const AgentToolSubgradeComponent& input)
     component.pavementLayerHandle = input.pavementLayer.handle;
     component.pavementLayerName = input.pavementLayer.name;
     component.pavementLayerThickness = input.pavementLayer.thickness;
-    return component;
+    return true;
 }
 
 } // namespace
@@ -54,6 +126,11 @@ SubgradeTemplateToolDataResult buildSubgradeTemplateToolData(
     SubgradeTemplateToolDataResult result;
     errorMessage.clear();
 
+    if (!isRoadGradeCode(arguments.roadGrade)) {
+        fail(result, errorMessage, L"Invalid agent subgrade template roadGrade.");
+        return result;
+    }
+
     const auto grade = roadGradeFromCode(arguments.roadGrade, RoadGrade::Expressway);
     if (arguments.componentSource == L"DefaultByRoadGrade") {
         result.data = SubgradeTemplateDefaults::create(grade);
@@ -61,11 +138,15 @@ SubgradeTemplateToolDataResult buildSubgradeTemplateToolData(
         result.data.properties.roadGrade = grade;
         result.data.components.clear();
         for (const auto& component : arguments.components) {
-            result.data.components.push_back(mapComponent(component));
+            SubgradeTemplateComponent mapped;
+            if (!mapComponent(component, mapped, errorMessage)) {
+                result.errorMessage = errorMessage;
+                return result;
+            }
+            result.data.components.push_back(mapped);
         }
     } else {
-        errorMessage = L"Unsupported subgrade template component source.";
-        result.errorMessage = errorMessage;
+        fail(result, errorMessage, L"Unsupported subgrade template component source.");
         return result;
     }
 

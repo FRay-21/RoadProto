@@ -37,11 +37,14 @@ struct AgentToolPavementLayer {
 
 struct AgentToolSubgradeComponent {
     std::wstring side;
+    bool hasSide = false;
     std::wstring type;
+    bool hasType = false;
     double width = 0.0;
     bool hasWidth = false;
     double height = 0.0;
     std::wstring slopeMode = L"Fixed";
+    bool hasSlopeMode = false;
     double fixedSlope = 0.0;
     AgentToolColor color;
     std::vector<AgentToolStationValue> wideningTable;

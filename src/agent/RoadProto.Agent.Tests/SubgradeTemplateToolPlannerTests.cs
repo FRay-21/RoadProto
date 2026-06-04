@@ -24,6 +24,61 @@ public sealed class SubgradeTemplateToolPlannerTests
         Assert.Equal("PickInCad", args.InsertionPoint.Mode);
     }
 
+    [Theory]
+    [InlineData("帮我创建一个二级公路路基模板，比例1:20")]
+    [InlineData("帮我创建一个二级公路路基模板，比例 1：20")]
+    [InlineData("帮我创建一个二级公路路基模板，比例20")]
+    [InlineData("帮我创建一个二级公路路基模板，1比20")]
+    public void PlansSupportedDisplayScaleExpressions(string message)
+    {
+        var planner = new SubgradeTemplateToolPlanner();
+
+        var result = planner.TryPlan(message);
+
+        Assert.NotNull(result);
+        var args = Assert.IsType<SubgradeTemplateCreateArguments>(result.Arguments);
+        Assert.Equal(20, args.DisplayScale);
+    }
+
+    [Fact]
+    public void DefaultsDisplayScaleWhenScaleIsNotExplicit()
+    {
+        var planner = new SubgradeTemplateToolPlanner();
+
+        var result = planner.TryPlan("帮我创建一个二级公路路基模板");
+
+        Assert.NotNull(result);
+        var args = Assert.IsType<SubgradeTemplateCreateArguments>(result.Arguments);
+        Assert.Equal(10, args.DisplayScale);
+    }
+
+    [Theory]
+    [InlineData("帮我创建一个二级公路路基模板，比例1:25")]
+    [InlineData("帮我创建一个二级公路路基模板，比例25")]
+    public void DoesNotPlanUnsupportedExplicitDisplayScale(string message)
+    {
+        var planner = new SubgradeTemplateToolPlanner();
+
+        var result = planner.TryPlan(message, out var guidance);
+
+        Assert.Null(result);
+        Assert.Contains("1、10、20、50、100", guidance);
+    }
+
+    [Theory]
+    [InlineData("帮我创建一个左右各两条 3.5 米车道的路基模板")]
+    [InlineData("帮我创建一个带硬路肩的路基模板")]
+    [InlineData("帮我创建一个带土路肩和行车道的路基模板")]
+    public void DoesNotPlanWhenUserDescribesExplicitComponents(string message)
+    {
+        var planner = new SubgradeTemplateToolPlanner();
+
+        var result = planner.TryPlan(message, out var guidance);
+
+        Assert.Null(result);
+        Assert.Contains("具体部件", guidance);
+    }
+
     [Fact]
     public void DoesNotPlanForQuestionOnly()
     {

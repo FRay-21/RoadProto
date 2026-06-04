@@ -8,9 +8,17 @@ var app = builder.Build();
 
 app.MapGet("/health", () => Results.Ok(new { status = "ok" }));
 
-app.MapPost("/api/chat", (AgentChatRequest request, SubgradeTemplateToolPlanner planner) =>
+app.MapPost("/api/chat", (AgentChatRequest? request, SubgradeTemplateToolPlanner planner) =>
 {
-    var toolCall = planner.TryPlan(request.Message);
+    if (request == null || string.IsNullOrWhiteSpace(request.Message))
+    {
+        return Results.BadRequest(new AgentChatResponse(
+            "请输入要发送给 RoadProto Agent 的消息。",
+            null,
+            false));
+    }
+
+    var toolCall = planner.TryPlan(request.Message, out var guidance);
     if (toolCall != null)
     {
         return Results.Ok(new AgentChatResponse(
@@ -20,9 +28,13 @@ app.MapPost("/api/chat", (AgentChatRequest request, SubgradeTemplateToolPlanner 
     }
 
     return Results.Ok(new AgentChatResponse(
-        "我可以回答 RoadProto 操作问题，也可以在确认后调用受控工具。当前首个工具是创建路基模板。",
+        guidance ?? "我可以回答 RoadProto 操作问题，也可以在确认后调用受控工具。当前首个工具是创建路基模板。",
         null,
         false));
 });
 
 app.Run("http://127.0.0.1:17831");
+
+public partial class Program
+{
+}

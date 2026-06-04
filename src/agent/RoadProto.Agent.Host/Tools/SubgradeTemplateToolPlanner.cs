@@ -5,8 +5,41 @@ namespace RoadProto.Agent.Host.Tools;
 
 public sealed class SubgradeTemplateToolPlanner
 {
+    private static readonly HashSet<int> AllowedDisplayScales = new() { 1, 10, 20, 50, 100 };
+
+    private static readonly Regex RatioDisplayScaleRegex = new(
+        @"(?:比例\s*)?1\s*(?:[:：]|比)\s*(?<scale>\d+)",
+        RegexOptions.Compiled | RegexOptions.CultureInvariant);
+
+    private static readonly Regex NumericDisplayScaleRegex = new(
+        @"比例\s*(?:为|是)?\s*(?<scale>\d+)",
+        RegexOptions.Compiled | RegexOptions.CultureInvariant);
+
+    private static readonly string[] ExplicitComponentKeywords =
+    {
+        "行车道",
+        "车道",
+        "硬路肩",
+        "土路肩",
+        "中分带",
+        "中央分隔带",
+        "路缘带",
+        "侧分带",
+        "慢车道",
+        "人行道",
+        "自行车道",
+        "非机动车道"
+    };
+
     public AgentToolCall? TryPlan(string message)
     {
+        return TryPlan(message, out _);
+    }
+
+    public AgentToolCall? TryPlan(string message, out string? guidance)
+    {
+        guidance = null;
+
         if (!message.Contains("路基模板", StringComparison.Ordinal))
         {
             return null;
@@ -28,11 +61,23 @@ public sealed class SubgradeTemplateToolPlanner
 
         var roadGrade = DetectRoadGrade(message);
         var displayScale = DetectDisplayScale(message);
+        if (displayScale.WasExplicit && !AllowedDisplayScales.Contains(displayScale.Value))
+        {
+            guidance = "路基模板显示比例只支持 1、10、20、50、100。请把比例改为这些取值后再创建。";
+            return null;
+        }
+
+        if (DescribesExplicitComponents(message))
+        {
+            guidance = "我识别到你描述了路基模板的具体部件。当前本地规则骨架暂不生成具体部件工具调用，请先确认是否使用道路等级默认部件，或补全每个部件的侧别、类型和宽度后再处理。";
+            return null;
+        }
+
         var templateName = DetectTemplateName(message);
 
         var arguments = new SubgradeTemplateCreateArguments(
             templateName,
-            displayScale,
+            displayScale.Value,
             roadGrade,
             string.Empty,
             new AgentInsertionPoint("PickInCad", null, null, 0),
@@ -44,7 +89,7 @@ public sealed class SubgradeTemplateToolPlanner
             Guid.NewGuid().ToString("N"),
             arguments,
             "创建路基模板",
-            $"将创建 {templateName}，道路等级 {roadGrade}，显示比例 1:{displayScale}，确认后需要在 CAD 中点取插入点。");
+            $"将创建 {templateName}，道路等级 {roadGrade}，显示比例 1:{displayScale.Value}，确认后需要在 CAD 中点取插入点。");
     }
 
     private static string DetectRoadGrade(string message)
@@ -60,10 +105,21 @@ public sealed class SubgradeTemplateToolPlanner
         return "Expressway";
     }
 
-    private static double DetectDisplayScale(string message)
+    private static DisplayScaleDetection DetectDisplayScale(string message)
     {
-        var match = Regex.Match(message, @"1\s*[:：]\s*(1|10|20|50|100)");
-        return match.Success ? double.Parse(match.Groups[1].Value) : 10;
+        var ratioMatch = RatioDisplayScaleRegex.Match(message);
+        if (ratioMatch.Success && int.TryParse(ratioMatch.Groups["scale"].Value, out var ratioScale))
+        {
+            return new DisplayScaleDetection(true, ratioScale);
+        }
+
+        var numericMatch = NumericDisplayScaleRegex.Match(message);
+        if (numericMatch.Success && int.TryParse(numericMatch.Groups["scale"].Value, out var numericScale))
+        {
+            return new DisplayScaleDetection(true, numericScale);
+        }
+
+        return new DisplayScaleDetection(false, 10);
     }
 
     private static string DetectTemplateName(string message)
@@ -71,4 +127,11 @@ public sealed class SubgradeTemplateToolPlanner
         var match = Regex.Match(message, @"名字叫(?<name>[\u4e00-\u9fa5A-Za-z0-9_ -]+)");
         return match.Success ? match.Groups["name"].Value.Trim() : "默认路基模板";
     }
+
+    private static bool DescribesExplicitComponents(string message)
+    {
+        return ExplicitComponentKeywords.Any(keyword => message.Contains(keyword, StringComparison.Ordinal));
+    }
+
+    private sealed record DisplayScaleDetection(bool WasExplicit, int Value);
 }

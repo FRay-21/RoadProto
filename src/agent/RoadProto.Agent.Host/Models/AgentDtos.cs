@@ -1,7 +1,7 @@
 namespace RoadProto.Agent.Host.Models;
 
 public sealed record AgentChatRequest(
-    string Message,
+    string? Message,
     string? ModelProfile,
     IReadOnlyList<AgentChatMessage>? History);
 

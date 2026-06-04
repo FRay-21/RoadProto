@@ -2,30 +2,46 @@
 
 ## 功能范围
 
-本功能是 RoadProto 内嵌 AI 对话入口的原型计划文档。后续计划允许用户通过右侧 Agent 面板进行问答、软件操作咨询和受控工具调用，并以自动化创建路基模板作为首个原子函数。
+本功能是 RoadProto 内嵌 AI 对话入口原型。用户可通过 AutoCAD 右侧 WPF Agent 面板进行闲聊、软件操作咨询、道路设计专业知识问答，以及对受控工具调用进行确认。
 
-当前状态：仅完成文档基线和设计入口说明，右侧 Agent 面板、本地后端、C++ 工具网关和自动创建路基模板能力仍在开发中。
+首版已接通本地 `.NET 8` Agent sidecar、Agent skill 文档读取、OpenAI-compatible 模型 Provider 配置和 C++ 白名单工具网关。首个自动化原子函数为 `cross_section.subgrade_template.create`，用于创建独立的 `DnSubgradeTemplateEntity` 路基模板实体。
+
+当前状态：代码链路已实现并通过自动化构建与测试；AutoCAD 2021 图形界面的完整端到端点验仍待手工执行，因此暂不标记为稳定版本。
 
 ## 命令
 
-- `RD_AI_ASSISTANT_OPEN`：计划用于打开右侧 Agent 面板。
-- `RD_AI_EXECUTE_TOOL_FILE`：计划用于执行 Agent 工具 JSON 文件。
+- `RD_AI_ASSISTANT_OPEN`：打开或激活 AutoCAD 右侧 WPF Agent 面板。
+- `RD_AI_EXECUTE_TOOL_FILE`：执行 `%TEMP%\RoadProtoAgent\` 下的受控 Agent 工具 JSON 文件。
 
 ## 边界
 
-- Agent 面板不直接读写 CAD 实体。
-- 后端服务不依赖 ObjectARX。
-- C++ 只执行白名单工具。
-- 首版计划工具只创建 `DnSubgradeTemplateEntity`。
+- Agent 面板只负责输入、展示、确认和结果反馈，不直接读写 CAD 实体。
+- 本地 Agent 后端不依赖 ObjectARX，不直接操作 DWG。
+- C++ 工具网关只执行白名单工具，不执行任意 AutoCAD 命令字符串。
+- 首版工具只创建 `DnSubgradeTemplateEntity`；未提供任意实体修改、删除或命令执行能力。
+- API Key 只从环境变量读取，不写入仓库或 DWG。
 
-## 计划流程
+## 业务流程
 
-1. 用户运行 `RD_AI_ASSISTANT_OPEN`。
-2. 系统打开右侧 WPF Agent 面板。
-3. 用户输入创建路基模板需求。
-4. 后端读取 skill 文档并规划工具调用。
-5. WPF 展示确认卡片。
-6. 用户确认后，C++ 执行 `cross_section.subgrade_template.create`。
-7. 计划由 C++ 工具网关创建路基模板实体并返回 handle。
+1. 用户启动本地 Agent sidecar，默认监听 `http://127.0.0.1:17831`。
+2. 用户在 AutoCAD 中运行 `RD_AI_ASSISTANT_OPEN`，或点击 Ribbon 的 `Agent / AI 助手`。
+3. WPF 打开右侧 Agent 面板，并通过 `/health` 检查本地后端状态。
+4. 用户输入自然语言需求。
+5. 后端优先使用本地规则 planner 和 Agent skill 文档识别创建路基模板意图；普通问答可交给配置的 OpenAI-compatible 模型 Provider。
+6. 若识别出 `cross_section.subgrade_template.create`，WPF 展示工具确认卡片，确认前不执行 CAD 写入。
+7. 用户确认后，WPF 在 `%TEMP%\RoadProtoAgent\` 生成受控请求文件和结果文件路径。
+8. WPF 发送 `RD_AI_EXECUTE_TOOL_FILE`，由 C++ 工具网关读取请求、校验工具名、参数、插入点和结果路径。
+9. 工具网关复用现有路基模板领域模型、创建服务和 ObjectARX 实体创建能力，生成 `DnSubgradeTemplateEntity`。
+10. 工具网关写回固定结构结果 JSON，包含成功状态、实体 handle、实体类型、错误码或提示信息。
 
-上述流程为待实现流程。当前文档不表示命令、面板或工具网关已可在 AutoCAD 中运行。
+## 首版路基模板参数
+
+`cross_section.subgrade_template.create` 支持模板名称、道路等级、设计速度、路基宽度、车道数、车道宽度、硬路肩、土路肩、中分带、填挖方边坡、边沟、路面结构说明、显示比例、插入点、默认部件生成方式和显式部件列表。用户没有提供的参数由工具 mapper 使用默认值补齐。
+
+显式部件列表可表达部件类型、左右侧、宽度、高度差、颜色、坡度模式、固定坡度、变宽表、坡度变化表和路面结构层模板引用。当前 WPF 首版只展示确认卡片和结果路径，不做结果文件轮询。
+
+## 验证状态
+
+- 自动化验证已通过：`RoadProto.sln` Release 构建、核心测试、Agent 后端测试、Agent Host Release 构建和 WPF Release 构建。
+- Core Console 脚本烟测尝试受限于本机脚本加载路径/命令注册验证，未形成可采信的命令级结果文件。
+- 图形界面验证仍需在 AutoCAD 2021 中手工执行：加载 ARX 和托管 DLL，启动 Agent sidecar，打开 `RD_AI_ASSISTANT_OPEN`，输入路基模板创建需求，确认工具卡片，并检查 DWG 中生成的 `DnSubgradeTemplateEntity`。

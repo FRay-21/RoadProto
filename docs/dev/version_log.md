@@ -2,11 +2,19 @@
 
 ## v0.1.32_20260604_AgentPrototype
 
-- 新增设计软件原型 Agent 开发计划文档基线和实现入口说明。
-- 新增右侧 WPF Agent 面板规划、`.NET 8` 本地 Agent sidecar、C++ 白名单工具网关和 RoadProto Agent skill 文档体系的设计文档。
-- 首个计划自动化原子函数为 `cross_section.subgrade_template.create`，目标是后续自动创建 `DnSubgradeTemplateEntity` 路基模板实体。
-- 当前状态：仅记录文档基线，`RD_AI_ASSISTANT_OPEN`、`RD_AI_EXECUTE_TOOL_FILE`、右侧 WPF Agent 面板、本地后端、工具网关和自动创建路基模板能力均未标记为稳定可用。
-- 是否可作为稳定测试版本：否。该版本为 Agent 原型开发计划版本，需要完成 ARX、WPF 和后端联调后再标记稳定。
+- 阶段：设计软件原型 Agent 首版链路。
+- 当前为 Agent 原型开发分支记录；`build/RoadProto.Build.props` 尚未切换正式发布版本，Release ARX 文件名仍沿用 `RoadProto_v0.1.31_20260527_SectionDrawingConfig.arx`。
+- 新增 `AI_AGENT` 模块，注册 `RD_AI_EXECUTE_TOOL_FILE` 受控工具网关命令。
+- 新增托管 WPF 命令 `RD_AI_ASSISTANT_OPEN`，可打开或激活 AutoCAD 右侧 Agent 面板，并在 Ribbon 中增加 `Agent / AI 助手` 入口。
+- 新增 `.NET 8` 本地 Agent sidecar，提供 `/health` 和 `/api/chat`；本地规则 planner 优先识别路基模板创建意图，普通问答可转发到 OpenAI-compatible 模型 Provider。
+- 新增 OpenAI-compatible Provider 配置模板，支持 OpenAI、DeepSeek、DashScope/阿里百炼/千问等兼容接口；API Key 只从环境变量读取。
+- 新增 RoadProto Agent skill 文档读取能力，首个 skill 为 `docs/agent/skills/cross_section/subgrade_template_create.md`。
+- 新增 `cross_section.subgrade_template.create` 自动化工具，用于创建 `DnSubgradeTemplateEntity` 路基模板实体。
+- 新增 Agent 工具 JSON 协议：顶层字段白名单、请求文件大小限制、`%TEMP%\RoadProtoAgent\` 结果路径限制、成功/失败结果 JSON 写回、parse 级失败结果写回。
+- 新增路基模板工具参数 mapper，覆盖模板名称、道路等级、设计速度、路基宽度、车道数、车道宽度、硬路肩、土路肩、中分带、边坡、边沟、路面结构说明、显示比例、插入点、默认部件和显式部件列表；缺失参数由默认值补齐。
+- 验证状态：`RoadProto.sln` Release 构建通过；`RoadProtoCoreTests.exe` Release 运行通过；`dotnet test src\agent\RoadProto.Agent.Tests\RoadProto.Agent.Tests.csproj` 22/22 通过；`dotnet build src\agent\RoadProto.Agent.Host\RoadProto.Agent.Host.csproj -c Release` 通过；`dotnet build src\ui\wpf\RoadProto.Terrain.UI\RoadProto.Terrain.UI.csproj -c Release` 通过；`src\app\RoadProtoArx.vcxproj` Debug 构建通过。
+- Core Console 脚本烟测曾尝试加载临时 ARX 并执行 `RD_AI_EXECUTE_TOOL_FILE`，但未形成可采信的命令级结果文件；该项不作为通过记录。
+- 是否可作为稳定测试版本：否。Agent 原型自动化构建与测试已通过，但 AutoCAD 2021 图形界面的 Agent 面板、确认卡片、实体创建和结果文件完整端到端点验仍待手工执行。
 
 ## 未发布 - 2026-05-29
 

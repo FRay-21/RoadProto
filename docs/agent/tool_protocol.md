@@ -2,7 +2,7 @@
 
 ## 请求文件
 
-工具请求文件使用 UTF-8 JSON。首版协议仍是开发中契约，供后续 WPF、本地 Agent 后端和 C++ 工具网关实现时遵守。顶层结构：
+工具请求文件使用 UTF-8 JSON。首版协议已由 WPF Agent 面板、本地 Agent 后端和 C++ 工具网关使用。顶层结构：
 
 ```json
 {
@@ -40,6 +40,7 @@
 - `RD_AI_EXECUTE_TOOL_FILE` 只读取受信任宿主写出的请求文件路径。
 - C++ 工具网关应限制请求文件大小，超过上限时拒绝执行。
 - 请求文件必须是 UTF-8 JSON；解析失败时不执行工具。
+- 若解析失败但仍能从顶层 JSON 中提取可信 `requestId`、`tool` 和合法 `resultPath`，工具网关应写回 `ParseError` 失败结果，便于 WPF 展示。
 - 工具执行完成后只写入固定结构的结果 JSON，不附加模型生成的任意内容。
 
 ## 结果文件
@@ -64,10 +65,19 @@
   "requestId": "uuid",
   "tool": "cross_section.subgrade_template.create",
   "succeeded": false,
-  "errorCode": "InvalidDisplayScale",
+  "errorCode": "InvalidArguments",
   "message": "路基模板显示比例必须为 1、10、20、50 或 100。"
 }
 ```
+
+常见失败码：
+
+- `ParseError`：请求文件 JSON 解析失败。
+- `InvalidTool`：工具名不在白名单内。
+- `InvalidArguments`：参数缺失、类型错误或业务校验失败。
+- `InvalidInsertionPoint`：插入点不是有限坐标，或插入点模式不合法。
+- `Cancelled`：用户取消 CAD 点取或执行流程。
+- `CreateEntityFailed`：CAD 实体创建失败。
 
 ## 安全规则
 

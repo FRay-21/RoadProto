@@ -33,6 +33,16 @@ artifacts\x64\Debug\RoadProtoCoreTests.exe
 
 当前 v0.1.31 以来横断面图配置自动化验证范围：核心测试覆盖 `SectionDrawingConfigModel` 的 CSV 表头校验、UTF-8 往返、路基类型多选解析、起终点桩号归一化、同一路基部件表格行优先级、不同路基部件同桩号段同时命中、部件匹配、清表作用范围解析、清表厚度校验和单侧清表内外坡率解析；源码契约覆盖 `DnRoadModelSectionDrawingEntity` 的配置持久化、结构层面域来源字段、清表配置与厚度持久化、顶点夹点和 `manualEdited` 标记，覆盖 `SectionDrawingConfigDialogBridge`、WPF `SectionDrawingConfigWindow` 的 `路面结构层` 与 `清表` tab、Ribbon 入口、双击编辑入口和批量应用命令；路面工程量统计表覆盖 `PavementQuantityDrawingFaceSampler` 优先读取横断面图实体当前面域并排除清表面域，`ClearTableQuantityDrawingFaceSampler` 预留清表面域独立算量接口并承接厚度。AutoCAD 图形界面仍建议加载 Debug 或 Release 产物后人工验证 `RD_SECTION_DRAWING_CONFIG`、CSV 导入导出、模板点选、图上结构层绘制、清表层绘制、顶点夹点修改、双击横断面图二次编辑和修改后工程量统计。
 
+## V0.1.32 Agent 原型验证范围
+
+核心测试覆盖 `AI_AGENT` 模块命令元数据、Agent 工具请求 JSON 解析、顶层字段白名单、请求文件大小限制、未知工具拒绝、`resultPath` 专用临时目录限制、路基模板工具参数映射、无效显示比例拒绝、无效部件宽度拒绝、插入点有限数值校验、工具执行成功结果 JSON 和 parse 级失败结果 JSON 写回源码契约。
+
+Agent 后端测试覆盖 `.NET 8` `/api/chat` 契约、本地规则 planner、空消息 BadRequest、无效显示比例提示、缺少模型配置提示、API Key 缺失提示、外部环境变量隔离、OpenAI-compatible Provider 请求配置和 skill 文档读取；当前 `RoadProto.Agent.Tests` 为 22 个测试。
+
+托管 WPF 构建覆盖右侧 Agent 面板、`RD_AI_ASSISTANT_OPEN`、后端 HTTP 客户端、工具确认卡片、受控请求/结果文件路径生成和 Ribbon `Agent / AI 助手` 入口源码。
+
+AutoCAD 图形界面仍需手工验证：启动 `RoadProto.Agent.Host`，加载 ARX 和 `RoadProto.Terrain.UI.dll`，运行 `RD_AI_ASSISTANT_OPEN`，输入路基模板创建需求，确认工具卡片，检查 `%TEMP%\RoadProtoAgent\` 结果 JSON，并确认 DWG 中生成 `DnSubgradeTemplateEntity`。
+
 V0.1.6 继续保留 `TerrainMeshFile` 领域层测试，用于保证 `DN_TERRAIN_TIN_EXPORT` / `DN_TERRAIN_TIN_IMPORT` 依赖的跨 DWG 数模文件数据不会在读写中丢失。
 
 历史 V0.1.6 Core Console 验证记录：当时已用 Core Console 验证 `DN_TERRAIN_TIN_CREATE` 的样例对象选择、同图层同类型提取、源对象隐藏、TIN 生成、`DN_TERRAIN_TIN_EDIT` 非 UI 编辑路径、`DN_TERRAIN_TIN_EDIT_HANDLE` 按 handle 编辑路径、`DN_TERRAIN_TIN_IMPORT` 的 `.rmesh` 导入、DWG 保存后重新打开和 `REGEN`；托管 Ribbon 插件当时已验证 Release 构建。该段是历史记录，不代表当前 v0.1.27 的完整 AutoCAD 验证。

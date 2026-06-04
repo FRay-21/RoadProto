@@ -6,7 +6,7 @@
 - 模块：`CROSS_SECTION`
 - 业务文档：`docs/business/cross_section/路基模板_创建.md`
 - 风险：创建 CAD 自定义实体
-- 当前状态：计划中的首个自动化原子函数，工具执行器和 UI 确认流程仍需后续实现。
+- 当前状态：首个已实现的自动化原子函数。WPF 会在执行前展示确认卡片，C++ 工具网关只接受白名单工具和受控结果路径；AutoCAD 图形界面的完整端到端点验仍待手工执行。
 
 ## 何时触发
 
@@ -28,8 +28,8 @@
 - `displayScale` 缺省为 `10`，只允许 `1`、`10`、`20`、`50`、`100`。
 - `roadGrade` 缺省为 `Expressway`。
 - `insertionPoint.mode` 缺省为 `PickInCad`。
-- 用户未明确给出部件列表时，使用 `DefaultByRoadGrade`。
-- 用户明确给出完整部件时，使用 `ExplicitComponents`。
+- 用户未明确给出部件列表时，使用 `DefaultByRoadGrade`。当前本地规则 planner 优先走此路径。
+- 用户明确给出完整部件时，使用 `ExplicitComponents`。C++ mapper 已支持该 schema，后续模型工具调用可逐步放开。
 - 用户只给出部分部件且无法判断左右侧、宽度或类型时，先追问。
 - 不允许凭空生成 `pavementLayer.handle`。
 

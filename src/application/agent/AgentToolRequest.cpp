@@ -132,6 +132,20 @@ std::wstring componentPath(std::size_t index)
     return output.str();
 }
 
+bool validateTopLevelFields(const AgentJsonValue& root, std::wstring& errorMessage)
+{
+    for (const auto& field : root.objectValue) {
+        if (field.first != L"tool"
+            && field.first != L"requestId"
+            && field.first != L"arguments"
+            && field.first != L"resultPath") {
+            errorMessage = L"Unknown agent tool request field: " + field.first;
+            return false;
+        }
+    }
+    return true;
+}
+
 bool readOptionalIntColorChannel(
     const AgentJsonValue* owner,
     const std::wstring& key,
@@ -230,6 +244,9 @@ AgentToolRequest parseAgentToolRequestJson(const std::string& text, std::wstring
     }
     if (!root.isObject()) {
         errorMessage = L"Agent tool request root must be an object.";
+        return {};
+    }
+    if (!validateTopLevelFields(root, errorMessage)) {
         return {};
     }
 

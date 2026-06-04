@@ -11,9 +11,14 @@
 #include "dbapserv.h"
 #include "dbsymtb.h"
 
+#include <Windows.h>
+#include <cmath>
+#include <cwctype>
+#include <filesystem>
 #include <fstream>
 #include <iterator>
 #include <string>
+#include <system_error>
 #endif
 
 namespace roadproto::cad_adapter::objectarx::agent {
@@ -21,7 +26,137 @@ namespace {
 
 #ifndef ROADPROTO_TEST_BUILD
 
-std::string readBinaryFile(const std::wstring& path)
+constexpr std::uintmax_t kMaxAgentToolRequestFileBytes = 1024 * 1024;
+
+std::wstring trimCommandPath(std::wstring path)
+{
+    while (!path.empty() && std::iswspace(path.front()) != 0) {
+        path.erase(path.begin());
+    }
+    while (!path.empty() && std::iswspace(path.back()) != 0) {
+        path.pop_back();
+    }
+
+    if (path.size() >= 2) {
+        const auto first = path.front();
+        const auto last = path.back();
+        if ((first == L'"' && last == L'"') || (first == L'\'' && last == L'\'')) {
+            path = path.substr(1, path.size() - 2);
+        }
+    }
+    return path;
+}
+
+std::filesystem::path trustedAgentToolDirectory()
+{
+    wchar_t tempPath[MAX_PATH + 1] = {};
+    const auto length = GetTempPathW(static_cast<DWORD>(std::size(tempPath)), tempPath);
+    if (length == 0 || length > MAX_PATH) {
+        return {};
+    }
+    return std::filesystem::path(tempPath) / L"RoadProtoAgent";
+}
+
+std::filesystem::path weaklyCanonicalPath(const std::filesystem::path& path, std::wstring& errorMessage)
+{
+    std::error_code error;
+    auto normalized = std::filesystem::weakly_canonical(path, error);
+    if (error) {
+        normalized = std::filesystem::absolute(path, error);
+    }
+    if (error) {
+        errorMessage = L"Agent 工具路径规范化失败。";
+        return {};
+    }
+    return normalized;
+}
+
+bool isPathInsideTrustedAgentDirectory(const std::filesystem::path& path, std::wstring& errorMessage)
+{
+    const auto rawTrustedDirectory = trustedAgentToolDirectory();
+    if (rawTrustedDirectory.empty()) {
+        errorMessage = L"无法定位 Agent 工具可信临时目录。";
+        return false;
+    }
+
+    const auto trustedDirectory = weaklyCanonicalPath(rawTrustedDirectory, errorMessage);
+    if (trustedDirectory.empty()) {
+        errorMessage = L"无法定位 Agent 工具可信临时目录。";
+        return false;
+    }
+
+    const auto normalizedPath = weaklyCanonicalPath(path, errorMessage);
+    if (normalizedPath.empty()) {
+        return false;
+    }
+
+    auto trustedIt = trustedDirectory.begin();
+    auto pathIt = normalizedPath.begin();
+    for (; trustedIt != trustedDirectory.end(); ++trustedIt, ++pathIt) {
+        if (pathIt == normalizedPath.end() || *trustedIt != *pathIt) {
+            errorMessage = L"Agent 工具路径不在可信临时目录 %TEMP%\\RoadProtoAgent\\ 下。";
+            return false;
+        }
+    }
+    return true;
+}
+
+bool normalizeTrustedAgentToolPath(const std::wstring& rawPath, std::filesystem::path& normalizedPath, std::wstring& errorMessage)
+{
+    const auto trimmedPath = trimCommandPath(rawPath);
+    if (trimmedPath.empty()) {
+        errorMessage = L"Agent 工具请求文件路径为空。";
+        return false;
+    }
+
+    normalizedPath = weaklyCanonicalPath(trimmedPath, errorMessage);
+    if (normalizedPath.empty()) {
+        return false;
+    }
+    if (!isPathInsideTrustedAgentDirectory(normalizedPath, errorMessage)) {
+        return false;
+    }
+
+    std::error_code error;
+    if (!std::filesystem::exists(normalizedPath, error) || error) {
+        errorMessage = L"Agent 工具请求文件不存在。";
+        return false;
+    }
+    if (!std::filesystem::is_regular_file(normalizedPath, error) || error) {
+        errorMessage = L"Agent 工具请求路径不是普通文件。";
+        return false;
+    }
+
+    const auto fileSize = std::filesystem::file_size(normalizedPath, error);
+    if (error) {
+        errorMessage = L"无法读取 Agent 工具请求文件大小。";
+        return false;
+    }
+    if (fileSize > kMaxAgentToolRequestFileBytes) {
+        errorMessage = L"Agent 工具请求文件超过 1MB 限制。";
+        return false;
+    }
+    return true;
+}
+
+bool validateTrustedResultPath(const std::wstring& resultPath, std::wstring& errorMessage)
+{
+    if (resultPath.empty()) {
+        return true;
+    }
+
+    const auto normalizedResultPath = weaklyCanonicalPath(trimCommandPath(resultPath), errorMessage);
+    if (normalizedResultPath.empty()) {
+        return false;
+    }
+    if (!isPathInsideTrustedAgentDirectory(normalizedResultPath, errorMessage)) {
+        errorMessage = L"Agent 工具 resultPath 不在可信临时目录 %TEMP%\\RoadProtoAgent\\ 下。";
+        return false;
+    }
+    return true;
+}
+
+std::string readBinaryFile(const std::filesystem::path& path)
 {
     std::ifstream input(path, std::ios::binary);
     return std::string(std::istreambuf_iterator<char>(input), std::istreambuf_iterator<char>());
@@ -75,6 +210,36 @@ std::wstring entityHandleText(AcDbEntity* entity)
     return handleText;
 }
 
+bool validateInsertionPointRequest(
+    const application::agent::AgentToolPoint& requestPoint,
+    AcGePoint3d& insertionPoint,
+    bool& shouldPrompt,
+    std::wstring& errorMessage)
+{
+    shouldPrompt = false;
+    if (requestPoint.mode == L"Explicit") {
+        if (!requestPoint.hasX || !requestPoint.hasY) {
+            errorMessage = L"Explicit insertionPoint requires x and y.";
+            return false;
+        }
+        const auto z = requestPoint.hasZ ? requestPoint.z : 0.0;
+        if (!std::isfinite(requestPoint.x) || !std::isfinite(requestPoint.y) || !std::isfinite(z)) {
+            errorMessage = L"Explicit insertionPoint coordinates must be finite.";
+            return false;
+        }
+        insertionPoint = AcGePoint3d(requestPoint.x, requestPoint.y, z);
+        return true;
+    }
+
+    if (requestPoint.mode != L"PickInCad") {
+        errorMessage = L"Agent insertionPoint.mode must be Explicit or PickInCad.";
+        return false;
+    }
+
+    shouldPrompt = true;
+    return true;
+}
+
 void runAgentExecuteToolFileCommand()
 {
     auto& editor = app::ApplicationContext::instance().editor();
@@ -84,9 +249,20 @@ void runAgentExecuteToolFileCommand()
     }
 
     std::wstring error;
-    const auto request = application::agent::parseAgentToolRequestJson(readBinaryFile(pathBuffer), error);
+    std::filesystem::path requestPath;
+    if (!normalizeTrustedAgentToolPath(pathBuffer, requestPath, error)) {
+        editor.writeError(error.empty() ? L"Agent 工具请求文件路径不可信。" : error);
+        return;
+    }
+
+    const auto request = application::agent::parseAgentToolRequestJson(readBinaryFile(requestPath), error);
     if (!request.succeeded) {
         editor.writeError(error.empty() ? L"Agent 工具请求解析失败。" : error);
+        return;
+    }
+
+    if (!validateTrustedResultPath(request.resultPath, error)) {
+        editor.writeError(error.empty() ? L"Agent 工具 resultPath 不可信。" : error);
         return;
     }
 
@@ -97,14 +273,12 @@ void runAgentExecuteToolFileCommand()
     }
 
     AcGePoint3d insertionPoint(0.0, 0.0, 0.0);
-    if (request.arguments.insertionPoint.mode == L"Explicit"
-        && request.arguments.insertionPoint.hasX
-        && request.arguments.insertionPoint.hasY) {
-        insertionPoint = AcGePoint3d(
-            request.arguments.insertionPoint.x,
-            request.arguments.insertionPoint.y,
-            request.arguments.insertionPoint.hasZ ? request.arguments.insertionPoint.z : 0.0);
-    } else if (!promptInsertionPoint(insertionPoint)) {
+    bool shouldPrompt = false;
+    if (!validateInsertionPointRequest(request.arguments.insertionPoint, insertionPoint, shouldPrompt, error)) {
+        editor.writeError(error.empty() ? L"Agent 插入点参数无效。" : error);
+        return;
+    }
+    if (shouldPrompt && !promptInsertionPoint(insertionPoint)) {
         editor.writeWarning(L"Agent 路基模板创建已取消。");
         return;
     }

@@ -8542,6 +8542,26 @@ void agentToolRequestRejectsUnknownTool()
     CHECK(error.find(L"Unsupported agent tool") != std::wstring::npos);
 }
 
+void agentToolRequestRejectsUnknownTopLevelFields()
+{
+    using roadproto::application::agent::parseAgentToolRequestJson;
+
+    const std::string json =
+        "{"
+        "\"tool\":\"cross_section.subgrade_template.create\","
+        "\"requestId\":\"agent-unknown-field\","
+        "\"resultPath\":\"\","
+        "\"unexpected\":\"free-form\","
+        "\"arguments\":{}"
+        "}";
+
+    std::wstring error;
+    const auto request = parseAgentToolRequestJson(json, error);
+    CHECK(!request.succeeded);
+    CHECK(error.find(L"Unknown agent tool request field") != std::wstring::npos);
+    CHECK(error.find(L"unexpected") != std::wstring::npos);
+}
+
 void agentJsonValueParsesUtf8StringsArraysBooleansAndNull()
 {
     using roadproto::application::agent::AgentJsonValue;
@@ -8684,6 +8704,27 @@ void agentToolRequestRejectsWrongTypeArgumentFields()
     request = parseAgentToolRequestJson(requestJson("{\"components\":[1]}"), error);
     CHECK(!request.succeeded);
     CHECK(error.find(L"arguments.components[0]") != std::wstring::npos);
+}
+
+void agentToolGatewaySourceContracts()
+{
+    const auto root = findRepositoryRootForTests();
+    const auto startupSource = readTextFileForTests(root / "src" / "app" / "startup" / "Startup.cpp");
+    CHECK(startupSource.find("registerAgentModuleForStartup(moduleRegistry)") != std::string::npos);
+
+    const auto commandSource = readTextFileForTests(
+        root / "src" / "cad_adapter" / "objectarx" / "agent" / "ObjectArxAgentToolCommand.cpp");
+    CHECK(commandSource.find("RoadProtoAgent") != std::string::npos);
+    CHECK(commandSource.find("kMaxAgentToolRequestFileBytes") != std::string::npos);
+    CHECK(commandSource.find("1024 * 1024") != std::string::npos);
+    CHECK(commandSource.find("normalizeTrustedAgentToolPath") != std::string::npos);
+    CHECK(commandSource.find("isPathInsideTrustedAgentDirectory") != std::string::npos);
+    CHECK(commandSource.find("validateTrustedResultPath") != std::string::npos);
+    CHECK(commandSource.find("validateInsertionPointRequest") != std::string::npos);
+    CHECK(commandSource.find("Explicit insertionPoint requires x and y") != std::string::npos);
+    CHECK(commandSource.find("std::isfinite") != std::string::npos);
+    CHECK(commandSource.find("mode != L\"PickInCad\"") != std::string::npos);
+    CHECK(commandSource.find("request.resultPath") != std::string::npos);
 }
 
 } // namespace
@@ -8831,12 +8872,14 @@ int main()
     agentSubgradeToolRejectsLinkedPavementLayerWithoutHandle();
     agentToolRequestRejectsStationValueRowsMissingRequiredFields();
     agentToolRequestRejectsUnknownTool();
+    agentToolRequestRejectsUnknownTopLevelFields();
     agentJsonValueParsesUtf8StringsArraysBooleansAndNull();
     agentJsonValueParsesUnicodeEscapesAndSurrogatePairs();
     agentJsonValueRejectsInvalidUtf8ControlCharsAndNumbers();
     agentJsonValueParseClearsPreviousObjectAndArrayState();
     agentToolRequestRejectsMissingOrWrongTypeTool();
     agentToolRequestRejectsWrongTypeArgumentFields();
+    agentToolGatewaySourceContracts();
     terrainMeshFileRoundTripsTinData();
     terrainMeshFileRejectsInvalidFiles();
     stationFormatterFormatsEngineeringStations();

@@ -2,6 +2,7 @@
 #include "application/cross_section/PavementLayerTemplateCreateService.h"
 #include "application/cross_section/SubgradeTemplateCreateService.h"
 #include "application/agent/AgentToolRequest.h"
+#include "application/agent/SubgradeTemplateToolMapper.h"
 #include "application/profile/ProfileGradeGraphCreateService.h"
 #include "application/profile/ProfileVerticalCurveCreateService.h"
 #include "application/profile/ProfileVerticalCurveEditService.h"
@@ -8180,6 +8181,137 @@ void agentToolRequestParsesSubgradeTemplateCreateJson()
     CHECK(std::fabs(request.arguments.insertionPoint.y - 20.0) < 1.0e-9);
 }
 
+void agentToolRequestParsesSubgradeComponentDetailFields()
+{
+    using roadproto::application::agent::parseAgentToolRequestJson;
+
+    const std::string json =
+        "{"
+        "\"tool\":\"cross_section.subgrade_template.create\","
+        "\"arguments\":{"
+        "\"componentSource\":\"ExplicitComponents\","
+        "\"components\":[{"
+        "\"side\":\"Left\","
+        "\"type\":\"HardShoulder\","
+        "\"width\":2.5,"
+        "\"height\":0.1,"
+        "\"slopeMode\":\"VariableByStation\","
+        "\"fixedSlope\":0.02,"
+        "\"color\":{\"r\":12,\"g\":34,\"b\":56},"
+        "\"wideningTable\":[{\"station\":100,\"value\":0.5}],"
+        "\"variableSlopeTable\":[{\"station\":100,\"value\":0.03}],"
+        "\"pavementLayer\":{\"linked\":true,\"handle\":\"PV-42\",\"name\":\"主线路面\",\"thickness\":0.28}"
+        "}]"
+        "}"
+        "}";
+
+    std::wstring error;
+    const auto request = parseAgentToolRequestJson(json, error);
+    CHECK(error.empty());
+    CHECK(request.succeeded);
+    CHECK(request.arguments.components.size() == 1);
+    const auto& component = request.arguments.components.front();
+    CHECK(component.side == L"Left");
+    CHECK(component.type == L"HardShoulder");
+    CHECK(component.color.r == 12);
+    CHECK(component.color.g == 34);
+    CHECK(component.color.b == 56);
+    CHECK(component.wideningTable.size() == 1);
+    CHECK(std::fabs(component.wideningTable.front().station - 100.0) < 1.0e-9);
+    CHECK(std::fabs(component.wideningTable.front().value - 0.5) < 1.0e-9);
+    CHECK(component.variableSlopeTable.size() == 1);
+    CHECK(std::fabs(component.variableSlopeTable.front().value - 0.03) < 1.0e-9);
+    CHECK(component.pavementLayer.linked);
+    CHECK(component.pavementLayer.handle == L"PV-42");
+    CHECK(component.pavementLayer.name == L"主线路面");
+    CHECK(std::fabs(component.pavementLayer.thickness - 0.28) < 1.0e-9);
+}
+
+void agentSubgradeToolUsesDefaultComponentsForRoadGrade()
+{
+    using roadproto::application::agent::AgentSubgradeTemplateCreateArguments;
+    using roadproto::application::agent::buildSubgradeTemplateToolData;
+    using roadproto::domain::cross_section::RoadGrade;
+
+    AgentSubgradeTemplateCreateArguments arguments;
+    arguments.templateName = L"K1 路基模板";
+    arguments.displayScale = 20.0;
+    arguments.roadGrade = L"SecondClass";
+    arguments.roadCenterlineHandle = L"CL-001";
+    arguments.componentSource = L"DefaultByRoadGrade";
+
+    std::wstring error;
+    const auto result = buildSubgradeTemplateToolData(arguments, error);
+    CHECK(result.succeeded);
+    CHECK(error.empty());
+    CHECK(result.errorMessage.empty());
+    CHECK(result.data.properties.name == L"K1 路基模板");
+    CHECK(std::fabs(result.data.properties.displayScale - 20.0) < 1.0e-9);
+    CHECK(result.data.properties.roadGrade == RoadGrade::SecondClass);
+    CHECK(result.data.roadCenterlineHandle == L"CL-001");
+    CHECK(result.data.components.size() == 6);
+}
+
+void agentSubgradeToolMapsExplicitComponents()
+{
+    using roadproto::application::agent::AgentSubgradeTemplateCreateArguments;
+    using roadproto::application::agent::AgentToolStationValue;
+    using roadproto::application::agent::AgentToolSubgradeComponent;
+    using roadproto::application::agent::buildSubgradeTemplateToolData;
+    using roadproto::domain::cross_section::SubgradeComponentType;
+    using roadproto::domain::cross_section::SubgradeSide;
+    using roadproto::domain::cross_section::SubgradeSlopeMode;
+
+    AgentSubgradeTemplateCreateArguments arguments;
+    arguments.templateName = L"显式模板";
+    arguments.displayScale = 10.0;
+    arguments.roadGrade = L"UrbanArterial";
+    arguments.componentSource = L"ExplicitComponents";
+
+    AgentToolSubgradeComponent component;
+    component.side = L"Left";
+    component.type = L"HardShoulder";
+    component.width = 2.5;
+    component.hasWidth = true;
+    component.height = 0.1;
+    component.slopeMode = L"VariableByStation";
+    component.fixedSlope = 0.02;
+    component.color = {12, 34, 56};
+    component.wideningTable.push_back(AgentToolStationValue{100.0, 0.5});
+    component.variableSlopeTable.push_back(AgentToolStationValue{100.0, 0.03});
+    component.pavementLayer.linked = true;
+    component.pavementLayer.handle = L"PV-42";
+    component.pavementLayer.name = L"主线路面";
+    component.pavementLayer.thickness = 0.28;
+    arguments.components.push_back(component);
+
+    std::wstring error;
+    const auto result = buildSubgradeTemplateToolData(arguments, error);
+    CHECK(result.succeeded);
+    CHECK(error.empty());
+    CHECK(result.data.components.size() == 1);
+
+    const auto& mapped = result.data.components.front();
+    CHECK(mapped.side == SubgradeSide::Left);
+    CHECK(mapped.type == SubgradeComponentType::HardShoulder);
+    CHECK(std::fabs(mapped.width - 2.5) < 1.0e-9);
+    CHECK(std::fabs(mapped.height - 0.1) < 1.0e-9);
+    CHECK(mapped.slopeMode == SubgradeSlopeMode::VariableByStation);
+    CHECK(std::fabs(mapped.fixedSlope) < 1.0e-9);
+    CHECK(mapped.color.r == 12);
+    CHECK(mapped.color.g == 34);
+    CHECK(mapped.color.b == 56);
+    CHECK(mapped.wideningTable.size() == 1);
+    CHECK(std::fabs(mapped.wideningTable.front().station - 100.0) < 1.0e-9);
+    CHECK(std::fabs(mapped.wideningTable.front().value - 0.5) < 1.0e-9);
+    CHECK(mapped.variableSlopeTable.size() == 1);
+    CHECK(std::fabs(mapped.variableSlopeTable.front().value - 0.03) < 1.0e-9);
+    CHECK(mapped.pavementLayerLinked);
+    CHECK(mapped.pavementLayerHandle == L"PV-42");
+    CHECK(mapped.pavementLayerName == L"主线路面");
+    CHECK(std::fabs(mapped.pavementLayerThickness - 0.28) < 1.0e-9);
+}
+
 void agentToolRequestRejectsUnknownTool()
 {
     using roadproto::application::agent::parseAgentToolRequestJson;
@@ -8475,6 +8607,9 @@ int main()
     terrainSurfaceQueryInterpolatesElevationInsideTriangle();
     terrainTriangleSpatialIndexFiltersCrossSectionCandidates();
     agentToolRequestParsesSubgradeTemplateCreateJson();
+    agentToolRequestParsesSubgradeComponentDetailFields();
+    agentSubgradeToolUsesDefaultComponentsForRoadGrade();
+    agentSubgradeToolMapsExplicitComponents();
     agentToolRequestRejectsUnknownTool();
     agentJsonValueParsesUtf8StringsArraysBooleansAndNull();
     agentJsonValueParsesUnicodeEscapesAndSurrogatePairs();

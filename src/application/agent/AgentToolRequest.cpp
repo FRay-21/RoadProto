@@ -44,6 +44,25 @@ bool readOptionalNumber(
     return true;
 }
 
+bool readOptionalBoolean(
+    const AgentJsonValue* owner,
+    const std::wstring& key,
+    const std::wstring& fieldPath,
+    bool& target,
+    std::wstring& errorMessage)
+{
+    const auto* value = owner->find(key);
+    if (value == nullptr) {
+        return true;
+    }
+    if (value->type != AgentJsonValue::Type::Boolean) {
+        errorMessage = fieldPath + L" must be a boolean.";
+        return false;
+    }
+    target = value->booleanValue;
+    return true;
+}
+
 bool readRequiredString(
     const AgentJsonValue* owner,
     const std::wstring& key,
@@ -69,6 +88,94 @@ std::wstring componentPath(std::size_t index)
     std::wostringstream output;
     output << L"arguments.components[" << index << L"]";
     return output.str();
+}
+
+bool readOptionalIntColorChannel(
+    const AgentJsonValue* owner,
+    const std::wstring& key,
+    const std::wstring& fieldPath,
+    int& target,
+    std::wstring& errorMessage)
+{
+    double channel = static_cast<double>(target);
+    if (!readOptionalNumber(owner, key, fieldPath, channel, errorMessage)) {
+        return false;
+    }
+    target = static_cast<int>(channel);
+    return true;
+}
+
+bool readOptionalColor(
+    const AgentJsonValue* owner,
+    const std::wstring& path,
+    AgentToolColor& target,
+    std::wstring& errorMessage)
+{
+    const auto* color = owner->find(L"color");
+    if (color == nullptr) {
+        return true;
+    }
+    if (!color->isObject()) {
+        errorMessage = path + L".color must be an object.";
+        return false;
+    }
+    return readOptionalIntColorChannel(color, L"r", path + L".color.r", target.r, errorMessage) &&
+        readOptionalIntColorChannel(color, L"g", path + L".color.g", target.g, errorMessage) &&
+        readOptionalIntColorChannel(color, L"b", path + L".color.b", target.b, errorMessage);
+}
+
+bool readOptionalStationValueTable(
+    const AgentJsonValue* owner,
+    const std::wstring& key,
+    const std::wstring& path,
+    std::vector<AgentToolStationValue>& target,
+    std::wstring& errorMessage)
+{
+    const auto* table = owner->find(key);
+    if (table == nullptr) {
+        return true;
+    }
+    if (!table->isArray()) {
+        errorMessage = path + L" must be an array.";
+        return false;
+    }
+    for (std::size_t i = 0; i < table->arrayValue.size(); ++i) {
+        const auto& row = table->arrayValue[i];
+        std::wostringstream rowPath;
+        rowPath << path << L"[" << i << L"]";
+        if (!row.isObject()) {
+            errorMessage = rowPath.str() + L" must be an object.";
+            return false;
+        }
+
+        AgentToolStationValue value;
+        if (!readOptionalNumber(&row, L"station", rowPath.str() + L".station", value.station, errorMessage) ||
+            !readOptionalNumber(&row, L"value", rowPath.str() + L".value", value.value, errorMessage)) {
+            return false;
+        }
+        target.push_back(value);
+    }
+    return true;
+}
+
+bool readOptionalPavementLayer(
+    const AgentJsonValue* owner,
+    const std::wstring& path,
+    AgentToolPavementLayer& target,
+    std::wstring& errorMessage)
+{
+    const auto* pavementLayer = owner->find(L"pavementLayer");
+    if (pavementLayer == nullptr) {
+        return true;
+    }
+    if (!pavementLayer->isObject()) {
+        errorMessage = path + L".pavementLayer must be an object.";
+        return false;
+    }
+    return readOptionalBoolean(pavementLayer, L"linked", path + L".pavementLayer.linked", target.linked, errorMessage) &&
+        readOptionalString(pavementLayer, L"handle", path + L".pavementLayer.handle", target.handle, errorMessage) &&
+        readOptionalString(pavementLayer, L"name", path + L".pavementLayer.name", target.name, errorMessage) &&
+        readOptionalNumber(pavementLayer, L"thickness", path + L".pavementLayer.thickness", target.thickness, errorMessage);
 }
 
 } // namespace
@@ -181,7 +288,11 @@ AgentToolRequest parseAgentToolRequestJson(const std::string& text, std::wstring
             }
             if (!readOptionalNumber(&item, L"height", path + L".height", component.height, errorMessage) ||
                 !readOptionalString(&item, L"slopeMode", path + L".slopeMode", component.slopeMode, errorMessage) ||
-                !readOptionalNumber(&item, L"fixedSlope", path + L".fixedSlope", component.fixedSlope, errorMessage)) {
+                !readOptionalNumber(&item, L"fixedSlope", path + L".fixedSlope", component.fixedSlope, errorMessage) ||
+                !readOptionalColor(&item, path, component.color, errorMessage) ||
+                !readOptionalStationValueTable(&item, L"wideningTable", path + L".wideningTable", component.wideningTable, errorMessage) ||
+                !readOptionalStationValueTable(&item, L"variableSlopeTable", path + L".variableSlopeTable", component.variableSlopeTable, errorMessage) ||
+                !readOptionalPavementLayer(&item, path, component.pavementLayer, errorMessage)) {
                 return {};
             }
             request.arguments.components.push_back(component);

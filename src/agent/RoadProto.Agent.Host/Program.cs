@@ -1,3 +1,5 @@
+using Microsoft.Extensions.Options;
+using RoadProto.Agent.Host.Admin;
 using RoadProto.Agent.Host.Models;
 using RoadProto.Agent.Host.Providers;
 using RoadProto.Agent.Host.Services;
@@ -8,6 +10,11 @@ var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.Configure<RoadProtoAgentOptions>(
     builder.Configuration.GetSection("RoadProtoAgent"));
+builder.Services.AddSingleton<AgentLocalPaths>();
+builder.Services.AddSingleton(serviceProvider => new AgentConfigurationStore(
+    serviceProvider.GetRequiredService<AgentLocalPaths>(),
+    serviceProvider.GetRequiredService<IOptions<RoadProtoAgentOptions>>().Value));
+builder.Services.AddSingleton<AgentSecretStore>();
 builder.Services.AddSingleton<SubgradeTemplateToolPlanner>();
 builder.Services.AddSingleton<OpenAiCompatibleChatClient>();
 builder.Services.AddSingleton(serviceProvider =>
@@ -40,6 +47,8 @@ app.MapPost("/api/chat", async (
         httpContext.RequestAborted).ConfigureAwait(false);
     return Results.Ok(response);
 });
+
+app.MapAgentAdminEndpoints();
 
 app.Run("http://127.0.0.1:17831");
 

@@ -1,3 +1,4 @@
+using System.Security.Cryptography;
 using RoadProto.Agent.Host.Admin;
 using RoadProto.Agent.Host.Models;
 using RoadProto.Agent.Host.Providers;
@@ -72,9 +73,21 @@ public sealed class AgentChatService
                 false);
         }
 
-        var apiKey = string.IsNullOrWhiteSpace(profile.SecretId)
-            ? null
-            : await secrets.ReadAsync(profile.SecretId, cancellationToken).ConfigureAwait(false);
+        string? apiKey;
+        try
+        {
+            apiKey = string.IsNullOrWhiteSpace(profile.SecretId)
+                ? null
+                : await secrets.ReadAsync(profile.SecretId, cancellationToken).ConfigureAwait(false);
+        }
+        catch (Exception ex) when (ex is CryptographicException or IOException or UnauthorizedAccessException)
+        {
+            return new AgentChatResponse(
+                "模型 API Key 无法读取或已损坏。请在管理控制台重新保存该模型的 API Key；当前仍可使用本地规则工具：创建路基模板。",
+                null,
+                false);
+        }
+
         var systemPrompt = await promptContext.BuildSystemPromptAsync(cancellationToken).ConfigureAwait(false);
         var reply = await modelClient.CompleteAsync(
             profile,

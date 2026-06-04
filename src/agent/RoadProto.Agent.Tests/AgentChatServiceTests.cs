@@ -12,6 +12,64 @@ namespace RoadProto.Agent.Tests;
 public sealed class AgentChatServiceTests
 {
     [Fact]
+    public async Task ReplyReturnsReadablePromptWhenStoredApiKeyIsCorrupted()
+    {
+        if (!OperatingSystem.IsWindows())
+        {
+            return;
+        }
+
+        var root = Path.Combine(Path.GetTempPath(), "RoadProtoAgentChatServiceTests", Guid.NewGuid().ToString("N"));
+        try
+        {
+            var paths = new AgentLocalPaths(root);
+            paths.Ensure();
+            var configStore = new AgentConfigurationStore(paths, new RoadProtoAgentOptions());
+            var secretStore = new AgentSecretStore(paths);
+            await File.WriteAllBytesAsync(
+                Path.Combine(paths.SecretsDirectory, "profile-corrupt.bin"),
+                System.Text.Encoding.UTF8.GetBytes("not dpapi protected bytes"));
+            await configStore.SaveAsync(new AgentRuntimeConfiguration
+            {
+                DefaultModelProfile = "corrupt-key",
+                ModelProfiles =
+                [
+                    new StoredModelProfile
+                    {
+                        Name = "corrupt-key",
+                        Provider = "OpenAICompatible",
+                        BaseUrl = "https://example.invalid/v1",
+                        Model = "runtime-model",
+                        SecretId = "profile-corrupt",
+                        TimeoutSeconds = 60
+                    }
+                ]
+            });
+
+            var service = CreateService(
+                configStore,
+                secretStore,
+                new OpenAiCompatibleChatClient(new HttpClient(new CapturingChatHandler())));
+
+            var response = await service.ReplyAsync(
+                new AgentChatRequest("请介绍 RoadProto Agent", null, null));
+
+            Assert.False(response.RequiresConfirmation);
+            Assert.Null(response.ToolCall);
+            Assert.Contains("API Key 无法读取", response.Reply);
+            Assert.Contains("重新保存", response.Reply);
+            Assert.Contains("本地规则工具", response.Reply);
+        }
+        finally
+        {
+            if (Directory.Exists(root))
+            {
+                Directory.Delete(root, recursive: true);
+            }
+        }
+    }
+
+    [Fact]
     public async Task ReplyUsesRuntimeDefaultProfileAndEncryptedApiKey()
     {
         if (!OperatingSystem.IsWindows())

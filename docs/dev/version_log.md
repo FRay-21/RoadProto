@@ -7,9 +7,9 @@
 - 新增 `AI_AGENT` 模块，注册 `RD_AI_EXECUTE_TOOL_FILE` 受控工具网关命令。
 - 新增托管 WPF 命令 `RD_AI_ASSISTANT_OPEN`，可打开或激活 AutoCAD 右侧 Agent 面板，并在 Ribbon 中增加 `Agent / AI 助手` 入口。
 - 新增 `.NET 8` 本地 Agent sidecar，提供 `/health`、`/api/chat` 和 `/admin` 本地管理控制台；本地规则 planner 优先识别路基模板创建意图，普通问答可转发到 OpenAI-compatible 模型 Provider。
-- 新增 OpenAI-compatible Provider 配置模板和运行期模型 Profile 管理，支持 OpenAI、DeepSeek、DashScope/阿里百炼/千问等兼容接口；API Key 使用 Windows 当前用户 DPAPI 加密保存到 `%LOCALAPPDATA%\RoadProto\Agent\secrets\`。
+- 新增 OpenAI-compatible Provider 配置模板和运行期模型 Profile 管理，支持 OpenAI、DeepSeek、DashScope/阿里百炼/千问等兼容接口；API Key 使用 Windows 当前用户 DPAPI 加密保存到项目根目录 `.roadproto-agent/secrets/`。
 - 新增 `/admin` 本地管理控制台，支持模型 Profile 配置、连接测试、Windows 当前用户加密保存 API Key、Markdown skill 上传和 Markdown 知识库上传。
-- 新增 Agent 管理配置存储，配置位于 `%LOCALAPPDATA%\RoadProto\Agent\config.json`，上传的 skill 和知识库 Markdown 分别保存在本机 `skills` 与 `knowledge` 目录。
+- 新增 Agent 管理配置存储，配置位于项目根目录 `.roadproto-agent/config.json`，上传的 skill 和知识库 Markdown 分别保存在项目根目录 `.roadproto-agent/skills` 与 `.roadproto-agent/knowledge` 目录；首次切换时会把旧 `%LOCALAPPDATA%\RoadProto\Agent\` 数据复制到项目目录。
 - 新增 RoadProto Agent skill 文档读取能力，首个 skill 为 `docs/agent/skills/cross_section/subgrade_template_create.md`。
 - 新增 `cross_section.subgrade_template.create` 自动化工具，用于创建 `DnSubgradeTemplateEntity` 路基模板实体。
 - 新增 Agent 工具 JSON 协议：顶层字段白名单、请求文件大小限制、`%TEMP%\RoadProtoAgent\` 结果路径限制、成功/失败结果 JSON 写回、parse 级失败结果写回。

@@ -7,6 +7,8 @@ namespace RoadProto.Agent.Tests;
 
 public sealed class AgentConfigurationStoreTests : IDisposable
 {
+    private const string StorageRootEnvironmentVariable = "ROADPROTO_AGENT_STORAGE_ROOT";
+
     private readonly string root = Path.Combine(Path.GetTempPath(), "RoadProtoAgentTests", Guid.NewGuid().ToString("N"));
 
     public void Dispose()
@@ -14,6 +16,44 @@ public sealed class AgentConfigurationStoreTests : IDisposable
         if (Directory.Exists(root))
         {
             Directory.Delete(root, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void DefaultLocalPathsUseRepositoryLocalStorage()
+    {
+        var originalOverride = Environment.GetEnvironmentVariable(StorageRootEnvironmentVariable);
+        try
+        {
+            Environment.SetEnvironmentVariable(StorageRootEnvironmentVariable, null);
+
+            var paths = new AgentLocalPaths();
+
+            Assert.Equal(".roadproto-agent", Path.GetFileName(paths.Root));
+            Assert.True(File.Exists(Path.GetFullPath(Path.Combine(paths.Root, "..", "README.md"))));
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable(StorageRootEnvironmentVariable, originalOverride);
+        }
+    }
+
+    [Fact]
+    public void DefaultLocalPathsCanBeOverriddenByEnvironmentVariable()
+    {
+        var originalOverride = Environment.GetEnvironmentVariable(StorageRootEnvironmentVariable);
+        var overrideRoot = Path.Combine(root, "override-storage");
+        try
+        {
+            Environment.SetEnvironmentVariable(StorageRootEnvironmentVariable, overrideRoot);
+
+            var paths = new AgentLocalPaths();
+
+            Assert.Equal(Path.GetFullPath(overrideRoot), paths.Root);
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable(StorageRootEnvironmentVariable, originalOverride);
         }
     }
 

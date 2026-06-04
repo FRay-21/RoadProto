@@ -19,7 +19,7 @@
 - 本地 Agent 后端不依赖 ObjectARX，不直接操作 DWG。
 - C++ 工具网关只执行白名单工具，不执行任意 AutoCAD 命令字符串。
 - 首版工具只创建 `DnSubgradeTemplateEntity`；未提供任意实体修改、删除或命令执行能力。
-- API Key 由独立浏览器管理控制台输入，并使用 Windows 当前用户 DPAPI 加密保存到本机 `%LOCALAPPDATA%\RoadProto\Agent\secrets\`；不写入仓库或 DWG。
+- API Key 由独立浏览器管理控制台输入，并使用 Windows 当前用户 DPAPI 加密保存到项目根目录 `.roadproto-agent/secrets/`；该目录已通过 `.gitignore` 排除，不写入仓库或 DWG。
 - 管理控制台不直接执行 CAD 工具；所有 CAD 写入仍必须通过 WPF 确认卡片和 C++ 白名单工具网关。
 
 ## 管理控制台
@@ -32,7 +32,7 @@ http://127.0.0.1:17831/admin
 
 该页面用于配置 OpenAI-compatible 模型 Profile、输入并加密保存 API Key、执行模型连接测试、导入 Markdown skill 和导入 Markdown 知识库。模型 Profile 支持 OpenAI、DeepSeek、DashScope/阿里百炼/千问等兼容接口，也支持自定义 OpenAI-compatible Base URL。
 
-管理控制台保存的配置位于 `%LOCALAPPDATA%\RoadProto\Agent\config.json`；API Key 以 Windows 当前用户 DPAPI 加密文件形式保存到 `%LOCALAPPDATA%\RoadProto\Agent\secrets\`。上传的 skill 和知识库 Markdown 分别保存到 `%LOCALAPPDATA%\RoadProto\Agent\skills\` 和 `%LOCALAPPDATA%\RoadProto\Agent\knowledge\`。这些本机配置文件不进入 Git 仓库，不写入 DWG。
+管理控制台保存的配置位于项目根目录 `.roadproto-agent/config.json`；API Key 以 Windows 当前用户 DPAPI 加密文件形式保存到 `.roadproto-agent/secrets/`。上传的 skill 和知识库 Markdown 分别保存到 `.roadproto-agent/skills/` 和 `.roadproto-agent/knowledge/`。这些本机配置文件不进入 Git 仓库，不写入 DWG。若首次运行时发现旧的 `%LOCALAPPDATA%\RoadProto\Agent\` 中存在配置，而项目根目录 `.roadproto-agent/` 还没有本地数据，后端会自动复制旧配置到项目目录，避免已有模型配置丢失。
 
 后端在处理普通问答时，会把默认系统提示、内置路基模板创建 skill、启用的用户 skill 和启用的知识库 Markdown 组合为 system prompt。工具意图仍由本地 planner 优先识别；模型返回只作为普通回复，不自动执行工具。
 

@@ -236,7 +236,7 @@ dotnet run --project src\agent\RoadProto.Agent.Host\RoadProto.Agent.Host.csproj
 http://127.0.0.1:17831/admin
 ```
 
-管理控制台支持模型 Profile 配置、连接测试、Windows 当前用户加密保存 API Key、Markdown skill 上传和 Markdown 知识库上传。API Key 保存在 `%LOCALAPPDATA%\RoadProto\Agent\secrets\`，不会写入仓库。模型配置可参考 `src/agent/RoadProto.Agent.Host/appsettings.example.json`；这些配置会在本地 `config.json` 不存在时作为首次启动 seed。
+管理控制台支持模型 Profile 配置、连接测试、Windows 当前用户加密保存 API Key、Markdown skill 上传和 Markdown 知识库上传。默认本地存储根目录为项目根目录下的 `.roadproto-agent/`，例如 `F:\0_GPT_道路设计原型功能项目\.roadproto-agent\`；API Key 保存在其中的 `secrets/` 子目录，并已通过 `.gitignore` 排除，不会写入仓库。模型配置可参考 `src/agent/RoadProto.Agent.Host/appsettings.example.json`；这些配置会在本地 `config.json` 不存在时作为首次启动 seed。
 
 在 AutoCAD 2021 中手动验证当前 RoadProto 流程：
 

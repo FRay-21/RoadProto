@@ -55,6 +55,7 @@
   <ItemGroup>
     <ClCompile Include="arx_entry\RoadProtoArxEntry.cpp" />
     <ClCompile Include="startup\ApplicationContext.cpp" />
+    <ClCompile Include="startup\AgentStartupRegistration.cpp" />
     <ClCompile Include="startup\CrossSectionStartupRegistration.cpp" />
     <ClCompile Include="startup\DrawingQuantityStartupRegistration.cpp" />
     <ClCompile Include="startup\ProfileStartupRegistration.cpp" />
@@ -108,6 +109,7 @@
     <ClCompile Include="..\application\terrain\TerrainUpdateSampleService.cpp" />
     <ClCompile Include="..\application\intersection\IntersectionInfoService.cpp" />
     <ClCompile Include="..\modules\alignment\AlignmentModule.cpp" />
+    <ClCompile Include="..\modules\agent\AgentModule.cpp" />
     <ClCompile Include="..\modules\cross_section\CrossSectionModule.cpp" />
     <ClCompile Include="..\modules\drawing_quantity\DrawingQuantityModule.cpp" />
     <ClCompile Include="..\modules\terrain\TerrainModule.cpp" />
@@ -118,6 +120,7 @@
     <ClCompile Include="..\cad_adapter\objectarx\ObjectArxCommandRegistrar.cpp" />
     <ClCompile Include="..\cad_adapter\objectarx\ObjectArxEditor.cpp" />
     <ClCompile Include="..\cad_adapter\objectarx\ObjectArxRibbonAdapter.cpp" />
+    <ClCompile Include="..\cad_adapter\objectarx\agent\ObjectArxAgentToolCommand.cpp" />
     <ClCompile Include="..\cad_adapter\objectarx\alignment\AlignmentDialogBridge.cpp" />
     <ClCompile Include="..\cad_adapter\objectarx\alignment\DnRoadCenterlineEntity.cpp" />
     <ClCompile Include="..\cad_adapter\objectarx\alignment\ObjectArxAlignmentCommand.cpp" />

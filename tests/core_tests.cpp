@@ -42,6 +42,7 @@
 #include "app/startup/ProfileStartupRegistration.h"
 #include "modules/cross_section/CrossSectionModule.h"
 #include "modules/drawing_quantity/DrawingQuantityModule.h"
+#include "modules/agent/AgentModule.h"
 #include "modules/profile/ProfileModule.h"
 #include "ui/ribbon/RibbonModel.h"
 
@@ -389,6 +390,23 @@ void startupRegistrationIncludesProfileModule()
     CHECK(commands.contains(L"RD_PROFILE_GRADE_GRAPH_CREATE"));
     CHECK(ribbon.tab().panels.size() == 1);
     CHECK(ribbon.tab().panels.front().moduleCode == L"PROFILE");
+}
+
+void agentModuleRegistersToolGatewayCommand()
+{
+    roadproto::core::CommandRegistry commands;
+    auto module = roadproto::modules::agent::createAgentModule();
+    module.registerCommands(commands);
+
+    const auto command = commands.find(L"RD_AI_EXECUTE_TOOL_FILE");
+    CHECK(command.has_value());
+    if (!command.has_value()) {
+        return;
+    }
+
+    CHECK(command->moduleCode == L"AI_AGENT");
+    CHECK(command->businessDocPath == L"docs/business/agent/设计软件原型Agent.md");
+    CHECK(command->ribbonAttachable == false);
 }
 
 void subgradeTemplateDefaultsBuildExpressway()
@@ -8676,6 +8694,7 @@ int main()
     moduleRegistryRegistersCommandsAndRibbonPanels();
     profileModuleRegistersCommandsAndRibbonPanel();
     startupRegistrationIncludesProfileModule();
+    agentModuleRegistersToolGatewayCommand();
     subgradeTemplateDefaultsBuildExpressway();
     subgradeTemplateDefaultsBuildUrbanExpressway();
     subgradeTemplateDefaultsBuildHighwayGradesFromRoadClassProfiles();

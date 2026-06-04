@@ -51,6 +51,7 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="core_tests.cpp" />
+    <ClCompile Include="..\src\app\startup\AgentStartupRegistration.cpp" />
     <ClCompile Include="..\src\app\startup\CrossSectionStartupRegistration.cpp" />
     <ClCompile Include="..\src\app\startup\DrawingQuantityStartupRegistration.cpp" />
     <ClCompile Include="..\src\app\startup\ProfileStartupRegistration.cpp" />
@@ -95,9 +96,11 @@
     <ClCompile Include="..\src\application\agent\AgentToolRequest.cpp" />
     <ClCompile Include="..\src\application\agent\SubgradeTemplateToolMapper.cpp" />
     <ClCompile Include="..\src\application\terrain\TerrainUpdateSampleService.cpp" />
+    <ClCompile Include="..\src\modules\agent\AgentModule.cpp" />
     <ClCompile Include="..\src\modules\cross_section\CrossSectionModule.cpp" />
     <ClCompile Include="..\src\modules\drawing_quantity\DrawingQuantityModule.cpp" />
     <ClCompile Include="..\src\modules\profile\ProfileModule.cpp" />
+    <ClCompile Include="..\src\cad_adapter\objectarx\agent\ObjectArxAgentToolCommand.cpp" />
     <ClCompile Include="..\src\cad_adapter\objectarx\drawing_quantity\ObjectArxPavementQuantityTableCommand.cpp" />
     <ClCompile Include="..\src\cad_adapter\objectarx\drawing_quantity\ObjectArxPavementStructureLegendCommand.cpp" />
     <ClCompile Include="..\src\cad_adapter\objectarx\cross_section\ObjectArxRoadModelCommand.cpp" />

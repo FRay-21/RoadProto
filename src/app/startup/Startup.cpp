@@ -1,6 +1,7 @@
 #include "app/startup/Startup.h"
 
 #include "app/startup/ApplicationContext.h"
+#include "app/startup/AgentStartupRegistration.h"
 #include "app/startup/CrossSectionStartupRegistration.h"
 #include "app/startup/DrawingQuantityStartupRegistration.h"
 #include "app/startup/ProfileStartupRegistration.h"
@@ -21,6 +22,7 @@ void registerBuiltInModules(core::ModuleRegistry& moduleRegistry)
     registerProfileModuleForStartup(moduleRegistry);
     registerCrossSectionModuleForStartup(moduleRegistry);
     registerDrawingQuantityModuleForStartup(moduleRegistry);
+    registerAgentModuleForStartup(moduleRegistry);
     moduleRegistry.registerModule(modules::intersection::createIntersectionModule());
 }
 

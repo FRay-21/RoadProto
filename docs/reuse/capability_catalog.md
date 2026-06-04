@@ -1,4 +1,4 @@
-# 复用能力目录
+﻿# 复用能力目录
 
 ## 通用 CAD 能力
 
@@ -7,10 +7,11 @@
 | 编辑器消息输出 | V0.1 ObjectARX 适配器 | `src/cad_adapter/objectarx/ObjectArxEditor.*` |
 | 命令注册 | V0.1 ObjectARX 适配器 | `src/cad_adapter/objectarx/ObjectArxCommandRegistrar.*` |
 | 选择集释放 guard | 预留辅助类 | `src/cad_adapter/objectarx/ObjectArxSelectionSetGuard.h` |
-| 事务作用域 | 接口占位 | `src/cad_adapter/transaction/TransactionScope.h` |
-| 图层规格 | 接口占位 | `src/cad_adapter/layer/LayerService.h` |
-| 文字标注规格 | 接口占位 | `src/cad_adapter/annotation/TextAnnotationService.h` |
-| 块插入规格 | 接口占位 | `src/cad_adapter/block/BlockInsertService.h` |
+| 事务作用域 | 接口预留 | `src/cad_adapter/transaction/TransactionScope.h` |
+| 图层规格 | 接口预留 | `src/cad_adapter/layer/LayerService.h` |
+| 文字标注规格 | 接口预留 | `src/cad_adapter/annotation/TextAnnotationService.h` |
+| 块插入规格 | 接口预留 | `src/cad_adapter/block/BlockInsertService.h` |
+| Agent 工具网关 | 文档基线，计划提供 Agent 工具 JSON 到 C++ application/cad_adapter 的受控执行能力 | `docs/reuse/agent_tool_gateway.md` |
 | ObjectARX 地形对象提取 | V0.1.6 原型，支持连续点选样例、按同图层同类型扫描模型空间、状态栏进度和按类隐藏源对象 | `src/cad_adapter/objectarx/terrain/ObjectArxTerrainTinCommand.cpp` |
 | 地形构网参数确认窗口 | V0.1.6 历史过渡实现，C++ Win32 对话框，当前原型阶段后续重做需迁移为 WPF | `src/cad_adapter/objectarx/terrain/TerrainTinCreateDialog.*` |
 | 地形 TIN 自定义实体 | V0.1.6 原型，支持 TrueColor 渐变边线高程着色、边界显示、DWG 持久化、RMesh 流转和双击编辑 handle 入口 | `src/cad_adapter/objectarx/terrain/DnTerrainTinEntity.*` |

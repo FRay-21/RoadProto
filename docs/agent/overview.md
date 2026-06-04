@@ -2,7 +2,9 @@
 
 ## 目标
 
-RoadProto Agent 是 CAD 内嵌设计软件原型助手。首版提供右侧 WPF 对话面板、本地 Agent 后端、模型 Provider 配置、Agent skill 文档读取、受控工具调用和首个自动化工具：创建路基模板。
+RoadProto Agent 是 CAD 内嵌设计软件原型助手。本阶段文档用于建立原型计划和实现边界，计划实现右侧 WPF 对话面板、本地 Agent 后端、模型 Provider 配置、Agent skill 文档读取、受控工具调用和首个自动化工具：创建路基模板。
+
+当前状态：文档基线已建立，命令、右侧面板、后端服务、工具网关和自动创建路基模板能力仍处于开发中，不能按已可用功能描述或验收。
 
 ## 边界
 
@@ -12,14 +14,14 @@ RoadProto Agent 是 CAD 内嵌设计软件原型助手。首版提供右侧 WPF 
 - domain/application 继续承载业务规则。
 - cad_adapter/objectarx 继续承载 AutoCAD API 调用。
 
-## 首版命令
+## 计划命令
 
-- `RD_AI_ASSISTANT_OPEN`：打开右侧 Agent 面板。
-- `RD_AI_EXECUTE_TOOL_FILE`：执行 Agent 工具 JSON 文件。
+- `RD_AI_ASSISTANT_OPEN`：计划用于打开右侧 Agent 面板。
+- `RD_AI_EXECUTE_TOOL_FILE`：计划用于执行 Agent 工具 JSON 文件。
 
-## 首版工具
+## 计划工具
 
-- `cross_section.subgrade_template.create`：自动化创建 `DnSubgradeTemplateEntity` 路基模板实体。
+- `cross_section.subgrade_template.create`：计划用于自动化创建 `DnSubgradeTemplateEntity` 路基模板实体。
 
 ## 不做范围
 

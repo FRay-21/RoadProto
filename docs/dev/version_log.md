@@ -2,10 +2,11 @@
 
 ## v0.1.32_20260604_AgentPrototype
 
-- 新增设计软件原型 Agent 设计与实现入口。
-- 新增右侧 WPF Agent 面板规划、`.NET 8` 本地 Agent sidecar、C++ 白名单工具网关和 RoadProto Agent skill 文档体系。
-- 首个自动化原子函数为 `cross_section.subgrade_template.create`，用于自动创建 `DnSubgradeTemplateEntity` 路基模板实体。
-- 是否可作为稳定测试版本：否。该版本为 Agent 原型开发版本，需要完成 ARX、WPF 和后端联调后再标记稳定。
+- 新增设计软件原型 Agent 开发计划文档基线和实现入口说明。
+- 新增右侧 WPF Agent 面板规划、`.NET 8` 本地 Agent sidecar、C++ 白名单工具网关和 RoadProto Agent skill 文档体系的设计文档。
+- 首个计划自动化原子函数为 `cross_section.subgrade_template.create`，目标是后续自动创建 `DnSubgradeTemplateEntity` 路基模板实体。
+- 当前状态：仅记录文档基线，`RD_AI_ASSISTANT_OPEN`、`RD_AI_EXECUTE_TOOL_FILE`、右侧 WPF Agent 面板、本地后端、工具网关和自动创建路基模板能力均未标记为稳定可用。
+- 是否可作为稳定测试版本：否。该版本为 Agent 原型开发计划版本，需要完成 ARX、WPF 和后端联调后再标记稳定。
 
 ## 未发布 - 2026-05-29
 
@@ -321,7 +322,7 @@
 
 ### 已知问题
 
-- V0.1 只建立 Ribbon 模型和适配器占位，暂未实现完整 AutoCAD 原生 Ribbon UI 创建。
+- V0.1 只建立 Ribbon 模型和适配器预留，暂未实现完整 AutoCAD 原生 Ribbon UI 创建。
 - ARX 构建需要配置 ObjectARX 2021 SDK 路径，并使用 AutoCAD 2021 兼容的 Visual Studio 工具集。
 - V0.1 不实现复杂道路设计算法。
 

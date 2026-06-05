@@ -1,6 +1,7 @@
 using System.Net;
 using System.Net.Http.Json;
 using System.Text;
+using System.Text.Json;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.DependencyInjection;
@@ -71,6 +72,36 @@ public sealed class AgentChatApiTests : IClassFixture<AgentChatApiTestFactory>
         Assert.True(body.RequiresConfirmation);
         Assert.NotNull(body.ToolCall);
         Assert.Equal("cross_section.subgrade_template.create", body.ToolCall.Tool);
+    }
+
+    [Fact]
+    public async Task ChatReturnsToolCallForMunicipalRoadWithRightLaneOperation()
+    {
+        using var client = factory.CreateClient();
+
+        using var response = await client.PostAsJsonAsync(
+            "/api/chat",
+            new AgentChatRequest(
+                "我想创建一个市政道路的路基模板，并基于默认参数上，最右侧增加一个行车道部件",
+                null,
+                Array.Empty<AgentChatMessage>()));
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var body = await response.Content.ReadFromJsonAsync<AgentChatResponse>();
+        Assert.NotNull(body);
+        Assert.True(body.RequiresConfirmation);
+        Assert.NotNull(body.ToolCall);
+        Assert.Equal("cross_section.subgrade_template.create", body.ToolCall.Tool);
+        Assert.Contains("右侧机动车道组外侧新增 1 个行车道", body.ToolCall.ConfirmationBody);
+
+        var arguments = Assert.IsType<JsonElement>(body.ToolCall.Arguments);
+        Assert.Equal("UrbanArterial", arguments.GetProperty("roadGrade").GetString());
+        var operation = Assert.Single(arguments.GetProperty("componentOperations").EnumerateArray());
+        Assert.Equal("AddComponent", operation.GetProperty("action").GetString());
+        Assert.Equal("Right", operation.GetProperty("side").GetString());
+        Assert.Equal("TravelLane", operation.GetProperty("type").GetString());
+        Assert.Equal("OutermostMotorLane", operation.GetProperty("position").GetString());
+        Assert.Equal(JsonValueKind.Null, operation.GetProperty("width").ValueKind);
     }
 
     [Fact]

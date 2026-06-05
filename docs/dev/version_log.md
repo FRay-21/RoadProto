@@ -22,6 +22,7 @@
 - 修正用户在 Agent 面板中对上一轮路基模板创建意图输入“确认/继续/执行”后，后端转入普通模型回复而没有返回结构化 `toolCall` 的问题；现在会优先回看最近用户原始需求，并可从上一条待执行摘要中兜底恢复 `cross_section.subgrade_template.create` 工具确认卡片。
 - 补充 Agent 代码与文档结构规范，新增 `docs/architecture/agent_code_structure.md`，明确 `.NET 8` sidecar、WPF 面板、C++ 工具网关、skill/知识库、运行期 `.roadproto-agent/`、`%TEMP%\RoadProtoAgent\` 和新增工具/Provider 的文件落点，避免 Agent 功能打乱既有分层。
 - 验证状态：`RoadProto.sln` Release 构建通过；`RoadProtoCoreTests.exe` Release 运行通过；`dotnet test src\agent\RoadProto.Agent.Tests\RoadProto.Agent.Tests.csproj` 通过；`dotnet build src\agent\RoadProto.Agent.Host\RoadProto.Agent.Host.csproj -c Release` 通过；`dotnet build src\ui\wpf\RoadProto.Terrain.UI\RoadProto.Terrain.UI.csproj -c Release` 通过；`src\app\RoadProtoArx.vcxproj` Debug 构建通过；`/admin` 本地管理控制台已完成浏览器点验。
+- 本轮 `AgentPlanner` V1 验证状态：`dotnet test src\agent\RoadProto.Agent.Tests\RoadProto.Agent.Tests.csproj` 通过 65 个测试；`RoadProtoCoreTests.exe` Debug/Release 均通过；Agent Host Release、WPF Release 和 `RoadProto.sln` Release 均 0 警告 0 错误；主项目目录启动 `RoadProto.Agent.Host.exe` 后，`/health` 返回 `ok`，`/api/chat` 对“市政道路路基模板，最右侧增加一个行车道部件”返回 `UrbanArterial` 和 `AddComponent/Right/TravelLane/OutermostMotorLane` 结构化工具调用。
 - Core Console 脚本烟测曾尝试加载临时 ARX 并执行 `RD_AI_EXECUTE_TOOL_FILE`，但未形成可采信的命令级结果文件；该项不作为通过记录。
 - 是否可作为稳定测试版本：否。Agent 原型自动化构建与测试已通过，但 AutoCAD 2021 图形界面的 Agent 面板、确认卡片、实体创建和结果文件完整端到端点验仍待手工执行。
 

@@ -55,6 +55,15 @@ public sealed class AgentChatService
             return new AgentChatResponse(guidance, null, false);
         }
 
+        var confirmedToolCall = TryPlanConfirmedToolFromHistory(request);
+        if (confirmedToolCall != null)
+        {
+            return new AgentChatResponse(
+                "我识别到你确认执行创建路基模板。请确认工具调用参数。",
+                confirmedToolCall,
+                true);
+        }
+
         var config = await configurations.LoadAsync(cancellationToken).ConfigureAwait(false);
         var profile = FindProfile(config, request.ModelProfile);
         if (profile == null)
@@ -124,5 +133,79 @@ public sealed class AgentChatService
         }
 
         return config.ModelProfiles.FirstOrDefault();
+    }
+
+    private AgentToolCall? TryPlanConfirmedToolFromHistory(AgentChatRequest request)
+    {
+        if (!IsConfirmationMessage(request.Message ?? string.Empty) || request.History == null)
+        {
+            return null;
+        }
+
+        var recentHistory = request.History.Reverse().ToArray();
+        return TryPlanFromHistoryItems(recentHistory, "user")
+            ?? TryPlanFromHistoryItems(recentHistory, "assistant");
+    }
+
+    private AgentToolCall? TryPlanFromHistoryItems(
+        IEnumerable<AgentChatMessage> history,
+        string role)
+    {
+        foreach (var item in history)
+        {
+            if (!string.Equals(item.Role, role, StringComparison.OrdinalIgnoreCase)
+                || !ShouldUseHistoryForPendingTool(item))
+            {
+                continue;
+            }
+
+            var toolCall = planner.TryPlan(item.Content, out _);
+            if (toolCall != null)
+            {
+                return toolCall;
+            }
+        }
+
+        return null;
+    }
+
+    private static bool IsConfirmationMessage(string message)
+    {
+        var trimmed = message.Trim();
+        if (trimmed.Length == 0 || trimmed.Length > 24)
+        {
+            return false;
+        }
+
+        string[] negativeWords = ["取消", "不确认", "不要", "别", "先不", "停止"];
+        if (negativeWords.Any(word => trimmed.Contains(word, StringComparison.Ordinal)))
+        {
+            return false;
+        }
+
+        string[] confirmationWords = ["确认", "继续", "执行", "开始", "可以", "同意", "好的", "好"];
+        return confirmationWords.Any(word => trimmed.Contains(word, StringComparison.Ordinal));
+    }
+
+    private static bool ShouldUseHistoryForPendingTool(AgentChatMessage message)
+    {
+        if (string.IsNullOrWhiteSpace(message.Content)
+            || !message.Content.Contains("路基模板", StringComparison.Ordinal))
+        {
+            return false;
+        }
+
+        if (string.Equals(message.Role, "user", StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
+        if (!string.Equals(message.Role, "assistant", StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        string[] pendingMarkers = ["请确认", "确认后", "工具调用", "执行请求", "将创建", "执行创建"];
+        return pendingMarkers.Any(marker => message.Content.Contains(marker, StringComparison.Ordinal));
     }
 }

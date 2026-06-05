@@ -44,7 +44,7 @@ http://127.0.0.1:17831/admin
 4. WPF 打开右侧 Agent 面板，并通过 `/health` 检查本地后端状态。
 5. 用户输入自然语言需求。
 6. 后端优先使用本地规则 planner 和 Agent skill 文档识别创建路基模板意图；普通问答可交给管理控制台配置的默认 OpenAI-compatible 模型 Provider。
-7. 若识别出 `cross_section.subgrade_template.create`，WPF 展示工具确认卡片，确认前不执行 CAD 写入。
+7. 若识别出 `cross_section.subgrade_template.create`，WPF 展示工具确认卡片，确认前不执行 CAD 写入；当用户在下一轮只输入“确认”“继续”“执行”等短句时，后端会优先回看最近的用户原始需求，并可从上一条待执行摘要中兜底恢复工具调用，避免模型只生成口头承诺而不触发工具卡片。
 8. 用户确认后，WPF 在 `%TEMP%\RoadProtoAgent\` 生成受控请求文件和结果文件路径。
 9. WPF 发送 `RD_AI_EXECUTE_TOOL_FILE`，由 C++ 工具网关读取请求、校验工具名、参数、插入点和结果路径。
 10. 工具网关复用现有路基模板领域模型、创建服务和 ObjectARX 实体创建能力，生成 `DnSubgradeTemplateEntity`。

@@ -124,6 +124,14 @@ public sealed class SubgradeTemplateToolPlanner
 
     private static string DetectTemplateName(string message)
     {
+        var labeledMatch = Regex.Match(
+            message,
+            @"模板名称\s*[:：]\s*(?:\*+\s*)?(?<name>[^\r\n，,。；;]+)");
+        if (labeledMatch.Success)
+        {
+            return Regex.Replace(labeledMatch.Groups["name"].Value, @"\*+", string.Empty).Trim();
+        }
+
         var match = Regex.Match(message, @"名字叫(?<name>[\u4e00-\u9fa5A-Za-z0-9_ -]+)");
         return match.Success ? match.Groups["name"].Value.Trim() : "默认路基模板";
     }

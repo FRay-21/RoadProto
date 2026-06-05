@@ -16,6 +16,7 @@
 - 新增路基模板工具参数 mapper，覆盖模板名称、道路等级、设计速度、路基宽度、车道数、车道宽度、硬路肩、土路肩、中分带、边坡、边沟、路面结构说明、显示比例、插入点、默认部件和显式部件列表；缺失参数由默认值补齐。
 - 修正 AutoCAD 托管 WPF Agent 面板在 .NET Framework 宿主中使用 `System.Text.Json` 可能触发程序集绑定异常的问题；WPF 聊天客户端和工具请求文件改用 `System.Web.Extensions` 内置 JSON 序列化，避免闲聊和工具确认流在请求前失败。
 - 修正 Agent 路基模板工具在 `PickInCad` 插入点模式下解析 `x/y: null` 失败的问题；工具网关现在会把空坐标视为需要在 CAD 中点取插入点，避免确认工具调用后直接写回 `ParseError` 而不创建路基模板。
+- 修正用户在 Agent 面板中对上一轮路基模板创建意图输入“确认/继续/执行”后，后端转入普通模型回复而没有返回结构化 `toolCall` 的问题；现在会优先回看最近用户原始需求，并可从上一条待执行摘要中兜底恢复 `cross_section.subgrade_template.create` 工具确认卡片。
 - 验证状态：`RoadProto.sln` Release 构建通过；`RoadProtoCoreTests.exe` Release 运行通过；`dotnet test src\agent\RoadProto.Agent.Tests\RoadProto.Agent.Tests.csproj` 通过；`dotnet build src\agent\RoadProto.Agent.Host\RoadProto.Agent.Host.csproj -c Release` 通过；`dotnet build src\ui\wpf\RoadProto.Terrain.UI\RoadProto.Terrain.UI.csproj -c Release` 通过；`src\app\RoadProtoArx.vcxproj` Debug 构建通过；`/admin` 本地管理控制台已完成浏览器点验。
 - Core Console 脚本烟测曾尝试加载临时 ARX 并执行 `RD_AI_EXECUTE_TOOL_FILE`，但未形成可采信的命令级结果文件；该项不作为通过记录。
 - 是否可作为稳定测试版本：否。Agent 原型自动化构建与测试已通过，但 AutoCAD 2021 图形界面的 Agent 面板、确认卡片、实体创建和结果文件完整端到端点验仍待手工执行。

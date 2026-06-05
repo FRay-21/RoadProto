@@ -151,6 +151,74 @@ public sealed class AgentChatServiceTests
     }
 
     [Fact]
+    public async Task ReplyConvertsConfirmationWithSubgradeHistoryIntoToolCall()
+    {
+        var service = CreateService(new ModelProfileOptions
+        {
+            Name = "missing-key",
+            BaseUrl = "https://example.invalid/v1",
+            ApiKeyEnvironmentVariable = CreateMissingEnvironmentVariableName(),
+            Model = "test-model"
+        });
+
+        var response = await service.ReplyAsync(
+            new AgentChatRequest(
+                "确认 继续",
+                "missing-key",
+                [
+                    new AgentChatMessage("user", "帮我创建一个二级公路路基模板，比例1:20，名字叫K1路基模板"),
+                    new AgentChatMessage("assistant", "好的，请确认是否创建 K1 路基模板。")
+                ]));
+
+        Assert.True(response.RequiresConfirmation);
+        Assert.NotNull(response.ToolCall);
+        Assert.Equal("cross_section.subgrade_template.create", response.ToolCall.Tool);
+        var arguments = Assert.IsType<SubgradeTemplateCreateArguments>(response.ToolCall.Arguments);
+        Assert.Equal("K1路基模板", arguments.TemplateName);
+        Assert.Equal(20, arguments.DisplayScale);
+        Assert.Equal("SecondClass", arguments.RoadGrade);
+        Assert.Equal("PickInCad", arguments.InsertionPoint.Mode);
+    }
+
+    [Fact]
+    public async Task ReplyConvertsConfirmationWithAssistantSubgradeSummaryIntoToolCall()
+    {
+        var service = CreateService(new ModelProfileOptions
+        {
+            Name = "missing-key",
+            BaseUrl = "https://example.invalid/v1",
+            ApiKeyEnvironmentVariable = CreateMissingEnvironmentVariableName(),
+            Model = "test-model"
+        });
+
+        var response = await service.ReplyAsync(
+            new AgentChatRequest(
+                "确认",
+                "missing-key",
+                [
+                    new AgentChatMessage("user", "确认 继续"),
+                    new AgentChatMessage("assistant", """
+                        好的，我将为您执行创建路基模板的操作。
+
+                        **执行摘要：**
+                        * **模板名称：** K1 路基模板
+                        * **道路等级：** SecondClass（二级公路）
+                        * **显示比例：** 1:20
+
+                        正在为您生成执行请求...
+                        """)
+                ]));
+
+        Assert.True(response.RequiresConfirmation);
+        Assert.NotNull(response.ToolCall);
+        Assert.Equal("cross_section.subgrade_template.create", response.ToolCall.Tool);
+        var arguments = Assert.IsType<SubgradeTemplateCreateArguments>(response.ToolCall.Arguments);
+        Assert.Equal("K1 路基模板", arguments.TemplateName);
+        Assert.Equal(20, arguments.DisplayScale);
+        Assert.Equal("SecondClass", arguments.RoadGrade);
+    }
+
+    [Fact]
     public async Task ReplyReturnsReadablePromptWhenApiKeyIsMissing()
     {
         var service = CreateService(new ModelProfileOptions

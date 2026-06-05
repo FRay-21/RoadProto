@@ -59,13 +59,14 @@ public sealed class SubgradeTemplateCreatePlanner
 
         var roadGrade = DetectRoadGrade(message);
         var displayScale = DetectDisplayScale(message);
+        var componentOperations = SubgradeTemplateComponentOperationFactory.DetectOperations(message);
         if (displayScale.WasExplicit && !AllowedDisplayScales.Contains(displayScale.Value))
         {
             guidance = "路基模板显示比例只支持 1、10、20、50、100。请把比例改为这些取值后再创建。";
             return null;
         }
 
-        if (DescribesExplicitComponents(message))
+        if (DescribesExplicitComponents(message) && componentOperations.Count == 0)
         {
             guidance = "我识别到你描述了路基模板的具体部件。当前本地规则骨架暂不生成具体部件工具调用，请先确认是否使用道路等级默认部件，或补全每个部件的侧别、类型和宽度后再处理。";
             return null;
@@ -81,14 +82,18 @@ public sealed class SubgradeTemplateCreatePlanner
             new AgentInsertionPoint("PickInCad", null, null, 0),
             "DefaultByRoadGrade",
             Array.Empty<SubgradeComponentArgument>(),
-            Array.Empty<SubgradeComponentOperationArgument>());
+            componentOperations);
+
+        var operationSummary = componentOperations.Count > 0
+            ? "，并在右侧机动车道组外侧新增 1 个行车道，宽度按道路等级默认值补齐"
+            : string.Empty;
 
         return new AgentToolCall(
             "cross_section.subgrade_template.create",
             Guid.NewGuid().ToString("N"),
             arguments,
             "创建路基模板",
-            $"将创建 {templateName}，道路等级 {roadGrade}，显示比例 1:{displayScale.Value}，确认后需要在 CAD 中点取插入点。");
+            $"将创建 {templateName}，道路等级 {roadGrade}，显示比例 1:{displayScale.Value}{operationSummary}，确认后需要在 CAD 中点取插入点。");
     }
 
     private static string DetectRoadGrade(string message)

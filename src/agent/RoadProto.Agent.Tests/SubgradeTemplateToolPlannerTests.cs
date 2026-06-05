@@ -74,6 +74,30 @@ public sealed class AgentPlannerTests
     }
 
     [Theory]
+    [InlineData("我想创建一个市政道路的路基模板，并基于默认参数上，最右侧增加一个行车道部件")]
+    [InlineData("创建城市道路模板，在右边再加一条车道")]
+    [InlineData("生成市政路模板，右侧外侧增加机动车道")]
+    public void PlansRightTravelLaneOperationOnDefaultUrbanTemplate(string message)
+    {
+        var planner = new AgentPlanner(new SubgradeTemplateCreatePlanner());
+
+        var result = planner.TryPlan(message, out var guidance);
+
+        Assert.Null(guidance);
+        Assert.NotNull(result);
+        var args = Assert.IsType<SubgradeTemplateCreateArguments>(result.Arguments);
+        Assert.Equal("UrbanArterial", args.RoadGrade);
+        Assert.Equal("DefaultByRoadGrade", args.ComponentSource);
+        var operation = Assert.Single(args.ComponentOperations);
+        Assert.Equal("AddComponent", operation.Action);
+        Assert.Equal("Right", operation.Side);
+        Assert.Equal("TravelLane", operation.Type);
+        Assert.Equal("OutermostMotorLane", operation.Position);
+        Assert.Null(operation.Width);
+        Assert.Contains("右侧机动车道组外侧新增 1 个行车道", result.ConfirmationBody);
+    }
+
+    [Theory]
     [InlineData("帮我创建一个二级公路路基模板，比例1:25")]
     [InlineData("帮我创建一个二级公路路基模板，比例25")]
     public void DoesNotPlanUnsupportedExplicitDisplayScale(string message)

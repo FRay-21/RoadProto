@@ -40,7 +40,7 @@ public sealed class SubgradeTemplateCreatePlanner
     {
         guidance = null;
 
-        if (!message.Contains("路基模板", StringComparison.Ordinal))
+        if (!MentionsSubgradeTemplateConcept(message))
         {
             return null;
         }
@@ -52,9 +52,7 @@ public sealed class SubgradeTemplateCreatePlanner
             return null;
         }
 
-        if (!message.Contains("创建", StringComparison.Ordinal)
-            && !message.Contains("新建", StringComparison.Ordinal)
-            && !message.Contains("生成", StringComparison.Ordinal))
+        if (!IsCreateIntent(message))
         {
             return null;
         }
@@ -103,7 +101,42 @@ public sealed class SubgradeTemplateCreatePlanner
         if (message.Contains("城市主干", StringComparison.Ordinal)) return "UrbanArterial";
         if (message.Contains("城市次干", StringComparison.Ordinal)) return "UrbanSubArterial";
         if (message.Contains("城市支路", StringComparison.Ordinal)) return "UrbanBranch";
+        if (message.Contains("市政道路", StringComparison.Ordinal)
+            || message.Contains("城市道路", StringComparison.Ordinal)
+            || message.Contains("市政路", StringComparison.Ordinal)
+            || message.Contains("城区道路", StringComparison.Ordinal))
+        {
+            return "UrbanArterial";
+        }
+
         return "Expressway";
+    }
+
+    private static bool MentionsSubgradeTemplateConcept(string message)
+    {
+        if (message.Contains("路基模板", StringComparison.Ordinal))
+        {
+            return true;
+        }
+
+        return message.Contains("模板", StringComparison.Ordinal)
+            && (message.Contains("市政道路", StringComparison.Ordinal)
+                || message.Contains("城市道路", StringComparison.Ordinal)
+                || message.Contains("市政路", StringComparison.Ordinal)
+                || message.Contains("城区道路", StringComparison.Ordinal)
+                || message.Contains("城市快速", StringComparison.Ordinal)
+                || message.Contains("城市主干", StringComparison.Ordinal)
+                || message.Contains("城市次干", StringComparison.Ordinal)
+                || message.Contains("城市支路", StringComparison.Ordinal));
+    }
+
+    private static bool IsCreateIntent(string message)
+    {
+        return message.Contains("创建", StringComparison.Ordinal)
+            || message.Contains("新建", StringComparison.Ordinal)
+            || message.Contains("生成", StringComparison.Ordinal)
+            || message.Contains("做一个", StringComparison.Ordinal)
+            || message.Contains("来一个", StringComparison.Ordinal);
     }
 
     private static DisplayScaleDetection DetectDisplayScale(string message)

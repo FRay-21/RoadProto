@@ -55,6 +55,25 @@ public sealed class AgentPlannerTests
     }
 
     [Theory]
+    [InlineData("创建市政道路路基模板")]
+    [InlineData("创建城市道路路基模板")]
+    [InlineData("帮我生成一个市政道路的模板")]
+    public void PlansMunicipalRoadAsUrbanArterial(string message)
+    {
+        var planner = new AgentPlanner(new SubgradeTemplateCreatePlanner());
+
+        var result = planner.TryPlan(message, out var guidance);
+
+        Assert.Null(guidance);
+        Assert.NotNull(result);
+        var args = Assert.IsType<SubgradeTemplateCreateArguments>(result.Arguments);
+        Assert.Equal("UrbanArterial", args.RoadGrade);
+        Assert.Equal("默认路基模板", args.TemplateName);
+        Assert.Equal(10, args.DisplayScale);
+        Assert.Equal("DefaultByRoadGrade", args.ComponentSource);
+    }
+
+    [Theory]
     [InlineData("帮我创建一个二级公路路基模板，比例1:25")]
     [InlineData("帮我创建一个二级公路路基模板，比例25")]
     public void DoesNotPlanUnsupportedExplicitDisplayScale(string message)

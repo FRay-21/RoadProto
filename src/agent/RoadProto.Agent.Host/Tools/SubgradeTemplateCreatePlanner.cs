@@ -3,7 +3,7 @@ using RoadProto.Agent.Host.Models;
 
 namespace RoadProto.Agent.Host.Tools;
 
-public sealed class SubgradeTemplateToolPlanner
+public sealed class SubgradeTemplateCreatePlanner
 {
     private static readonly HashSet<int> AllowedDisplayScales = new() { 1, 10, 20, 50, 100 };
 
@@ -82,7 +82,8 @@ public sealed class SubgradeTemplateToolPlanner
             string.Empty,
             new AgentInsertionPoint("PickInCad", null, null, 0),
             "DefaultByRoadGrade",
-            Array.Empty<SubgradeComponentArgument>());
+            Array.Empty<SubgradeComponentArgument>(),
+            Array.Empty<SubgradeComponentOperationArgument>());
 
         return new AgentToolCall(
             "cross_section.subgrade_template.create",

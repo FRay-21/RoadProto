@@ -16,7 +16,8 @@ builder.Services.AddSingleton(serviceProvider => new AgentConfigurationStore(
     serviceProvider.GetRequiredService<IOptions<RoadProtoAgentOptions>>().Value));
 builder.Services.AddSingleton<AgentSecretStore>();
 builder.Services.AddSingleton<AgentDocumentStore>();
-builder.Services.AddSingleton<SubgradeTemplateToolPlanner>();
+builder.Services.AddSingleton<SubgradeTemplateCreatePlanner>();
+builder.Services.AddSingleton<AgentPlanner>();
 builder.Services.AddSingleton<OpenAiCompatibleChatClient>();
 builder.Services.AddSingleton(serviceProvider =>
 {

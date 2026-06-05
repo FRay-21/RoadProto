@@ -26,7 +26,8 @@ public sealed record SubgradeTemplateCreateArguments(
     string RoadCenterlineHandle,
     AgentInsertionPoint InsertionPoint,
     string ComponentSource,
-    IReadOnlyList<SubgradeComponentArgument> Components);
+    IReadOnlyList<SubgradeComponentArgument> Components,
+    IReadOnlyList<SubgradeComponentOperationArgument> ComponentOperations);
 
 public sealed record AgentInsertionPoint(string Mode, double? X, double? Y, double Z);
 
@@ -47,3 +48,10 @@ public sealed record AgentColor(int R, int G, int B);
 public sealed record AgentStationValue(double Station, double Value);
 
 public sealed record AgentPavementLayer(bool Linked, string Handle, string Name, double Thickness);
+
+public sealed record SubgradeComponentOperationArgument(
+    string Action,
+    string Side,
+    string Type,
+    string Position,
+    double? Width);

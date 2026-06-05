@@ -4,15 +4,16 @@ using Xunit;
 
 namespace RoadProto.Agent.Tests;
 
-public sealed class SubgradeTemplateToolPlannerTests
+public sealed class AgentPlannerTests
 {
     [Fact]
-    public void PlansSecondClassSubgradeTemplate()
+    public void PlansSecondClassSubgradeTemplateThroughAgentPlanner()
     {
-        var planner = new SubgradeTemplateToolPlanner();
+        var planner = new AgentPlanner(new SubgradeTemplateCreatePlanner());
 
-        var result = planner.TryPlan("帮我创建一个二级公路路基模板，比例1:20，名字叫K1路基模板");
+        var result = planner.TryPlan("帮我创建一个二级公路路基模板，比例1:20，名字叫K1路基模板", out var guidance);
 
+        Assert.Null(guidance);
         Assert.NotNull(result);
         Assert.Equal("cross_section.subgrade_template.create", result.Tool);
         var args = Assert.IsType<SubgradeTemplateCreateArguments>(result.Arguments);
@@ -21,6 +22,7 @@ public sealed class SubgradeTemplateToolPlannerTests
         Assert.Equal("SecondClass", args.RoadGrade);
         Assert.Equal("DefaultByRoadGrade", args.ComponentSource);
         Assert.Empty(args.Components);
+        Assert.Empty(args.ComponentOperations);
         Assert.Equal("PickInCad", args.InsertionPoint.Mode);
     }
 
@@ -31,7 +33,7 @@ public sealed class SubgradeTemplateToolPlannerTests
     [InlineData("帮我创建一个二级公路路基模板，1比20")]
     public void PlansSupportedDisplayScaleExpressions(string message)
     {
-        var planner = new SubgradeTemplateToolPlanner();
+        var planner = new AgentPlanner(new SubgradeTemplateCreatePlanner());
 
         var result = planner.TryPlan(message);
 
@@ -43,7 +45,7 @@ public sealed class SubgradeTemplateToolPlannerTests
     [Fact]
     public void DefaultsDisplayScaleWhenScaleIsNotExplicit()
     {
-        var planner = new SubgradeTemplateToolPlanner();
+        var planner = new AgentPlanner(new SubgradeTemplateCreatePlanner());
 
         var result = planner.TryPlan("帮我创建一个二级公路路基模板");
 
@@ -57,7 +59,7 @@ public sealed class SubgradeTemplateToolPlannerTests
     [InlineData("帮我创建一个二级公路路基模板，比例25")]
     public void DoesNotPlanUnsupportedExplicitDisplayScale(string message)
     {
-        var planner = new SubgradeTemplateToolPlanner();
+        var planner = new AgentPlanner(new SubgradeTemplateCreatePlanner());
 
         var result = planner.TryPlan(message, out var guidance);
 
@@ -71,7 +73,7 @@ public sealed class SubgradeTemplateToolPlannerTests
     [InlineData("帮我创建一个带土路肩和行车道的路基模板")]
     public void DoesNotPlanWhenUserDescribesExplicitComponents(string message)
     {
-        var planner = new SubgradeTemplateToolPlanner();
+        var planner = new AgentPlanner(new SubgradeTemplateCreatePlanner());
 
         var result = planner.TryPlan(message, out var guidance);
 
@@ -82,7 +84,7 @@ public sealed class SubgradeTemplateToolPlannerTests
     [Fact]
     public void DoesNotPlanForQuestionOnly()
     {
-        var planner = new SubgradeTemplateToolPlanner();
+        var planner = new AgentPlanner(new SubgradeTemplateCreatePlanner());
 
         var result = planner.TryPlan("路基模板是什么？");
 

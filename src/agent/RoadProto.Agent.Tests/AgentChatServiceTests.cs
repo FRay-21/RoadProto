@@ -269,7 +269,7 @@ public sealed class AgentChatServiceTests
         var secretStore = new AgentSecretStore(paths);
 
         return new AgentChatService(
-            new SubgradeTemplateToolPlanner(),
+            new AgentPlanner(new SubgradeTemplateCreatePlanner()),
             configStore,
             secretStore,
             CreatePromptContext(paths),
@@ -282,7 +282,7 @@ public sealed class AgentChatServiceTests
         OpenAiCompatibleChatClient modelClient)
     {
         return new AgentChatService(
-            new SubgradeTemplateToolPlanner(),
+            new AgentPlanner(new SubgradeTemplateCreatePlanner()),
             configStore,
             secretStore,
             CreatePromptContext(new AgentLocalPaths(Path.Combine(

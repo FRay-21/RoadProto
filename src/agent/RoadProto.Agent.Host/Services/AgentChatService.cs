@@ -8,14 +8,14 @@ namespace RoadProto.Agent.Host.Services;
 
 public sealed class AgentChatService
 {
-    private readonly SubgradeTemplateToolPlanner planner;
+    private readonly AgentPlanner planner;
     private readonly AgentConfigurationStore configurations;
     private readonly AgentSecretStore secrets;
     private readonly AgentPromptContextService promptContext;
     private readonly OpenAiCompatibleChatClient modelClient;
 
     public AgentChatService(
-        SubgradeTemplateToolPlanner planner,
+        AgentPlanner planner,
         AgentConfigurationStore configurations,
         AgentSecretStore secrets,
         AgentPromptContextService promptContext,

@@ -154,6 +154,13 @@ std::wstring componentPath(std::size_t index)
     return output.str();
 }
 
+std::wstring componentOperationPath(std::size_t index)
+{
+    std::wostringstream output;
+    output << L"arguments.componentOperations[" << index << L"]";
+    return output.str();
+}
+
 bool validateTopLevelFields(const AgentJsonValue& root, std::wstring& errorMessage)
 {
     for (const auto& field : root.objectValue) {
@@ -370,6 +377,39 @@ AgentToolRequest parseAgentToolRequestJson(const std::string& text, std::wstring
                 return {};
             }
             request.arguments.components.push_back(component);
+        }
+    }
+
+    const auto* componentOperations = arguments->find(L"componentOperations");
+    if (componentOperations != nullptr) {
+        if (!componentOperations->isArray()) {
+            errorMessage = L"arguments.componentOperations must be an array.";
+            return {};
+        }
+        for (std::size_t i = 0; i < componentOperations->arrayValue.size(); ++i) {
+            const auto& item = componentOperations->arrayValue[i];
+            const auto path = componentOperationPath(i);
+            if (!item.isObject()) {
+                errorMessage = path + L" must be an object.";
+                return {};
+            }
+
+            AgentToolSubgradeComponentOperation operation;
+            if (!readRequiredString(&item, L"action", path + L".action", operation.action, errorMessage) ||
+                !readRequiredString(&item, L"side", path + L".side", operation.side, errorMessage) ||
+                !readRequiredString(&item, L"type", path + L".type", operation.type, errorMessage) ||
+                !readRequiredString(&item, L"position", path + L".position", operation.position, errorMessage)) {
+                return {};
+            }
+            if (const auto* width = item.find(L"width"); width != nullptr && width->type != AgentJsonValue::Type::Null) {
+                if (width->type != AgentJsonValue::Type::Number) {
+                    errorMessage = path + L".width must be a number.";
+                    return {};
+                }
+                operation.width = width->numberValue;
+                operation.hasWidth = true;
+            }
+            request.arguments.componentOperations.push_back(operation);
         }
     }
 

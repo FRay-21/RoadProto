@@ -8272,6 +8272,37 @@ void agentToolRequestParsesSubgradeComponentDetailFields()
     CHECK(std::fabs(component.pavementLayer.thickness - 0.28) < 1.0e-9);
 }
 
+void agentToolRequestParsesSubgradeComponentOperations()
+{
+    using roadproto::application::agent::parseAgentToolRequestJson;
+
+    const std::string json =
+        "{"
+        "\"tool\":\"cross_section.subgrade_template.create\","
+        "\"arguments\":{"
+        "\"componentSource\":\"DefaultByRoadGrade\","
+        "\"componentOperations\":[{"
+        "\"action\":\"AddComponent\","
+        "\"side\":\"Right\","
+        "\"type\":\"TravelLane\","
+        "\"position\":\"OutermostMotorLane\""
+        "}]"
+        "}"
+        "}";
+
+    std::wstring error;
+    const auto request = parseAgentToolRequestJson(json, error);
+    CHECK(error.empty());
+    CHECK(request.succeeded);
+    CHECK(request.arguments.componentOperations.size() == 1);
+    const auto& operation = request.arguments.componentOperations.front();
+    CHECK(operation.action == L"AddComponent");
+    CHECK(operation.side == L"Right");
+    CHECK(operation.type == L"TravelLane");
+    CHECK(operation.position == L"OutermostMotorLane");
+    CHECK(!operation.hasWidth);
+}
+
 void agentSubgradeToolUsesDefaultComponentsForRoadGrade()
 {
     using roadproto::application::agent::AgentSubgradeTemplateCreateArguments;
@@ -8934,6 +8965,7 @@ int main()
     agentToolRequestParsesSubgradeTemplateCreateJson();
     agentToolRequestAllowsPickInCadNullCoordinates();
     agentToolRequestParsesSubgradeComponentDetailFields();
+    agentToolRequestParsesSubgradeComponentOperations();
     agentSubgradeToolUsesDefaultComponentsForRoadGrade();
     agentSubgradeToolMapsExplicitComponents();
     agentSubgradeToolRejectsInvalidExplicitWidth();

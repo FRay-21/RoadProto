@@ -8199,6 +8199,33 @@ void agentToolRequestParsesSubgradeTemplateCreateJson()
     CHECK(std::fabs(request.arguments.insertionPoint.y - 20.0) < 1.0e-9);
 }
 
+void agentToolRequestAllowsPickInCadNullCoordinates()
+{
+    using roadproto::application::agent::parseAgentToolRequestJson;
+
+    const std::string json =
+        "{"
+        "\"tool\":\"cross_section.subgrade_template.create\","
+        "\"requestId\":\"agent-pick\","
+        "\"arguments\":{"
+        "\"templateName\":\"默认路基模板\","
+        "\"insertionPoint\":{\"mode\":\"PickInCad\",\"x\":null,\"y\":null,\"z\":0},"
+        "\"componentSource\":\"DefaultByRoadGrade\","
+        "\"components\":[]"
+        "}"
+        "}";
+
+    std::wstring error;
+    const auto request = parseAgentToolRequestJson(json, error);
+    CHECK(error.empty());
+    CHECK(request.succeeded);
+    CHECK(request.arguments.insertionPoint.mode == L"PickInCad");
+    CHECK(!request.arguments.insertionPoint.hasX);
+    CHECK(!request.arguments.insertionPoint.hasY);
+    CHECK(request.arguments.insertionPoint.hasZ);
+    CHECK(std::fabs(request.arguments.insertionPoint.z) < 1.0e-9);
+}
+
 void agentToolRequestParsesSubgradeComponentDetailFields()
 {
     using roadproto::application::agent::parseAgentToolRequestJson;
@@ -8905,6 +8932,7 @@ int main()
     terrainSurfaceQueryInterpolatesElevationInsideTriangle();
     terrainTriangleSpatialIndexFiltersCrossSectionCandidates();
     agentToolRequestParsesSubgradeTemplateCreateJson();
+    agentToolRequestAllowsPickInCadNullCoordinates();
     agentToolRequestParsesSubgradeComponentDetailFields();
     agentSubgradeToolUsesDefaultComponentsForRoadGrade();
     agentSubgradeToolMapsExplicitComponents();

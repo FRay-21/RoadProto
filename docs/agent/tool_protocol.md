@@ -26,6 +26,41 @@
 
 `arguments` 中的字段由对应工具 schema 定义。C++ 工具网关应采用字段白名单策略：未知顶层字段必须拒绝；未知 `arguments` 字段可以按工具 schema 明确选择拒绝或忽略，但策略必须固定并记录到对应 Agent skill 文档中。
 
+## 路基模板工具参数
+
+`cross_section.subgrade_template.create` 的 `arguments` 当前包含：
+
+- `templateName`：模板名称。
+- `displayScale`：显示比例。
+- `roadGrade`：道路等级。
+- `roadCenterlineHandle`：道路中线 handle，当前保留为空。
+- `insertionPoint`：插入点模式和坐标。
+- `componentSource`：部件来源，当前主要使用 `DefaultByRoadGrade`。
+- `components`：显式完整部件列表。
+- `componentOperations`：基于默认部件的受控局部操作列表。
+
+`componentOperations` 用于表达“默认模板基础上再修改一点”。它只能表示协议白名单内的操作，不是任意 CAD 命令，也不是自由文本规则。当前已接入的操作结构：
+
+```json
+{
+  "action": "AddComponent",
+  "side": "Right",
+  "type": "TravelLane",
+  "position": "OutermostMotorLane",
+  "width": null
+}
+```
+
+字段含义：
+
+- `action`：操作类型，当前只开放 `AddComponent`。
+- `side`：部件侧别，协议保留 `Left`、`Right`；当前 `AgentPlanner` 首版只自动生成 `Right`。
+- `type`：部件类型，当前局部新增只开放 `TravelLane`。
+- `position`：插入位置，当前只开放 `OutermostMotorLane`。
+- `width`：新增部件宽度。为 `null` 时由 C++ mapper 从同侧最后一个同行车道部件推断。
+
+如果 `componentOperations` 中出现未知字段、未知操作、未知插入位置或无法推断宽度，工具网关必须拒绝执行，并返回 `InvalidArguments`。
+
 ## 路径规则
 
 - `resultPath` 只能由受信任宿主 WPF 或本地 Agent 后端生成。

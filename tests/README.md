@@ -37,9 +37,9 @@ artifacts\x64\Debug\RoadProtoCoreTests.exe
 
 Agent 代码和文档结构以 `docs/architecture/agent_code_structure.md` 为主契约；新增 Agent 工具、模型 Provider、skill 或管理控制台能力时，应按该文档补齐对应测试。
 
-核心测试覆盖 `AI_AGENT` 模块命令元数据、Agent 工具请求 JSON 解析、顶层字段白名单、请求文件大小限制、未知工具拒绝、`resultPath` 专用临时目录限制、路基模板工具参数映射、无效显示比例拒绝、无效部件宽度拒绝、插入点有限数值校验、工具执行成功结果 JSON 和 parse 级失败结果 JSON 写回源码契约。
+核心测试覆盖 `AI_AGENT` 模块命令元数据、Agent 工具请求 JSON 解析、顶层字段白名单、请求文件大小限制、未知工具拒绝、`resultPath` 专用临时目录限制、路基模板工具参数映射、无效显示比例拒绝、无效部件宽度拒绝、插入点有限数值校验、`componentOperations` 解析、右侧新增行车道操作应用、工具执行成功结果 JSON 和 parse 级失败结果 JSON 写回源码契约。
 
-Agent 后端测试覆盖 `.NET 8` `/api/chat` 契约、本地规则 planner、空消息 BadRequest、无效显示比例提示、缺少模型配置提示、API Key 缺失提示、外部环境变量隔离、OpenAI-compatible Provider 请求配置、管理控制台配置读写、Windows 当前用户 DPAPI 密钥保存、模型 Profile 管理 API、连接测试 API、Markdown 上传与启用禁用、prompt 上下文组装、`/admin` 静态页面和 `/api/chat` 使用运行期默认模型配置；当前 `RoadProto.Agent.Tests` 覆盖这些后端和管理控制台行为。
+Agent 后端测试覆盖 `.NET 8` `/api/chat` 契约、`AgentPlanner`、市政道路默认等级识别、默认路基模板右侧新增行车道 `componentOperations`、空消息 BadRequest、无效显示比例提示、缺少模型配置提示、API Key 缺失提示、外部环境变量隔离、OpenAI-compatible Provider 请求配置、管理控制台配置读写、Windows 当前用户 DPAPI 密钥保存、模型 Profile 管理 API、连接测试 API、Markdown 上传与启用禁用、prompt 上下文组装、`/admin` 静态页面和 `/api/chat` 使用运行期默认模型配置；当前 `RoadProto.Agent.Tests` 覆盖这些后端和管理控制台行为。
 
 托管 WPF 构建覆盖右侧 Agent 面板、`RD_AI_ASSISTANT_OPEN`、后端 HTTP 客户端、工具确认卡片、受控请求/结果文件路径生成和 Ribbon `Agent / AI 助手` 入口源码。
 

@@ -29,10 +29,19 @@ Agent 代码、文档和运行期目录的主结构契约见 `docs/architecture/
 
 - `.NET 8` 本地 sidecar 提供 `/health` 和 `/api/chat`。
 - `.NET 8` 本地 sidecar 提供 `/admin` 独立浏览器管理控制台。
-- 本地规则 planner 优先识别路基模板创建意图。
+- `AgentPlanner` 优先识别路基模板创建意图，并输出结构化 `toolCall`。
 - 模型 Provider 使用 OpenAI-compatible `/chat/completions`，通过管理控制台的 profile 配置支持 OpenAI、DeepSeek 和 DashScope/阿里百炼/千问等兼容接口。
 - API Key 使用 Windows 当前用户 DPAPI 加密保存到项目根目录 `.roadproto-agent/secrets/`，该目录已通过 `.gitignore` 排除，不写入仓库。
 - 管理控制台可上传 Markdown skill 和 Markdown 知识库；后端会把启用文档和内置路基模板 skill 组装进 system prompt。
+- Markdown skill 主要作为 prompt 上下文和 planner 开发契约；真实 CAD 工具调用必须由 `AgentPlanner` 生成，并经 WPF 确认卡片进入 C++ 白名单工具网关。
+
+## Agent Planner 当前能力
+
+- 识别创建、新建、生成路基模板等意图。
+- 识别 `市政道路`、`城市道路`、`市政路`、`城区道路` 等表达，未明确具体等级时使用 `UrbanArterial`。
+- 支持默认参数创建路基模板，`componentSource` 使用 `DefaultByRoadGrade`。
+- 支持“市政道路默认模板，最右侧增加一个行车道部件”场景，输出 `componentOperations` 增量操作。
+- 支持确认短句回看上一轮待执行路基模板工具调用。
 
 ## 结构入口
 

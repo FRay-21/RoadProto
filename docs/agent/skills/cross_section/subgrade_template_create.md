@@ -15,6 +15,8 @@
 - 创建一个二级公路路基模板。
 - 帮我生成城市主干道路基模板，比例 1:20。
 - 新建一个左右各两条 3.5 米行车道的路基模板。
+- 创建市政道路路基模板，按默认参数。
+- 我想创建一个市政道路的模板，并基于默认参数在最右侧增加一个行车道部件。
 
 ## 何时不要触发
 
@@ -27,11 +29,38 @@
 - `templateName` 缺省为 `默认路基模板`。
 - `displayScale` 缺省为 `10`，只允许 `1`、`10`、`20`、`50`、`100`。
 - `roadGrade` 缺省为 `Expressway`。
+- 用户表达 `市政道路`、`城市道路`、`市政路`、`城区道路` 且没有明确具体等级时，`roadGrade` 使用 `UrbanArterial`。
 - `insertionPoint.mode` 缺省为 `PickInCad`。
-- 用户未明确给出部件列表时，使用 `DefaultByRoadGrade`。当前本地规则 planner 优先走此路径。
+- 用户未明确给出部件列表时，使用 `DefaultByRoadGrade`。当前 `AgentPlanner` 优先走此路径。
 - 用户明确给出完整部件时，使用 `ExplicitComponents`。C++ mapper 已支持该 schema，后续模型工具调用可逐步放开。
-- 用户只给出部分部件且无法判断左右侧、宽度或类型时，先追问。
+- 用户在默认参数基础上提出局部修改时，优先使用 `componentOperations`，不要为了一个局部修改改写完整 `components` 列表。
+- 用户只给出部分部件且无法判断左右侧、宽度、类型或插入位置时，先追问。
 - 不允许凭空生成 `pavementLayer.handle`。
+
+## 局部修改规则
+
+`componentOperations` 用于表达“基于默认参数再做局部修改”。它不是完整部件列表，而是对默认部件的受控增量操作。
+
+当前已支持的局部修改：
+
+| 用户表达 | 结构化操作 |
+| --- | --- |
+| 最右侧增加一个行车道部件 | `AddComponent` / `Right` / `TravelLane` / `OutermostMotorLane` |
+| 右边再加一条车道 | `AddComponent` / `Right` / `TravelLane` / `OutermostMotorLane` |
+| 右侧外侧增加机动车道 | `AddComponent` / `Right` / `TravelLane` / `OutermostMotorLane` |
+
+宽度规则：
+
+- 用户明确说出宽度时，写入 `componentOperations[].width`。
+- 用户未说宽度时，`width` 使用 `null`，由 C++ mapper 按同道路等级、同侧最后一个同类型部件宽度补齐。
+- 当前 `OutermostMotorLane` 只允许用于 `TravelLane`，不用于硬路肩、土路肩、人行道或边沟。
+
+暂不支持的局部修改必须追问或说明暂未支持，不得强行猜测：
+
+- 左侧新增部件的自然语言自动识别暂未在 `AgentPlanner` 首版开放，需补 Planner 示例和测试后放开。
+- 删除、替换、移动部件。
+- 同时修改多个不明确的部件。
+- “加宽一点”“调整车道”这类没有宽度或对象位置的表达。
 
 ## JSON Schema
 
@@ -53,7 +82,8 @@
       "z": 0
     },
     "componentSource": "DefaultByRoadGrade",
-    "components": []
+    "components": [],
+    "componentOperations": []
   },
   "resultPath": ""
 }
@@ -94,6 +124,7 @@
 - `components[].wideningTable`：变宽表，缺省为空。
 - `components[].variableSlopeTable`：变化坡度表，缺省为空。
 - `components[].pavementLayer`：路面结构层模板引用，缺省为未绑定。
+- `componentOperations[]`：默认参数基础上的局部部件操作，缺省为空数组。
 
 ## 枚举
 
@@ -152,6 +183,33 @@ Fixed
 VariableByStation
 ```
 
+`componentOperations[].action` 当前可取：
+
+```text
+AddComponent
+```
+
+`componentOperations[].side` 当前可取：
+
+```text
+Left
+Right
+```
+
+工具协议侧别保留 `Left` 和 `Right`；当前 `AgentPlanner` 首版只自动生成 `Right` 侧新增行车道操作。
+
+`componentOperations[].type` 当前可取：
+
+```text
+TravelLane
+```
+
+`componentOperations[].position` 当前可取：
+
+```text
+OutermostMotorLane
+```
+
 ## 显式部件结构
 
 ```json
@@ -182,11 +240,24 @@ VariableByStation
 }
 ```
 
+## 局部操作结构
+
+```json
+{
+  "action": "AddComponent",
+  "side": "Right",
+  "type": "TravelLane",
+  "position": "OutermostMotorLane",
+  "width": null
+}
+```
+
 ## 未知字段处理
 
 - 顶层未知字段必须拒绝。
 - `arguments` 未知字段必须拒绝。
 - `components[]` 未知字段必须拒绝。
+- `componentOperations[]` 未知字段必须拒绝。
 - `color`、`pavementLayer`、`wideningTable[]` 和 `variableSlopeTable[]` 内的未知字段必须拒绝。
 - 拒绝时不执行工具，并返回用户可读错误。
 
@@ -196,6 +267,7 @@ VariableByStation
 - 非法枚举值：不调用工具，列出允许值。
 - `Explicit` 插入点缺少 `x` 或 `y`：追问或改为 `PickInCad` 并要求用户确认。
 - `ExplicitComponents` 部件不完整：追问，不自行补工程参数。
+- `componentOperations` 操作不在白名单内：不执行工具，提示当前支持的局部修改范围。
 - `pavementLayer.linked = true` 但缺少可信 `handle`：追问或取消绑定，不凭空生成 handle。
 - 请求 JSON 超出工具协议安全边界：拒绝执行。
 
@@ -207,6 +279,7 @@ VariableByStation
 - 道路等级。
 - 显示比例。
 - 部件来源。
+- 局部修改摘要，例如“右侧机动车道组外侧新增 1 个行车道”。
 - 插入点方式。
 - 需要创建 `DnSubgradeTemplateEntity`。
 
@@ -243,7 +316,49 @@ VariableByStation
       "z": 0
     },
     "componentSource": "DefaultByRoadGrade",
-    "components": []
+    "components": [],
+    "componentOperations": []
+  },
+  "resultPath": ""
+}
+```
+
+## 示例：市政道路默认模板并在右侧增加车道
+
+用户表达：
+
+```text
+我想创建一个市政道路的路基模板，并基于默认参数上，最右侧增加一个行车道部件。
+```
+
+结构化工具调用：
+
+```json
+{
+  "tool": "cross_section.subgrade_template.create",
+  "requestId": "agent-demo-002",
+  "arguments": {
+    "templateName": "默认路基模板",
+    "displayScale": 10,
+    "roadGrade": "UrbanArterial",
+    "roadCenterlineHandle": "",
+    "insertionPoint": {
+      "mode": "PickInCad",
+      "x": null,
+      "y": null,
+      "z": 0
+    },
+    "componentSource": "DefaultByRoadGrade",
+    "components": [],
+    "componentOperations": [
+      {
+        "action": "AddComponent",
+        "side": "Right",
+        "type": "TravelLane",
+        "position": "OutermostMotorLane",
+        "width": null
+      }
+    ]
   },
   "resultPath": ""
 }

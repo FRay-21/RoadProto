@@ -64,12 +64,23 @@ WPF 只能展示参数、确认工具调用、写受控请求文件、发送 `RD
 | `Admin/` | 运行期模型配置、API Key 加密存储、Markdown skill/知识库管理和 `/api/admin/*` |
 | `Models/` | 后端请求、响应、工具调用和工具参数 DTO |
 | `Providers/` | 大模型 Provider 适配，当前为 OpenAI-compatible `/chat/completions` |
-| `Services/` | 聊天编排、prompt 上下文组装、配置读取和工具调用候选生成 |
+| `Services/` | 聊天编排、prompt 上下文组装、配置读取和 AgentPlanner 调用 |
 | `Skills/` | 内置 Markdown skill 读取 |
-| `Tools/` | 本地规则 planner 和工具参数默认值推断 |
+| `Tools/` | `AgentPlanner`、具体工具 planner、自然语言触发规则和工具参数默认值推断 |
 | `wwwroot/admin/` | 独立浏览器管理控制台前端页面、样式和脚本 |
 
-新增模型 Provider 时，优先放在 `Providers/`；新增运行期管理能力时，放在 `Admin/` 和 `wwwroot/admin/`；新增本地意图规则或工具参数推断时，放在 `Tools/` 或 `Services/`。不得把模型调用、API Key 读取或管理控制台逻辑写进 WPF 或 C++。
+新增模型 Provider 时，优先放在 `Providers/`；新增运行期管理能力时，放在 `Admin/` 和 `wwwroot/admin/`；新增自然语言到工具调用的确定性解析规则时，放在 `Tools/`。不得把模型调用、API Key 读取或管理控制台逻辑写进 WPF 或 C++。
+
+#### `Tools/` 中的 Planner 边界
+
+`AgentPlanner` 是后端结构化工具调用入口，负责接收用户当前输入和必要上下文，并决定是否返回 `AgentToolCall`。它本身不调用 CAD、不写请求文件、不绕过 WPF 确认卡片。
+
+具体工具的自然语言解析规则放在独立 planner 中，例如：
+
+- `SubgradeTemplateCreatePlanner`：识别路基模板创建意图、道路等级别名、市政道路默认值、确认短句恢复和局部部件操作。
+- `SubgradeTemplateComponentOperationFactory`：把“最右侧增加一个行车道”等局部表达转换为 `componentOperations`。
+
+Markdown skill 进入模型 prompt，也作为 planner 开发契约。skill 中新增“触发词、参数、默认值、局部修改、追问规则”后，若希望真实工具调用随之改变，必须同步修改对应 planner，并补充后端测试。
 
 ### `src/agent/RoadProto.Agent.Tests/`
 
@@ -144,7 +155,7 @@ WPF 只能展示参数、确认工具调用、写受控请求文件、发送 `RD
 1. 在 `docs/business/<module>/` 编写对应独立业务文档。
 2. 在 `docs/agent/skills/<module>/<tool_name>.md` 编写工具 skill，明确触发语义、参数、默认值、追问规则、确认文案和示例 JSON。
 3. 必要时更新 `docs/agent/tool_protocol.md`，补充工具参数 schema 或失败码。
-4. 在 `src/agent/RoadProto.Agent.Host/Tools/` 或 `Services/` 增加本地 planner/编排逻辑，并增加后端测试。
+4. 在 `src/agent/RoadProto.Agent.Host/Tools/` 增加或调整 `AgentPlanner` / 具体工具 planner，并增加后端测试。
 5. 在 `src/application/agent/` 增加 C++ 工具请求 DTO、解析、字段校验和参数映射，并增加核心测试。
 6. 在 `src/cad_adapter/objectarx/agent/` 增加白名单执行分发和 CAD 执行逻辑，只调用明确的 application/cad_adapter 能力。
 7. 在 `src/ui/wpf/RoadProto.Terrain.UI/` 增加确认卡片摘要或结果展示，不直接操作 CAD 实体。
@@ -167,7 +178,7 @@ WPF 只能展示参数、确认工具调用、写受控请求文件、发送 `RD
 - 内置工具 skill 写入 `docs/agent/skills/`，随仓库版本管理。
 - 用户通过管理控制台上传的 skill 和知识库写入 `.roadproto-agent/skills/` 与 `.roadproto-agent/knowledge/`，属于本机运行期数据，不进入 Git。
 - 内置 skill 应描述工具能力和约束；知识库 Markdown 应描述软件操作、专业知识或项目规则，不承载任意执行指令。
-- 后端组装 prompt 时可以读取这些 Markdown，但工具执行仍必须由本地 planner 生成结构化工具调用并由 WPF 确认。
+- 后端组装 prompt 时可以读取这些 Markdown，但工具执行仍必须由 `AgentPlanner` 生成结构化工具调用并由 WPF 确认。
 
 ## 禁止事项
 

@@ -21,10 +21,11 @@ Agent 相关代码和文档的主结构契约见 `docs/architecture/agent_code_s
 - `src/application/agent`：工具请求解析、顶层字段白名单、请求大小限制、schema 校验和路基模板参数转换。
 - `src/cad_adapter/objectarx/agent`：AutoCAD 插入点点取、实体创建、结果 JSON 写回和结果路径白名单限制。
 - `src/ui/wpf/RoadProto.Terrain.UI`：右侧 Agent 面板、后端 HTTP 客户端、工具确认卡片、受控请求文件生成和 Ribbon 可见入口。
-- `src/agent/RoadProto.Agent.Host`：本地 Agent sidecar，提供 `/health`、`/api/chat`、`/admin`、本地规则 planner、prompt 上下文组装和 OpenAI-compatible Provider。
+- `src/agent/RoadProto.Agent.Host`：本地 Agent sidecar，提供 `/health`、`/api/chat`、`/admin`、`AgentPlanner`、prompt 上下文组装和 OpenAI-compatible Provider。
+- `src/agent/RoadProto.Agent.Host/Tools`：`AgentPlanner`、`SubgradeTemplateCreatePlanner` 和路基模板局部部件操作解析。
 - `src/agent/RoadProto.Agent.Host/Admin`：管理控制台配置、密钥、Markdown 文档存储和 `/api/admin/*` API。
 - `src/agent/RoadProto.Agent.Host/wwwroot/admin`：独立浏览器管理页面，支持模型 Profile、API Key、连接测试、skill 和知识库 Markdown 管理。
-- `src/agent/RoadProto.Agent.Tests`：后端 planner、API 和 Provider 配置测试。
+- `src/agent/RoadProto.Agent.Tests`：`AgentPlanner`、API 和 Provider 配置测试。
 
 ## 扩展落点约定
 
@@ -52,6 +53,7 @@ Agent 相关代码和文档的主结构契约见 `docs/architecture/agent_code_s
 - 自动化工具必须复用现有 domain/application/cad_adapter 能力。
 - `resultPath` 只能写入 `%TEMP%\RoadProtoAgent\` 下的受控结果文件。
 - 管理控制台只管理模型配置、API Key 和 Markdown 上下文，不直接执行 CAD 工具。
+- Markdown skill 不直接触发 CAD 写入；需要真实工具调用时，必须由 `AgentPlanner` 生成结构化 `toolCall`。
 
 ## 验证状态
 

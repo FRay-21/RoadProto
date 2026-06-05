@@ -8328,6 +8328,44 @@ void agentSubgradeToolUsesDefaultComponentsForRoadGrade()
     CHECK(result.data.components.size() == 6);
 }
 
+void agentSubgradeToolAppliesRightTravelLaneOperation()
+{
+    using roadproto::application::agent::AgentSubgradeTemplateCreateArguments;
+    using roadproto::application::agent::AgentToolSubgradeComponentOperation;
+    using roadproto::application::agent::buildSubgradeTemplateToolData;
+    using roadproto::domain::cross_section::RoadGrade;
+    using roadproto::domain::cross_section::SubgradeComponentType;
+    using roadproto::domain::cross_section::SubgradeSide;
+
+    AgentSubgradeTemplateCreateArguments arguments;
+    arguments.templateName = L"市政道路模板";
+    arguments.displayScale = 10.0;
+    arguments.roadGrade = L"UrbanArterial";
+    arguments.componentSource = L"DefaultByRoadGrade";
+
+    AgentToolSubgradeComponentOperation operation;
+    operation.action = L"AddComponent";
+    operation.side = L"Right";
+    operation.type = L"TravelLane";
+    operation.position = L"OutermostMotorLane";
+    arguments.componentOperations.push_back(operation);
+
+    std::wstring error;
+    const auto result = buildSubgradeTemplateToolData(arguments, error);
+    CHECK(result.succeeded);
+    CHECK(error.empty());
+    CHECK(result.data.properties.roadGrade == RoadGrade::UrbanArterial);
+
+    int rightLaneCount = 0;
+    for (const auto& component : result.data.components) {
+        if (component.side == SubgradeSide::Right && component.type == SubgradeComponentType::TravelLane) {
+            ++rightLaneCount;
+            CHECK(std::fabs(component.width - 3.5) < 1.0e-9);
+        }
+    }
+    CHECK(rightLaneCount == 3);
+}
+
 void agentSubgradeToolMapsExplicitComponents()
 {
     using roadproto::application::agent::AgentSubgradeTemplateCreateArguments;
@@ -8967,6 +9005,7 @@ int main()
     agentToolRequestParsesSubgradeComponentDetailFields();
     agentToolRequestParsesSubgradeComponentOperations();
     agentSubgradeToolUsesDefaultComponentsForRoadGrade();
+    agentSubgradeToolAppliesRightTravelLaneOperation();
     agentSubgradeToolMapsExplicitComponents();
     agentSubgradeToolRejectsInvalidExplicitWidth();
     agentSubgradeToolRejectsInvalidRoadGrade();

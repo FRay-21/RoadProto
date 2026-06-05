@@ -2,7 +2,7 @@
 
 ## 请求文件
 
-工具请求文件使用 UTF-8 JSON。首版协议已由 WPF Agent 面板、本地 Agent 后端和 C++ 工具网关使用。顶层结构：
+工具请求文件使用 UTF-8 无 BOM JSON。首版协议已由 WPF Agent 面板、本地 Agent 后端和 C++ 工具网关使用。顶层结构：
 
 ```json
 {
@@ -39,7 +39,7 @@
 
 - `RD_AI_EXECUTE_TOOL_FILE` 只读取受信任宿主写出的请求文件路径。
 - C++ 工具网关应限制请求文件大小，超过上限时拒绝执行。
-- 请求文件必须是 UTF-8 JSON；解析失败时不执行工具。
+- 请求文件必须是 UTF-8 无 BOM JSON；解析失败时不执行工具。
 - 若解析失败但仍能从顶层 JSON 中提取可信 `requestId`、`tool` 和合法 `resultPath`，工具网关应写回 `ParseError` 失败结果，便于 WPF 展示。
 - 工具执行完成后只写入固定结构的结果 JSON，不附加模型生成的任意内容。
 

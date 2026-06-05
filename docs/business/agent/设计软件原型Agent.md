@@ -8,6 +8,8 @@
 
 当前状态：代码链路已实现并通过自动化构建与测试；AutoCAD 2021 图形界面的完整端到端点验仍待手工执行，因此暂不标记为稳定版本。
 
+本业务文档只描述用户流程和功能边界。Agent 代码目录、文档目录、运行期目录、新增工具流程和新增 Provider 流程以 `docs/architecture/agent_code_structure.md` 为准。
+
 ## 命令
 
 - `RD_AI_ASSISTANT_OPEN`：打开或激活 AutoCAD 右侧 WPF Agent 面板。

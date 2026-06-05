@@ -6,6 +6,8 @@
 
 当前状态：原型链路已实现。模块已接入 C++ `AI_AGENT` 命令注册、WPF 右侧 Agent 面板、本地 `.NET 8` sidecar、独立浏览器管理控制台、OpenAI-compatible 模型 Provider 配置和首个自动化路基模板工具。AutoCAD 2021 图形界面的完整端到端点验仍待手工执行。
 
+Agent 相关代码和文档的主结构契约见 `docs/architecture/agent_code_structure.md`。本文档只做模块索引和落点摘要，不承载工具协议、skill 规则或具体业务流程。
+
 ## 命令
 
 | 命令 | 状态 | 说明 | 业务文档 |
@@ -23,6 +25,15 @@
 - `src/agent/RoadProto.Agent.Host/Admin`：管理控制台配置、密钥、Markdown 文档存储和 `/api/admin/*` API。
 - `src/agent/RoadProto.Agent.Host/wwwroot/admin`：独立浏览器管理页面，支持模型 Profile、API Key、连接测试、skill 和知识库 Markdown 管理。
 - `src/agent/RoadProto.Agent.Tests`：后端 planner、API 和 Provider 配置测试。
+
+## 扩展落点约定
+
+| 新增内容 | 主要落点 | 必须同步的文档 |
+| --- | --- | --- |
+| 新增 Agent 工具 | `docs/agent/skills/`、`src/agent/RoadProto.Agent.Host/Tools`、`src/application/agent`、`src/cad_adapter/objectarx/agent`、`src/ui/wpf/RoadProto.Terrain.UI` | 独立业务文档、`docs/agent/tool_protocol.md`、`docs/reuse/agent_tool_gateway.md`、版本记录 |
+| 新增模型 Provider | `src/agent/RoadProto.Agent.Host/Providers`、`Admin`、`wwwroot/admin` | `docs/agent/overview.md`、业务文档、README、版本记录 |
+| 新增内置 skill | `docs/agent/skills/<module>/` | `docs/agent/skill_authoring_rules.md`、对应业务文档 |
+| 新增管理控制台能力 | `src/agent/RoadProto.Agent.Host/Admin`、`wwwroot/admin`、后端测试 | `docs/business/agent/设计软件原型Agent.md`、README、版本记录 |
 
 ## 功能文档
 

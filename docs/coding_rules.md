@@ -8,6 +8,9 @@
 - `app/arx_entry` 只负责 ARX 生命周期。
 - `cad_adapter/objectarx` 是直接调用 ObjectARX API 的唯一位置。
 - 当前 RoadProto 原型阶段，用户对话框统一先放在 WPF UI 层实现。新增或重做参数窗口、编辑窗口、设置窗口、二级配置窗口时，不得在 `cad_adapter/objectarx` 中新增 C++ Win32/MFC 参数对话框作为当前阶段正式 UI；ObjectARX 层只负责 CAD 选择、实体打开、预览、绘制、持久化和 Bridge 调用。未来如整体更换 UI 技术栈，仍必须保持该边界。
+- Agent 后端统一放在 `src/agent/RoadProto.Agent.Host`，只做本地 HTTP 服务、模型 Provider、管理控制台、skill/知识库读取和工具调用候选生成；不得引入 ObjectARX 或直接读写 DWG。
+- Agent 面板代码统一放在 `src/ui/wpf/RoadProto.Terrain.UI`，只做展示、确认、HTTP 调用和受控请求文件生成；不得直接创建、修改或删除 CAD 实体。
+- Agent 工具 JSON 解析、schema 校验和参数映射放在 `src/application/agent`；实际触达 AutoCAD 的白名单执行器放在 `src/cad_adapter/objectarx/agent`。新增 Agent 能力的完整落点见 `docs/architecture/agent_code_structure.md`。
 
 ## 命令规则
 
@@ -34,6 +37,8 @@
 每个可复用能力都应记录在 `docs/reuse/` 下。
 
 每个生成的 ARX 版本都要记录到 `docs/dev/version_log.md`。
+
+Agent 文档职责固定如下：`docs/architecture/agent_code_structure.md` 描述代码和文档结构，`docs/agent/` 描述 Agent 总览、工具协议和 skill 规则，`docs/business/agent/` 描述用户流程和业务边界，`docs/modules/agent.md` 只做模块索引，`docs/reuse/agent_tool_gateway.md` 只做复用说明。
 
 使用 `.worktrees/<分支名>` 开发时，主项目目录必须同步保留最新文档和所有代码：在 worktree 内保存正式代码或文档后，收尾前必须按相同相对路径同步到主项目目录 `F:\0_GPT_道路设计原型功能项目`。这条规则适用于 `AGENTS.md`、`README.md`、`.gitignore`、`RoadProto.sln`、`build/`、`src/`、`tests/`、`third_party/`、`assets/`、`docs/`、`samples/` 和用户明确要求可见的说明文档或代码文件。
 

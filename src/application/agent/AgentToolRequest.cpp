@@ -66,6 +66,28 @@ bool readOptionalNumber(
     return true;
 }
 
+bool readOptionalNullableNumber(
+    const AgentJsonValue* owner,
+    const std::wstring& key,
+    const std::wstring& fieldPath,
+    double& target,
+    bool& present,
+    std::wstring& errorMessage)
+{
+    const auto* value = owner->find(key);
+    if (value == nullptr || value->type == AgentJsonValue::Type::Null) {
+        present = false;
+        return true;
+    }
+    present = true;
+    if (value->type != AgentJsonValue::Type::Number) {
+        errorMessage = fieldPath + L" must be a number.";
+        return false;
+    }
+    target = value->numberValue;
+    return true;
+}
+
 bool readRequiredNumber(
     const AgentJsonValue* owner,
     const std::wstring& key,
@@ -129,6 +151,13 @@ std::wstring componentPath(std::size_t index)
 {
     std::wostringstream output;
     output << L"arguments.components[" << index << L"]";
+    return output.str();
+}
+
+std::wstring componentOperationPath(std::size_t index)
+{
+    std::wostringstream output;
+    output << L"arguments.componentOperations[" << index << L"]";
     return output.str();
 }
 
@@ -287,29 +316,28 @@ AgentToolRequest parseAgentToolRequestJson(const std::string& text, std::wstring
         if (!readOptionalString(insertionPoint, L"mode", L"arguments.insertionPoint.mode", request.arguments.insertionPoint.mode, errorMessage)) {
             return {};
         }
-        if (const auto* x = insertionPoint->find(L"x"); x != nullptr) {
-            if (x->type != AgentJsonValue::Type::Number) {
-                errorMessage = L"arguments.insertionPoint.x must be a number.";
-                return {};
-            }
-            request.arguments.insertionPoint.x = x->numberValue;
-            request.arguments.insertionPoint.hasX = true;
-        }
-        if (const auto* y = insertionPoint->find(L"y"); y != nullptr) {
-            if (y->type != AgentJsonValue::Type::Number) {
-                errorMessage = L"arguments.insertionPoint.y must be a number.";
-                return {};
-            }
-            request.arguments.insertionPoint.y = y->numberValue;
-            request.arguments.insertionPoint.hasY = true;
-        }
-        if (const auto* z = insertionPoint->find(L"z"); z != nullptr) {
-            if (z->type != AgentJsonValue::Type::Number) {
-                errorMessage = L"arguments.insertionPoint.z must be a number.";
-                return {};
-            }
-            request.arguments.insertionPoint.z = z->numberValue;
-            request.arguments.insertionPoint.hasZ = true;
+        if (!readOptionalNullableNumber(
+                insertionPoint,
+                L"x",
+                L"arguments.insertionPoint.x",
+                request.arguments.insertionPoint.x,
+                request.arguments.insertionPoint.hasX,
+                errorMessage) ||
+            !readOptionalNullableNumber(
+                insertionPoint,
+                L"y",
+                L"arguments.insertionPoint.y",
+                request.arguments.insertionPoint.y,
+                request.arguments.insertionPoint.hasY,
+                errorMessage) ||
+            !readOptionalNullableNumber(
+                insertionPoint,
+                L"z",
+                L"arguments.insertionPoint.z",
+                request.arguments.insertionPoint.z,
+                request.arguments.insertionPoint.hasZ,
+                errorMessage)) {
+            return {};
         }
     }
 
@@ -349,6 +377,39 @@ AgentToolRequest parseAgentToolRequestJson(const std::string& text, std::wstring
                 return {};
             }
             request.arguments.components.push_back(component);
+        }
+    }
+
+    const auto* componentOperations = arguments->find(L"componentOperations");
+    if (componentOperations != nullptr) {
+        if (!componentOperations->isArray()) {
+            errorMessage = L"arguments.componentOperations must be an array.";
+            return {};
+        }
+        for (std::size_t i = 0; i < componentOperations->arrayValue.size(); ++i) {
+            const auto& item = componentOperations->arrayValue[i];
+            const auto path = componentOperationPath(i);
+            if (!item.isObject()) {
+                errorMessage = path + L" must be an object.";
+                return {};
+            }
+
+            AgentToolSubgradeComponentOperation operation;
+            if (!readRequiredString(&item, L"action", path + L".action", operation.action, errorMessage) ||
+                !readRequiredString(&item, L"side", path + L".side", operation.side, errorMessage) ||
+                !readRequiredString(&item, L"type", path + L".type", operation.type, errorMessage) ||
+                !readRequiredString(&item, L"position", path + L".position", operation.position, errorMessage)) {
+                return {};
+            }
+            if (const auto* width = item.find(L"width"); width != nullptr && width->type != AgentJsonValue::Type::Null) {
+                if (width->type != AgentJsonValue::Type::Number) {
+                    errorMessage = path + L".width must be a number.";
+                    return {};
+                }
+                operation.width = width->numberValue;
+                operation.hasWidth = true;
+            }
+            request.arguments.componentOperations.push_back(operation);
         }
     }
 

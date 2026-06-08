@@ -24,6 +24,7 @@
 | 修改内容 | 继续阅读的文档 |
 | --- | --- |
 | 架构、分层、职责边界 | `docs/architecture/overview.md` |
+| 设计软件原型 Agent 后端、WPF 面板、工具网关、skill/知识库和运行期目录 | `docs/architecture/agent_code_structure.md`，以及 `docs/agent/overview.md` |
 | 地形 TIN 数模代码结构和业务/CAD/UI 解耦边界 | `docs/architecture/terrain_tin_code_structure.md` |
 | 目录结构、模块位置、文件放置 | `docs/architecture/project_structure.md` |
 | 命令注册、模块注册、命令命名 | `docs/rules/command_and_module_rules.md` |

@@ -52,6 +52,15 @@ struct AgentToolSubgradeComponent {
     AgentToolPavementLayer pavementLayer;
 };
 
+struct AgentToolSubgradeComponentOperation {
+    std::wstring action;
+    std::wstring side;
+    std::wstring type;
+    std::wstring position;
+    double width = 0.0;
+    bool hasWidth = false;
+};
+
 struct AgentSubgradeTemplateCreateArguments {
     std::wstring templateName = L"默认路基模板";
     double displayScale = 10.0;
@@ -60,6 +69,7 @@ struct AgentSubgradeTemplateCreateArguments {
     AgentToolPoint insertionPoint;
     std::wstring componentSource = L"DefaultByRoadGrade";
     std::vector<AgentToolSubgradeComponent> components;
+    std::vector<AgentToolSubgradeComponentOperation> componentOperations;
 };
 
 struct AgentToolRequest {

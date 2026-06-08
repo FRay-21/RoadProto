@@ -8199,6 +8199,33 @@ void agentToolRequestParsesSubgradeTemplateCreateJson()
     CHECK(std::fabs(request.arguments.insertionPoint.y - 20.0) < 1.0e-9);
 }
 
+void agentToolRequestAllowsPickInCadNullCoordinates()
+{
+    using roadproto::application::agent::parseAgentToolRequestJson;
+
+    const std::string json =
+        "{"
+        "\"tool\":\"cross_section.subgrade_template.create\","
+        "\"requestId\":\"agent-pick\","
+        "\"arguments\":{"
+        "\"templateName\":\"默认路基模板\","
+        "\"insertionPoint\":{\"mode\":\"PickInCad\",\"x\":null,\"y\":null,\"z\":0},"
+        "\"componentSource\":\"DefaultByRoadGrade\","
+        "\"components\":[]"
+        "}"
+        "}";
+
+    std::wstring error;
+    const auto request = parseAgentToolRequestJson(json, error);
+    CHECK(error.empty());
+    CHECK(request.succeeded);
+    CHECK(request.arguments.insertionPoint.mode == L"PickInCad");
+    CHECK(!request.arguments.insertionPoint.hasX);
+    CHECK(!request.arguments.insertionPoint.hasY);
+    CHECK(request.arguments.insertionPoint.hasZ);
+    CHECK(std::fabs(request.arguments.insertionPoint.z) < 1.0e-9);
+}
+
 void agentToolRequestParsesSubgradeComponentDetailFields()
 {
     using roadproto::application::agent::parseAgentToolRequestJson;
@@ -8245,6 +8272,37 @@ void agentToolRequestParsesSubgradeComponentDetailFields()
     CHECK(std::fabs(component.pavementLayer.thickness - 0.28) < 1.0e-9);
 }
 
+void agentToolRequestParsesSubgradeComponentOperations()
+{
+    using roadproto::application::agent::parseAgentToolRequestJson;
+
+    const std::string json =
+        "{"
+        "\"tool\":\"cross_section.subgrade_template.create\","
+        "\"arguments\":{"
+        "\"componentSource\":\"DefaultByRoadGrade\","
+        "\"componentOperations\":[{"
+        "\"action\":\"AddComponent\","
+        "\"side\":\"Right\","
+        "\"type\":\"TravelLane\","
+        "\"position\":\"OutermostMotorLane\""
+        "}]"
+        "}"
+        "}";
+
+    std::wstring error;
+    const auto request = parseAgentToolRequestJson(json, error);
+    CHECK(error.empty());
+    CHECK(request.succeeded);
+    CHECK(request.arguments.componentOperations.size() == 1);
+    const auto& operation = request.arguments.componentOperations.front();
+    CHECK(operation.action == L"AddComponent");
+    CHECK(operation.side == L"Right");
+    CHECK(operation.type == L"TravelLane");
+    CHECK(operation.position == L"OutermostMotorLane");
+    CHECK(!operation.hasWidth);
+}
+
 void agentSubgradeToolUsesDefaultComponentsForRoadGrade()
 {
     using roadproto::application::agent::AgentSubgradeTemplateCreateArguments;
@@ -8268,6 +8326,44 @@ void agentSubgradeToolUsesDefaultComponentsForRoadGrade()
     CHECK(result.data.properties.roadGrade == RoadGrade::SecondClass);
     CHECK(result.data.roadCenterlineHandle == L"CL-001");
     CHECK(result.data.components.size() == 6);
+}
+
+void agentSubgradeToolAppliesRightTravelLaneOperation()
+{
+    using roadproto::application::agent::AgentSubgradeTemplateCreateArguments;
+    using roadproto::application::agent::AgentToolSubgradeComponentOperation;
+    using roadproto::application::agent::buildSubgradeTemplateToolData;
+    using roadproto::domain::cross_section::RoadGrade;
+    using roadproto::domain::cross_section::SubgradeComponentType;
+    using roadproto::domain::cross_section::SubgradeSide;
+
+    AgentSubgradeTemplateCreateArguments arguments;
+    arguments.templateName = L"市政道路模板";
+    arguments.displayScale = 10.0;
+    arguments.roadGrade = L"UrbanArterial";
+    arguments.componentSource = L"DefaultByRoadGrade";
+
+    AgentToolSubgradeComponentOperation operation;
+    operation.action = L"AddComponent";
+    operation.side = L"Right";
+    operation.type = L"TravelLane";
+    operation.position = L"OutermostMotorLane";
+    arguments.componentOperations.push_back(operation);
+
+    std::wstring error;
+    const auto result = buildSubgradeTemplateToolData(arguments, error);
+    CHECK(result.succeeded);
+    CHECK(error.empty());
+    CHECK(result.data.properties.roadGrade == RoadGrade::UrbanArterial);
+
+    int rightLaneCount = 0;
+    for (const auto& component : result.data.components) {
+        if (component.side == SubgradeSide::Right && component.type == SubgradeComponentType::TravelLane) {
+            ++rightLaneCount;
+            CHECK(std::fabs(component.width - 3.5) < 1.0e-9);
+        }
+    }
+    CHECK(rightLaneCount == 3);
 }
 
 void agentSubgradeToolMapsExplicitComponents()
@@ -8754,6 +8850,17 @@ void agentToolGatewaySourceContracts()
     CHECK(executionFileSource.find("RequestPath") != std::string::npos);
     CHECK(executionFileSource.find("ResultPath") != std::string::npos);
     CHECK(executionFileSource.find("File.Delete(resultPath)") != std::string::npos);
+    CHECK(executionFileSource.find("System.Text.Json") == std::string::npos);
+    CHECK(executionFileSource.find("JavaScriptSerializer") != std::string::npos);
+
+    const auto backendClientSource = readTextFileForTests(
+        uiRoot / "Services" / "AgentBackendClient.cs");
+    CHECK(backendClientSource.find("System.Text.Json") == std::string::npos);
+    CHECK(backendClientSource.find("JavaScriptSerializer") != std::string::npos);
+
+    const auto wpfProjectSource = readTextFileForTests(uiRoot / "RoadProto.Terrain.UI.csproj");
+    CHECK(wpfProjectSource.find("System.Text.Json") == std::string::npos);
+    CHECK(wpfProjectSource.find("System.Web.Extensions") != std::string::npos);
 
     const auto assistantSource = readTextFileForTests(uiRoot / "AgentAssistantControl.xaml.cs");
     CHECK(assistantSource.find("结果文件：{paths.ResultPath}") != std::string::npos);
@@ -8894,8 +9001,11 @@ int main()
     terrainSurfaceQueryInterpolatesElevationInsideTriangle();
     terrainTriangleSpatialIndexFiltersCrossSectionCandidates();
     agentToolRequestParsesSubgradeTemplateCreateJson();
+    agentToolRequestAllowsPickInCadNullCoordinates();
     agentToolRequestParsesSubgradeComponentDetailFields();
+    agentToolRequestParsesSubgradeComponentOperations();
     agentSubgradeToolUsesDefaultComponentsForRoadGrade();
+    agentSubgradeToolAppliesRightTravelLaneOperation();
     agentSubgradeToolMapsExplicitComponents();
     agentSubgradeToolRejectsInvalidExplicitWidth();
     agentSubgradeToolRejectsInvalidRoadGrade();

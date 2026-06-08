@@ -1,6 +1,7 @@
 #include "application/agent/SubgradeTemplateToolMapper.h"
 
 #include <algorithm>
+#include <iterator>
 
 namespace roadproto::application::agent {
 namespace {
@@ -46,6 +47,16 @@ bool isSubgradeComponentTypeCode(const std::wstring& code)
 bool isSubgradeSlopeModeCode(const std::wstring& code)
 {
     return code == L"Fixed" || code == L"VariableByStation";
+}
+
+bool isSubgradeComponentOperationActionCode(const std::wstring& code)
+{
+    return code == L"AddComponent";
+}
+
+bool isSubgradeComponentOperationPositionCode(const std::wstring& code)
+{
+    return code == L"OutermostMotorLane";
 }
 
 SubgradeTemplateRgbColor mapColorOrDefault(
@@ -117,6 +128,71 @@ bool mapComponent(
     return true;
 }
 
+bool applyAddComponentOperation(
+    const AgentToolSubgradeComponentOperation& operation,
+    SubgradeTemplateData& data,
+    std::wstring& errorMessage)
+{
+    if (!isSubgradeSideCode(operation.side)) {
+        errorMessage = L"Invalid subgrade component operation side.";
+        return false;
+    }
+    if (!isSubgradeComponentTypeCode(operation.type)) {
+        errorMessage = L"Invalid subgrade component operation type.";
+        return false;
+    }
+    if (!isSubgradeComponentOperationPositionCode(operation.position)) {
+        errorMessage = L"Invalid subgrade component operation position.";
+        return false;
+    }
+
+    const auto side = subgradeSideFromCode(operation.side, SubgradeSide::Right);
+    const auto type = subgradeComponentTypeFromCode(operation.type, SubgradeComponentType::TravelLane);
+    if (type != SubgradeComponentType::TravelLane) {
+        errorMessage = L"OutermostMotorLane operation only supports TravelLane.";
+        return false;
+    }
+
+    auto insertPosition = data.components.end();
+    double width = operation.hasWidth ? operation.width : 0.0;
+    bool hasWidth = operation.hasWidth;
+    for (auto iterator = data.components.begin(); iterator != data.components.end(); ++iterator) {
+        if (iterator->side == side && iterator->type == type) {
+            insertPosition = std::next(iterator);
+            if (!operation.hasWidth) {
+                width = iterator->width;
+                hasWidth = true;
+            }
+        }
+    }
+
+    if (!hasWidth) {
+        errorMessage = L"Cannot infer default width for subgrade component operation.";
+        return false;
+    }
+
+    SubgradeTemplateComponent component;
+    component.side = side;
+    component.type = type;
+    component.width = width;
+    component.color = SubgradeTemplateDefaults::defaultColorFor(type);
+    data.components.insert(insertPosition, component);
+    return true;
+}
+
+bool applyComponentOperation(
+    const AgentToolSubgradeComponentOperation& operation,
+    SubgradeTemplateData& data,
+    std::wstring& errorMessage)
+{
+    if (!isSubgradeComponentOperationActionCode(operation.action)) {
+        errorMessage = L"Invalid subgrade component operation action.";
+        return false;
+    }
+
+    return applyAddComponentOperation(operation, data, errorMessage);
+}
+
 } // namespace
 
 SubgradeTemplateToolDataResult buildSubgradeTemplateToolData(
@@ -148,6 +224,13 @@ SubgradeTemplateToolDataResult buildSubgradeTemplateToolData(
     } else {
         fail(result, errorMessage, L"Unsupported subgrade template component source.");
         return result;
+    }
+
+    for (const auto& operation : arguments.componentOperations) {
+        if (!applyComponentOperation(operation, result.data, errorMessage)) {
+            result.errorMessage = errorMessage;
+            return result;
+        }
     }
 
     result.data.properties.name = arguments.templateName;

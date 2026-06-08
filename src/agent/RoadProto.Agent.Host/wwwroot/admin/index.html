@@ -1,0 +1,206 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>RoadProto Agent 管理控制台</title>
+  <link rel="stylesheet" href="./admin.css">
+</head>
+<body>
+  <div class="admin-shell">
+    <aside class="sidebar" aria-label="管理导航">
+      <div class="brand">
+        <span class="brand-mark">RP</span>
+        <div>
+          <strong>RoadProto Agent</strong>
+          <span>管理控制台</span>
+        </div>
+      </div>
+      <nav class="nav-list">
+        <button class="nav-item is-active" type="button" data-view="profiles-view">模型配置</button>
+        <button class="nav-item" type="button" data-view="skills-view">Skill 文档</button>
+        <button class="nav-item" type="button" data-view="knowledge-view">知识库</button>
+        <button class="nav-item" type="button" data-view="connection-view">连接测试</button>
+      </nav>
+    </aside>
+
+    <main class="workspace">
+      <header class="topbar">
+        <div>
+          <p class="eyebrow">Agent Sidecar</p>
+          <h1>RoadProto Agent 管理控制台</h1>
+        </div>
+        <div id="admin-status-message" class="status-pill" role="status">正在读取状态</div>
+      </header>
+
+      <section id="status-overview" class="status-grid" aria-label="状态概览">
+        <article class="metric">
+          <span>默认 Profile</span>
+          <strong id="default-profile">-</strong>
+        </article>
+        <article class="metric">
+          <span>Profile 数量</span>
+          <strong id="profile-count">-</strong>
+        </article>
+        <article class="metric">
+          <span>启用 Skill</span>
+          <strong id="enabled-skill-count">-</strong>
+        </article>
+        <article class="metric">
+          <span>启用知识库</span>
+          <strong id="enabled-knowledge-count">-</strong>
+        </article>
+      </section>
+
+      <section class="storage-row" aria-label="存储目录">
+        <span>存储根目录</span>
+        <code id="storage-root">-</code>
+      </section>
+
+      <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+
+      <section id="profiles-view" class="view is-active" aria-labelledby="profiles-title">
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">Model Profiles</p>
+            <h2 id="profiles-title">模型配置</h2>
+          </div>
+          <button id="refresh-button" class="button button-secondary" type="button">刷新</button>
+        </div>
+        <div class="profile-layout">
+          <div class="list-surface profile-list-panel">
+            <div class="panel-title">
+              <strong>Profile 列表</strong>
+              <button id="new-profile-button" class="button button-secondary" type="button">新建</button>
+            </div>
+            <div id="profile-list" class="profile-list">
+              <div class="empty-state">正在读取 Profile 列表。</div>
+            </div>
+          </div>
+
+          <form id="profile-form" class="list-surface profile-form">
+            <div class="panel-title">
+              <strong>编辑 Profile</strong>
+              <span id="profile-form-mode" class="form-mode">新建</span>
+            </div>
+
+            <label class="field">
+              <span>预置</span>
+              <select id="profile-preset">
+                <option value="dashscope">千问 / 阿里百炼 DashScope</option>
+                <option value="deepseek">DeepSeek</option>
+                <option value="openai">ChatGPT / OpenAI</option>
+                <option value="custom">自定义</option>
+              </select>
+            </label>
+
+            <div class="form-grid">
+              <label class="field">
+                <span>Profile 名称</span>
+                <input id="profile-name" type="text" autocomplete="off" required pattern="[A-Za-z0-9_-]+">
+              </label>
+              <label class="field">
+                <span>模型名称</span>
+                <input id="profile-model" type="text" autocomplete="off" required>
+              </label>
+            </div>
+
+            <label class="field">
+              <span>Base URL</span>
+              <input id="profile-base-url" type="url" autocomplete="off" required>
+            </label>
+
+            <div class="form-grid">
+              <label class="field">
+                <span>Temperature</span>
+                <input id="profile-temperature" type="number" min="0" max="2" step="0.1" value="0.2">
+              </label>
+              <label class="field">
+                <span>超时秒数</span>
+                <input id="profile-timeout" type="number" min="1" step="1" value="60">
+              </label>
+            </div>
+
+            <label class="field">
+              <span>API Key</span>
+              <input id="profile-api-key" type="password" autocomplete="new-password" placeholder="留空表示保留已有 key">
+              <small>保存时只提交本次输入的 API Key；留空会保留当前已保存的 key。</small>
+            </label>
+
+            <label class="check-field">
+              <input id="profile-default" type="checkbox">
+              <span>设为默认 Profile</span>
+            </label>
+
+            <div class="form-actions">
+              <button class="button button-primary" type="submit">保存</button>
+              <button id="test-profile-button" class="button button-secondary" type="button">连接测试</button>
+              <button id="delete-profile-button" class="button button-danger" type="button">删除</button>
+            </div>
+          </form>
+        </div>
+      </section>
+
+      <section id="skills-view" class="view" aria-labelledby="skills-title">
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">Prompt Context</p>
+            <h2 id="skills-title">Skill 文档</h2>
+          </div>
+          <span class="section-note">只接受 Markdown .md</span>
+        </div>
+        <div class="document-upload">
+          <div>
+            <strong>上传 Skill 文档</strong>
+            <span>选择一个 Markdown .md 文件加入 Prompt Context。</span>
+          </div>
+          <div class="document-upload-controls">
+            <input id="skill-upload" type="file" accept=".md,text/markdown">
+            <button id="skill-upload-button" class="button button-primary" type="button">上传</button>
+          </div>
+        </div>
+        <div id="skill-list" class="list-surface">
+          <div class="empty-state">正在读取 Skill 文档列表。</div>
+        </div>
+      </section>
+
+      <section id="knowledge-view" class="view" aria-labelledby="knowledge-title">
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">Knowledge Base</p>
+            <h2 id="knowledge-title">知识库</h2>
+          </div>
+          <span class="section-note">只接受 Markdown .md</span>
+        </div>
+        <div class="document-upload">
+          <div>
+            <strong>上传知识库 Markdown</strong>
+            <span>选择一个 Markdown .md 文件加入知识库。</span>
+          </div>
+          <div class="document-upload-controls">
+            <input id="knowledge-upload" type="file" accept=".md,text/markdown">
+            <button id="knowledge-upload-button" class="button button-primary" type="button">上传</button>
+          </div>
+        </div>
+        <div id="knowledge-list" class="list-surface">
+          <div class="empty-state">正在读取知识库列表。</div>
+        </div>
+      </section>
+
+      <section id="connection-view" class="view" aria-labelledby="connection-title">
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">Connectivity</p>
+            <h2 id="connection-title">连接测试</h2>
+          </div>
+          <span class="section-note">后续接入模型连通性测试</span>
+        </div>
+        <div id="connection-test-panel" class="list-surface">
+          <div class="empty-state">当前页面壳仅展示运行状态，不发起模型测试请求。</div>
+        </div>
+      </section>
+    </main>
+  </div>
+  <script src="./admin.js"></script>
+</body>
+</html>

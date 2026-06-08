@@ -10,10 +10,9 @@
     <OutputPath>$(MSBuildProjectDirectory)\..\..\..\..\artifacts\managed\$(Configuration)\</OutputPath>
   </PropertyGroup>
   <ItemGroup>
-    <PackageReference Include="System.Text.Json" Version="8.0.5" />
-  </ItemGroup>
-  <ItemGroup>
     <Reference Include="System.Net.Http" />
+    <Reference Include="System.Web" />
+    <Reference Include="System.Web.Extensions" />
     <Reference Include="AcMgd">
       <HintPath>C:\Program Files\Autodesk\AutoCAD 2021\acmgd.dll</HintPath>
       <Private>false</Private>

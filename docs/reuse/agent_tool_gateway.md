@@ -13,7 +13,8 @@ Agent 工具网关提供从受控 Agent 工具 JSON 到 C++ application/cad_adap
 - 新工具必须注册到 C++ 白名单，禁止执行任意 AutoCAD 命令字符串。
 - 新工具必须有业务文档、Agent skill 文档和协议说明。
 - WPF 只展示确认卡片和结果，不直接读写 CAD 实体。
-- Agent 后端只生成意图、回复和工具调用候选，不依赖 ObjectARX。
+- Agent 后端通过 `AgentPlanner` 生成意图、回复和工具调用候选，不依赖 ObjectARX。
+- `/admin` 管理控制台只管理模型 Profile、API Key、skill 和知识库 Markdown，不直接执行工具；CAD 写入仍必须经过 WPF 确认卡片和 C++ 白名单工具网关。
 
 ## 首版工具
 
@@ -21,17 +22,19 @@ Agent 工具网关提供从受控 Agent 工具 JSON 到 C++ application/cad_adap
 - 实体类型：`DnSubgradeTemplateEntity`
 - 请求目录：`%TEMP%\RoadProtoAgent\`
 - 结果结构：`requestId`、`tool`、`succeeded`、`entityHandle`、`entityType`、`message`；失败时返回 `errorCode` 和 `message`
-- 关键校验：未知顶层字段拒绝、请求文件大小限制、工具名白名单、插入点有限数值校验、显示比例校验、部件宽度和坡度数据校验、结果路径专用目录限制
+- 关键校验：未知顶层字段拒绝、请求文件大小限制、工具名白名单、插入点有限数值校验、显示比例校验、部件宽度和坡度数据校验、`componentOperations` 白名单校验、结果路径专用目录限制
+- 当前增量操作：`componentOperations` 支持在默认路基模板右侧机动车道组外侧新增 `TravelLane`，宽度可由 C++ mapper 从同侧最后一个行车道推断。
 
 ## 新增工具流程
 
 1. 编写独立业务文档，明确用户场景、命令边界和手工验证流程。
 2. 编写 Agent skill，说明触发条件、参数默认值、追问规则和 JSON schema。
 3. 在 `docs/agent/tool_protocol.md` 或对应工具文档中补充协议字段。
-4. 在 `src/application/agent` 增加参数 DTO、解析、白名单字段校验和到业务模型的转换。
-5. 在 `src/cad_adapter/objectarx/agent` 增加执行器，只调用明确的 CAD Adapter 或应用服务能力。
-6. 在 `AI_AGENT` 模块或工具分发处注册工具名。
-7. 在 WPF Agent 面板中增加确认卡片展示字段和用户可理解的摘要。
-8. 增加不依赖 AutoCAD 的核心测试和后端测试。
-9. 在 AutoCAD 2021 中加载 ARX、托管 DLL 和本地 sidecar 做图形界面手工验证。
-10. 更新模块文档、复用目录、README、测试说明和版本记录。
+4. 在 `src/agent/RoadProto.Agent.Host/Tools` 增加或调整 `AgentPlanner` / 具体工具 planner，并用后端测试覆盖自然语言到 `toolCall` 的映射。
+5. 在 `src/application/agent` 增加参数 DTO、解析、白名单字段校验和到业务模型的转换。
+6. 在 `src/cad_adapter/objectarx/agent` 增加执行器，只调用明确的 CAD Adapter 或应用服务能力。
+7. 在 `AI_AGENT` 模块或工具分发处注册工具名。
+8. 在 WPF Agent 面板中增加确认卡片展示字段和用户可理解的摘要。
+9. 增加不依赖 AutoCAD 的核心测试和后端测试。
+10. 在 AutoCAD 2021 中加载 ARX、托管 DLL 和本地 sidecar 做图形界面手工验证。
+11. 更新模块文档、复用目录、README、测试说明和版本记录。

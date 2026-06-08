@@ -1,6 +1,7 @@
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
+using RoadProto.Agent.Host.Admin;
 
 namespace RoadProto.Agent.Host.Providers;
 
@@ -37,28 +38,116 @@ public sealed class OpenAiCompatibleChatClient
             return $"模型 API Key 未配置，当前可继续使用本地规则工具（例如创建路基模板）。请设置环境变量 {profile.ApiKeyEnvironmentVariable} 后再使用模型回答。";
         }
 
-        if (string.IsNullOrWhiteSpace(profile.BaseUrl))
+        return await CompleteWithApiKeyAsync(
+            profile.BaseUrl,
+            profile.Model,
+            profile.Temperature,
+            profile.TimeoutSeconds,
+            systemPrompt,
+            userMessage,
+            apiKey,
+            cancellationToken).ConfigureAwait(false);
+    }
+
+    public Task<string> CompleteAsync(
+        ModelProfileOptions profile,
+        string systemPrompt,
+        string userMessage,
+        string apiKey,
+        CancellationToken cancellationToken = default)
+    {
+        return CompleteWithApiKeyAsync(
+            profile.BaseUrl,
+            profile.Model,
+            profile.Temperature,
+            profile.TimeoutSeconds,
+            systemPrompt,
+            userMessage,
+            apiKey,
+            cancellationToken);
+    }
+
+    public Task<string> CompleteAsync(
+        StoredModelProfile profile,
+        string systemPrompt,
+        string userMessage,
+        string apiKey,
+        CancellationToken cancellationToken = default)
+    {
+        return CompleteWithApiKeyAsync(
+            profile.BaseUrl,
+            profile.Model,
+            profile.Temperature,
+            profile.TimeoutSeconds,
+            systemPrompt,
+            userMessage,
+            apiKey,
+            cancellationToken);
+    }
+
+    public Task<string> TestConnectionAsync(
+        ModelProfileOptions profile,
+        string apiKey,
+        CancellationToken cancellationToken = default)
+    {
+        return CompleteAsync(
+            profile,
+            "你是 RoadProto Agent 模型连通性测试助手。",
+            "请只回复 OK。",
+            apiKey,
+            cancellationToken);
+    }
+
+    public Task<string> TestConnectionAsync(
+        StoredModelProfile profile,
+        string apiKey,
+        CancellationToken cancellationToken = default)
+    {
+        return CompleteAsync(
+            profile,
+            "你是 RoadProto Agent 模型连通性测试助手。",
+            "请只回复 OK。",
+            apiKey,
+            cancellationToken);
+    }
+
+    private async Task<string> CompleteWithApiKeyAsync(
+        string baseUrl,
+        string model,
+        double temperature,
+        int timeoutSeconds,
+        string systemPrompt,
+        string userMessage,
+        string apiKey,
+        CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(apiKey))
+        {
+            return "模型 API Key 未配置，当前可继续使用本地规则工具（例如创建路基模板）。";
+        }
+
+        if (string.IsNullOrWhiteSpace(baseUrl))
         {
             return "模型 BaseUrl 未配置，当前可继续使用本地规则工具（例如创建路基模板）。";
         }
 
-        if (string.IsNullOrWhiteSpace(profile.Model))
+        if (string.IsNullOrWhiteSpace(model))
         {
             return "模型名称未配置，当前可继续使用本地规则工具（例如创建路基模板）。";
         }
 
-        if (!TryCreateEndpoint(profile.BaseUrl, out var endpoint))
+        if (!TryCreateEndpoint(baseUrl, out var endpoint))
         {
             return "模型 BaseUrl 格式无效，当前可继续使用本地规则工具（例如创建路基模板）。";
         }
 
         using var request = new HttpRequestMessage(HttpMethod.Post, endpoint);
-        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", apiKey);
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", apiKey.Trim());
         request.Content = JsonContent.Create(
             new
             {
-                model = profile.Model,
-                temperature = profile.Temperature,
+                model,
+                temperature,
                 stream = false,
                 messages = new object[]
                 {
@@ -70,7 +159,7 @@ public sealed class OpenAiCompatibleChatClient
 
         try
         {
-            using var timeout = CreateTimeout(profile.TimeoutSeconds, cancellationToken);
+            using var timeout = CreateTimeout(timeoutSeconds, cancellationToken);
             using var response = await httpClient.SendAsync(request, timeout.Token).ConfigureAwait(false);
             if (!response.IsSuccessStatusCode)
             {

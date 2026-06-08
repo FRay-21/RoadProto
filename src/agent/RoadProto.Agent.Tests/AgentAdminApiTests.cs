@@ -1,0 +1,543 @@
+using System.Net;
+using System.Net.Http.Json;
+using System.Text;
+using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.Extensions.DependencyInjection;
+using RoadProto.Agent.Host.Admin;
+using RoadProto.Agent.Host.Providers;
+using Xunit;
+
+namespace RoadProto.Agent.Tests;
+
+public sealed class AgentAdminApiTests : IDisposable
+{
+    private readonly string root = Path.Combine(Path.GetTempPath(), "RoadProtoAgentAdminApiTests", Guid.NewGuid().ToString("N"));
+
+    public void Dispose()
+    {
+        if (Directory.Exists(root))
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task AdminStatusReturnsStorageRoot()
+    {
+        using var factory = CreateFactory();
+        using var client = factory.CreateClient();
+
+        var status = await client.GetFromJsonAsync<AdminStatusResponse>("/api/admin/status");
+
+        Assert.NotNull(status);
+        Assert.Equal(root, status.StorageRoot);
+    }
+
+    [Fact]
+    public async Task AdminPageServesStaticConsole()
+    {
+        using var factory = CreateFactory();
+        using var redirectClient = factory.CreateClient(new WebApplicationFactoryClientOptions
+        {
+            AllowAutoRedirect = false
+        });
+
+        using var response = await redirectClient.GetAsync("/admin");
+
+        Assert.Equal(HttpStatusCode.Redirect, response.StatusCode);
+        Assert.Equal("/admin/", response.Headers.Location?.OriginalString);
+
+        using var client = factory.CreateClient();
+        using var slashResponse = await client.GetAsync("/admin/");
+        var slashHtml = await slashResponse.Content.ReadAsStringAsync();
+
+        Assert.True(slashResponse.IsSuccessStatusCode, $"Unexpected /admin/ status code: {slashResponse.StatusCode}");
+        Assert.Contains("text/html", slashResponse.Content.Headers.ContentType?.MediaType ?? string.Empty);
+        Assert.Contains("RoadProto Agent", slashHtml, StringComparison.Ordinal);
+        Assert.Contains("模型配置", slashHtml, StringComparison.Ordinal);
+        Assert.Contains("id=\"skill-upload\"", slashHtml, StringComparison.Ordinal);
+        Assert.Contains("id=\"skill-list\"", slashHtml, StringComparison.Ordinal);
+        Assert.Contains("id=\"knowledge-upload\"", slashHtml, StringComparison.Ordinal);
+        Assert.Contains("id=\"knowledge-list\"", slashHtml, StringComparison.Ordinal);
+
+        var adminPageUri = new Uri("http://localhost/admin/");
+        Assert.Equal("/admin/admin.css", new Uri(adminPageUri, "./admin.css").AbsolutePath);
+        Assert.Equal("/admin/admin.js", new Uri(adminPageUri, "./admin.js").AbsolutePath);
+    }
+
+    [Fact]
+    public async Task AdminStaticAssetsAreServed()
+    {
+        using var factory = CreateFactory();
+        using var client = factory.CreateClient();
+
+        using var cssResponse = await client.GetAsync("/admin/admin.css");
+        using var jsResponse = await client.GetAsync("/admin/admin.js");
+        var css = await cssResponse.Content.ReadAsStringAsync();
+        var js = await jsResponse.Content.ReadAsStringAsync();
+
+        Assert.True(cssResponse.IsSuccessStatusCode, $"CSS status code: {cssResponse.StatusCode}");
+        Assert.True(jsResponse.IsSuccessStatusCode, $"JS status code: {jsResponse.StatusCode}");
+        Assert.True(
+            cssResponse.Content.Headers.ContentType?.MediaType?.Contains("css", StringComparison.OrdinalIgnoreCase) == true
+                || css.Contains("admin-shell", StringComparison.Ordinal),
+            "Admin CSS should be served with a stylesheet content type or known shell styles.");
+        Assert.True(
+            jsResponse.Content.Headers.ContentType?.MediaType?.Contains("javascript", StringComparison.OrdinalIgnoreCase) == true
+                || js.Contains("/api/admin/status", StringComparison.Ordinal),
+            "Admin JS should be served with a JavaScript content type or known status loader.");
+        Assert.Contains("Promise.allSettled", js, StringComparison.Ordinal);
+        Assert.DoesNotContain("读取管理数据失败", js, StringComparison.Ordinal);
+        Assert.Contains("读取 Skill 文档失败", js, StringComparison.Ordinal);
+        Assert.Contains("读取知识库失败", js, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task CanCreateDefaultModelProfileWithEncryptedKey()
+    {
+        using var factory = CreateFactory();
+        using var client = factory.CreateClient();
+
+        using var response = await client.PostAsJsonAsync(
+            "/api/admin/model-profiles",
+            new UpsertModelProfileRequest(
+                "dashscope-qwen",
+                "OpenAICompatible",
+                "https://dashscope.aliyuncs.com/compatible-mode/v1",
+                "qwen-plus",
+                0.2,
+                60,
+                "sk-test-secret",
+                true));
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var profiles = await client.GetFromJsonAsync<List<ModelProfileResponse>>("/api/admin/model-profiles");
+        var profile = Assert.Single(profiles!);
+        Assert.True(profile.IsDefault);
+        Assert.True(profile.HasApiKey);
+        Assert.Equal("sk-***cret", profile.ApiKeyMask);
+        Assert.DoesNotContain("sk-test-secret", await File.ReadAllTextAsync(Path.Combine(root, "config.json")));
+    }
+
+    [Fact]
+    public async Task RejectsInvalidProfileName()
+    {
+        using var factory = CreateFactory();
+        using var client = factory.CreateClient();
+
+        using var response = await client.PostAsJsonAsync(
+            "/api/admin/model-profiles",
+            new UpsertModelProfileRequest(
+                "../bad",
+                "OpenAICompatible",
+                "https://api.openai.com/v1",
+                "gpt-4.1",
+                0.2,
+                60,
+                "sk-test",
+                true));
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task DeletingDefaultModelProfilePromotesRemainingProfileAndDeletesSecret()
+    {
+        using var factory = CreateFactory();
+        using var client = factory.CreateClient();
+
+        using var openAiResponse = await client.PostAsJsonAsync(
+            "/api/admin/model-profiles",
+            new UpsertModelProfileRequest(
+                "openai",
+                "OpenAICompatible",
+                "https://api.openai.com/v1",
+                "gpt-4.1",
+                0.2,
+                60,
+                "sk-openai-secret",
+                true));
+        using var deepSeekResponse = await client.PostAsJsonAsync(
+            "/api/admin/model-profiles",
+            new UpsertModelProfileRequest(
+                "deepseek",
+                "OpenAICompatible",
+                "https://api.deepseek.com/v1",
+                "deepseek-chat",
+                0.2,
+                60,
+                null,
+                false));
+        var openAiSecretPath = Path.Combine(
+            root,
+            "secrets",
+            AgentSecretStore.CreateSecretId("openai") + ".bin");
+
+        Assert.Equal(HttpStatusCode.OK, openAiResponse.StatusCode);
+        Assert.Equal(HttpStatusCode.OK, deepSeekResponse.StatusCode);
+        Assert.True(File.Exists(openAiSecretPath));
+
+        using var deleteOpenAiResponse = await client.DeleteAsync("/api/admin/model-profiles/openai");
+
+        Assert.Equal(HttpStatusCode.NoContent, deleteOpenAiResponse.StatusCode);
+        var profiles = await client.GetFromJsonAsync<List<ModelProfileResponse>>("/api/admin/model-profiles");
+        var profile = Assert.Single(profiles!);
+        Assert.Equal("deepseek", profile.Name);
+        Assert.True(profile.IsDefault);
+        Assert.False(File.Exists(openAiSecretPath));
+
+        using var deleteDeepSeekResponse = await client.DeleteAsync("/api/admin/model-profiles/deepseek");
+
+        Assert.Equal(HttpStatusCode.NoContent, deleteDeepSeekResponse.StatusCode);
+        var status = await client.GetFromJsonAsync<AdminStatusResponse>("/api/admin/status");
+        Assert.NotNull(status);
+        Assert.Equal(string.Empty, status.DefaultModelProfile);
+        Assert.Equal(0, status.ModelProfileCount);
+    }
+
+    [Fact]
+    public async Task CanChangeDefaultModelProfile()
+    {
+        using var factory = CreateFactory();
+        using var client = factory.CreateClient();
+
+        using var openAiResponse = await client.PostAsJsonAsync(
+            "/api/admin/model-profiles",
+            new UpsertModelProfileRequest(
+                "openai",
+                "OpenAICompatible",
+                "https://api.openai.com/v1",
+                "gpt-4.1",
+                0.2,
+                60,
+                null,
+                true));
+        using var deepSeekResponse = await client.PostAsJsonAsync(
+            "/api/admin/model-profiles",
+            new UpsertModelProfileRequest(
+                "deepseek",
+                "OpenAICompatible",
+                "https://api.deepseek.com/v1",
+                "deepseek-chat",
+                0.2,
+                60,
+                null,
+                false));
+
+        Assert.Equal(HttpStatusCode.OK, openAiResponse.StatusCode);
+        Assert.Equal(HttpStatusCode.OK, deepSeekResponse.StatusCode);
+
+        using var defaultResponse = await client.PostAsync("/api/admin/model-profiles/deepseek/default", null);
+
+        Assert.Equal(HttpStatusCode.OK, defaultResponse.StatusCode);
+        var status = await client.GetFromJsonAsync<AdminStatusResponse>("/api/admin/status");
+        Assert.NotNull(status);
+        Assert.Equal("deepseek", status.DefaultModelProfile);
+
+        var profiles = await client.GetFromJsonAsync<List<ModelProfileResponse>>("/api/admin/model-profiles");
+        Assert.Contains(profiles!, profile => profile.Name == "openai" && !profile.IsDefault);
+        Assert.Contains(profiles!, profile => profile.Name == "deepseek" && profile.IsDefault);
+    }
+
+    [Fact]
+    public async Task TestingMissingModelProfileReturnsNotFound()
+    {
+        using var factory = CreateFactory();
+        using var client = factory.CreateClient();
+
+        using var response = await client.PostAsync("/api/admin/model-profiles/missing/test", null);
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task CanTestModelProfileConnectionWithStoredSecret()
+    {
+        using var handler = new StubChatHandler();
+        using var httpClient = new HttpClient(handler);
+        using var factory = CreateFactory(services =>
+        {
+            services.AddSingleton(new OpenAiCompatibleChatClient(httpClient));
+        });
+        using var client = factory.CreateClient();
+
+        using var createResponse = await client.PostAsJsonAsync(
+            "/api/admin/model-profiles",
+            new UpsertModelProfileRequest(
+                "openai",
+                "OpenAICompatible",
+                "https://api.openai.com/v1",
+                "gpt-4.1",
+                0.2,
+                60,
+                "sk-test-secret",
+                true));
+
+        Assert.Equal(HttpStatusCode.OK, createResponse.StatusCode);
+
+        using var testResponse = await client.PostAsync("/api/admin/model-profiles/openai/test", null);
+
+        Assert.Equal(HttpStatusCode.OK, testResponse.StatusCode);
+        Assert.Equal("OK", await testResponse.Content.ReadFromJsonAsync<string>());
+        Assert.Equal(new Uri("https://api.openai.com/v1/chat/completions"), handler.LastRequestUri);
+        Assert.Equal("Bearer", handler.LastAuthorizationScheme);
+        Assert.Equal("sk-test-secret", handler.LastAuthorizationParameter);
+        Assert.Equal(1, handler.CallCount);
+    }
+
+    [Fact]
+    public async Task TestingModelProfileWithCorruptedSecretReturnsReadableMessage()
+    {
+        using var handler = new StubChatHandler();
+        using var httpClient = new HttpClient(handler);
+        using var factory = CreateFactory(services =>
+        {
+            services.AddSingleton(new OpenAiCompatibleChatClient(httpClient));
+        });
+        using var client = factory.CreateClient();
+
+        using var createResponse = await client.PostAsJsonAsync(
+            "/api/admin/model-profiles",
+            new UpsertModelProfileRequest(
+                "openai",
+                "OpenAICompatible",
+                "https://api.openai.com/v1",
+                "gpt-4.1",
+                0.2,
+                60,
+                "sk-test-secret",
+                true));
+        Assert.Equal(HttpStatusCode.OK, createResponse.StatusCode);
+        await File.WriteAllBytesAsync(
+            Path.Combine(root, "secrets", AgentSecretStore.CreateSecretId("openai") + ".bin"),
+            Encoding.UTF8.GetBytes("not a dpapi payload"));
+
+        using var response = await client.PostAsync("/api/admin/model-profiles/openai/test", null);
+
+        Assert.NotEqual(HttpStatusCode.InternalServerError, response.StatusCode);
+        var body = await ReadResponseTextAsync(response);
+        Assert.True(
+            body.Contains("API Key 无法读取", StringComparison.Ordinal)
+                || body.Contains("重新保存", StringComparison.Ordinal),
+            $"Unexpected response body: {body}");
+        Assert.Equal(0, handler.CallCount);
+    }
+
+    [Fact]
+    public async Task TestingUnsupportedModelProviderReturnsReadableMessage()
+    {
+        using var handler = new StubChatHandler();
+        using var httpClient = new HttpClient(handler);
+        using var factory = CreateFactory(services =>
+        {
+            services.AddSingleton(new OpenAiCompatibleChatClient(httpClient));
+        });
+        using var client = factory.CreateClient();
+
+        using var createResponse = await client.PostAsJsonAsync(
+            "/api/admin/model-profiles",
+            new UpsertModelProfileRequest(
+                "local",
+                "LocalOnly",
+                "https://api.openai.com/v1",
+                "local-model",
+                0.2,
+                60,
+                "sk-test-secret",
+                true));
+        Assert.Equal(HttpStatusCode.OK, createResponse.StatusCode);
+
+        using var response = await client.PostAsync("/api/admin/model-profiles/local/test", null);
+
+        Assert.NotEqual(HttpStatusCode.InternalServerError, response.StatusCode);
+        var body = await ReadResponseTextAsync(response);
+        Assert.Contains("暂不支持连接测试", body, StringComparison.Ordinal);
+        Assert.Equal(0, handler.CallCount);
+    }
+
+    [Fact]
+    public async Task ProfileNamesWithUnderscoreAndDashUseDistinctSecretFiles()
+    {
+        using var factory = CreateFactory();
+        using var client = factory.CreateClient();
+
+        using var underResponse = await client.PostAsJsonAsync(
+            "/api/admin/model-profiles",
+            new UpsertModelProfileRequest(
+                "a_b",
+                "OpenAICompatible",
+                "https://api.openai.com/v1",
+                "gpt-4.1",
+                0.2,
+                60,
+                "sk-under",
+                true));
+        using var dashResponse = await client.PostAsJsonAsync(
+            "/api/admin/model-profiles",
+            new UpsertModelProfileRequest(
+                "a-b",
+                "OpenAICompatible",
+                "https://api.deepseek.com/v1",
+                "deepseek-chat",
+                0.2,
+                60,
+                "sk-dash",
+                false));
+        var underSecretPath = Path.Combine(
+            root,
+            "secrets",
+            AgentSecretStore.CreateSecretId("a_b") + ".bin");
+        var dashSecretPath = Path.Combine(
+            root,
+            "secrets",
+            AgentSecretStore.CreateSecretId("a-b") + ".bin");
+
+        Assert.Equal(HttpStatusCode.OK, underResponse.StatusCode);
+        Assert.Equal(HttpStatusCode.OK, dashResponse.StatusCode);
+        Assert.NotEqual(underSecretPath, dashSecretPath);
+        Assert.True(File.Exists(underSecretPath));
+        Assert.True(File.Exists(dashSecretPath));
+
+        using var deleteUnderResponse = await client.DeleteAsync("/api/admin/model-profiles/a_b");
+
+        Assert.Equal(HttpStatusCode.NoContent, deleteUnderResponse.StatusCode);
+        Assert.False(File.Exists(underSecretPath));
+        Assert.True(File.Exists(dashSecretPath));
+        var profiles = await client.GetFromJsonAsync<List<ModelProfileResponse>>("/api/admin/model-profiles");
+        var profile = Assert.Single(profiles!);
+        Assert.Equal("a-b", profile.Name);
+        Assert.True(profile.HasApiKey);
+    }
+
+    [Fact]
+    public async Task CanUploadPatchAndDeleteSkillDocument()
+    {
+        using var factory = CreateFactory();
+        using var client = factory.CreateClient();
+        using var uploadContent = CreateMultipart("skills.md", "# Skill\n内容");
+
+        using var uploadResponse = await client.PostAsync("/api/admin/skills/upload", uploadContent);
+
+        Assert.Equal(HttpStatusCode.OK, uploadResponse.StatusCode);
+        var uploaded = await uploadResponse.Content.ReadFromJsonAsync<DocumentResponse>();
+        Assert.NotNull(uploaded);
+        Assert.True(uploaded.Enabled);
+        Assert.Equal("skills.md", uploaded.DisplayName);
+
+        var skills = await client.GetFromJsonAsync<List<DocumentResponse>>("/api/admin/skills");
+        var skill = Assert.Single(skills!);
+        Assert.Equal(uploaded.Id, skill.Id);
+
+        using var patchResponse = await client.PatchAsJsonAsync(
+            $"/api/admin/skills/{uploaded.Id}",
+            new UpdateDocumentRequest(false, "disabled skill"));
+
+        Assert.Equal(HttpStatusCode.OK, patchResponse.StatusCode);
+        var patched = await patchResponse.Content.ReadFromJsonAsync<DocumentResponse>();
+        Assert.NotNull(patched);
+        Assert.False(patched.Enabled);
+        Assert.Equal("disabled skill", patched.DisplayName);
+
+        using var deleteResponse = await client.DeleteAsync($"/api/admin/skills/{uploaded.Id}");
+
+        Assert.Equal(HttpStatusCode.NoContent, deleteResponse.StatusCode);
+        Assert.Empty(await client.GetFromJsonAsync<List<DocumentResponse>>("/api/admin/skills") ?? []);
+    }
+
+    [Fact]
+    public async Task CanUploadSkillThroughAdminApi()
+    {
+        using var factory = CreateFactory();
+        using var client = factory.CreateClient();
+        using var uploadContent = CreateMultipart("road-skill.md", "# Road Skill\n道路设计 Skill");
+
+        using var uploadResponse = await client.PostAsync("/api/admin/skills/upload", uploadContent);
+
+        Assert.Equal(HttpStatusCode.OK, uploadResponse.StatusCode);
+        var skills = await client.GetFromJsonAsync<List<DocumentResponse>>("/api/admin/skills");
+        var skill = Assert.Single(skills!);
+        Assert.Equal("road-skill.md", skill.DisplayName);
+        Assert.True(skill.Enabled);
+    }
+
+    [Fact]
+    public async Task UploadKnowledgeRejectsNonMarkdown()
+    {
+        using var factory = CreateFactory();
+        using var client = factory.CreateClient();
+        using var uploadContent = CreateMultipart("notes.txt", "not markdown");
+
+        using var response = await client.PostAsync("/api/admin/knowledge/upload", uploadContent);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    private WebApplicationFactory<Program> CreateFactory(Action<IServiceCollection>? configureServices = null)
+    {
+        return new WebApplicationFactory<Program>().WithWebHostBuilder(builder =>
+        {
+            builder.ConfigureServices(services =>
+            {
+                services.AddSingleton(new AgentLocalPaths(root));
+                services.PostConfigure<RoadProtoAgentOptions>(options => options.ModelProfiles.Clear());
+                configureServices?.Invoke(services);
+            });
+        });
+    }
+
+    private static MultipartFormDataContent CreateMultipart(string fileName, string content)
+    {
+        var multipart = new MultipartFormDataContent();
+        var fileContent = new ByteArrayContent(Encoding.UTF8.GetBytes(content));
+        fileContent.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("text/markdown");
+        multipart.Add(fileContent, "file", fileName);
+        return multipart;
+    }
+
+    private static async Task<string> ReadResponseTextAsync(HttpResponseMessage response)
+    {
+        var text = await response.Content.ReadAsStringAsync();
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            return string.Empty;
+        }
+
+        try
+        {
+            return System.Text.Json.JsonSerializer.Deserialize<string>(text) ?? text;
+        }
+        catch (System.Text.Json.JsonException)
+        {
+            return text;
+        }
+    }
+
+    private sealed class StubChatHandler : HttpMessageHandler
+    {
+        public int CallCount { get; private set; }
+        public Uri? LastRequestUri { get; private set; }
+        public string? LastAuthorizationScheme { get; private set; }
+        public string? LastAuthorizationParameter { get; private set; }
+
+        protected override Task<HttpResponseMessage> SendAsync(
+            HttpRequestMessage request,
+            CancellationToken cancellationToken)
+        {
+            CallCount++;
+            LastRequestUri = request.RequestUri;
+            LastAuthorizationScheme = request.Headers.Authorization?.Scheme;
+            LastAuthorizationParameter = request.Headers.Authorization?.Parameter;
+
+            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent(
+                    """
+                    {"choices":[{"message":{"content":"OK"}}]}
+                    """,
+                    Encoding.UTF8,
+                    "application/json")
+            });
+        }
+    }
+}

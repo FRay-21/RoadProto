@@ -40,10 +40,10 @@ http://127.0.0.1:17831/admin
 
 ## 业务流程
 
-1. 用户启动本地 Agent sidecar，默认监听 `http://127.0.0.1:17831`。
-2. 用户可先打开 `/admin` 管理控制台，配置默认模型 Profile、API Key、skill 和知识库 Markdown。
-3. 用户在 AutoCAD 中运行 `RD_AI_ASSISTANT_OPEN`，或点击 Ribbon 的 `Agent / AI 助手`。
-4. WPF 打开右侧 Agent 面板，并通过 `/health` 检查本地后端状态。
+1. 用户在 AutoCAD 中运行 `RD_AI_ASSISTANT_OPEN`，或点击 Ribbon 的 `Agent / AI 助手`。
+2. WPF 打开右侧 Agent 面板，并通过 `/health` 检查本地后端状态。
+3. 如果 `http://127.0.0.1:17831` 尚无可用后端，WPF 从项目构建产物 `artifacts/agent/<Configuration>/net8.0/RoadProto.Agent.Host.exe` 自动启动本地 Agent sidecar；如果已有可用后端，则直接复用并不取得关闭所有权。
+4. 用户可打开 `/admin` 管理控制台，配置默认模型 Profile、API Key、skill 和知识库 Markdown。
 5. 用户输入自然语言需求。
 6. 后端优先使用 `AgentPlanner` 识别创建路基模板意图；普通问答可交给管理控制台配置的默认 OpenAI-compatible 模型 Provider。
 7. 若识别出 `cross_section.subgrade_template.create`，WPF 展示工具确认卡片，确认前不执行 CAD 写入；当用户在下一轮只输入“确认”“继续”“执行”等短句时，后端会优先回看最近的用户原始需求，并可从上一条待执行摘要中兜底恢复工具调用，避免模型只生成口头承诺而不触发工具卡片。
@@ -51,6 +51,11 @@ http://127.0.0.1:17831/admin
 9. WPF 发送 `RD_AI_EXECUTE_TOOL_FILE`，由 C++ 工具网关读取请求、校验工具名、参数、插入点和结果路径。
 10. 工具网关复用现有路基模板领域模型、创建服务和 ObjectARX 实体创建能力，生成 `DnSubgradeTemplateEntity`。
 11. 工具网关写回固定结构结果 JSON，包含成功状态、实体 handle、实体类型、错误码或提示信息。
+12. 用户关闭 Agent 面板时，WPF 会关闭本次由面板自动启动的后端进程；如果后端原本由用户手动启动或由其他进程提供，WPF 不会强制结束该进程。
+
+## 输入焦点与中文输入
+
+Agent 面板作为 AutoCAD `PaletteSet` 中的 WPF 控件运行。为避免中文 IME 组合输入被 AutoCAD 命令行抢走，面板使用保持焦点的 `PaletteSet.AddVisual` 重载，并在输入框启用 WPF 输入法与文本组合输入焦点保护。预期结果是中文拼音输入、候选词选择和普通英文输入都停留在 Agent 输入框内。
 
 ## 首版路基模板参数
 
@@ -70,4 +75,4 @@ http://127.0.0.1:17831/admin
 
 - 自动化验证已通过：Agent 后端测试、Agent Host Release 构建和管理控制台浏览器点验；`RoadProto.sln` Release 构建、核心测试和 WPF Release 构建仍按当前分支最终验证结果记录。
 - Core Console 脚本烟测尝试受限于本机脚本加载路径/命令注册验证，未形成可采信的命令级结果文件。
-- 图形界面验证仍需在 AutoCAD 2021 中手工执行：加载 ARX 和托管 DLL，启动 Agent sidecar，打开 `/admin` 配置模型与 Markdown 文档，打开 `RD_AI_ASSISTANT_OPEN`，输入路基模板创建需求，确认工具卡片，并检查 DWG 中生成的 `DnSubgradeTemplateEntity`。
+- 图形界面验证仍需在 AutoCAD 2021 中手工执行：加载 ARX 和托管 DLL，打开 `RD_AI_ASSISTANT_OPEN` 并确认 sidecar 自动启动，输入中文内容确认不再跳入 CAD 命令行，打开 `/admin` 配置模型与 Markdown 文档，输入路基模板创建需求，确认工具卡片，并检查 DWG 中生成的 `DnSubgradeTemplateEntity`；关闭 Agent 面板后确认由面板启动的后端进程随之退出。

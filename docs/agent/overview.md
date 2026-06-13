@@ -29,6 +29,8 @@ Agent 代码、文档和运行期目录的主结构契约见 `docs/architecture/
 
 - `.NET 8` 本地 sidecar 提供 `/health` 和 `/api/chat`。
 - `.NET 8` 本地 sidecar 提供 `/admin` 独立浏览器管理控制台。
+- AutoCAD 右侧 WPF Agent 面板打开时会自动启动本地 sidecar；关闭面板时只关闭本次由面板启动的 sidecar，不结束用户手动启动的现有后端。
+- WPF Agent 输入框启用 Palette 保持焦点和 IME 输入保护，中文输入应停留在 Agent 输入框而不是 AutoCAD 命令行。
 - `AgentPlanner` 优先识别路基模板创建意图，并输出结构化 `toolCall`。
 - 模型 Provider 使用 OpenAI-compatible `/chat/completions`，通过管理控制台的 profile 配置支持 OpenAI、DeepSeek 和 DashScope/阿里百炼/千问等兼容接口。
 - API Key 使用 Windows 当前用户 DPAPI 加密保存到项目根目录 `.roadproto-agent/secrets/`，该目录已通过 `.gitignore` 排除，不写入仓库。

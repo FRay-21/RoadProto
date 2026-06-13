@@ -83,6 +83,7 @@ public sealed class RoadProtoRibbonExtension : IExtensionApplication
 
     public void Terminate()
     {
+        AgentAssistantCommands.StopOwnedBackend();
         ComponentManager.ItemInitialized -= OnComponentItemInitialized;
         DetachProfileVerticalCurveContextMenu();
         DetachDoubleClickHook();

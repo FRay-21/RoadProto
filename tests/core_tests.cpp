@@ -8864,6 +8864,33 @@ void agentToolGatewaySourceContracts()
 
     const auto assistantSource = readTextFileForTests(uiRoot / "AgentAssistantControl.xaml.cs");
     CHECK(assistantSource.find("结果文件：{paths.ResultPath}") != std::string::npos);
+    CHECK(assistantSource.find("InputMethod.SetIsInputMethodEnabled(InputBox, true)") != std::string::npos);
+    CHECK(assistantSource.find("TextCompositionManager.AddPreviewTextInputStartHandler") != std::string::npos);
+    CHECK(assistantSource.find("InputBox.Focus()") != std::string::npos);
+
+    const auto assistantXaml = readTextFileForTests(uiRoot / "AgentAssistantControl.xaml");
+    CHECK(assistantXaml.find("InputMethod.IsInputMethodEnabled=\"True\"") != std::string::npos);
+    CHECK(assistantXaml.find("PreviewKeyDown=\"InputBox_PreviewKeyDown\"") != std::string::npos);
+
+    const auto assistantCommandSource = readTextFileForTests(
+        uiRoot / "AutoCad" / "AgentAssistantCommands.cs");
+    CHECK(assistantCommandSource.find("AddVisual(\"Agent\", agentControl, true)") != std::string::npos);
+    CHECK(assistantCommandSource.find("KeepFocus = true") != std::string::npos);
+    CHECK(assistantCommandSource.find("palette.Focus()") != std::string::npos);
+    CHECK(assistantCommandSource.find("agentControl?.FocusInputBox()") != std::string::npos);
+    CHECK(assistantCommandSource.find("AgentBackendProcess.StartOrAttachAsync()") != std::string::npos);
+    CHECK(assistantCommandSource.find("palette.StateChanged +=") != std::string::npos);
+    CHECK(assistantCommandSource.find("palette.PaletteSetDestroy +=") != std::string::npos);
+    CHECK(assistantCommandSource.find("StopOwnedBackendAndResetPalette()") != std::string::npos);
+    CHECK(assistantCommandSource.find("AgentBackendProcess.StopOwnedProcess()") != std::string::npos);
+
+    const auto backendProcessSource = readTextFileForTests(
+        uiRoot / "Services" / "AgentBackendProcess.cs");
+    CHECK(backendProcessSource.find("RoadProto.Agent.Host.exe") != std::string::npos);
+    CHECK(backendProcessSource.find("new AgentHostLaunchInfo(hostExe, string.Empty, hostDirectory)") != std::string::npos);
+    CHECK(backendProcessSource.find("new AgentHostLaunchInfo(\"dotnet\", Quote(hostDll), hostDirectory)") != std::string::npos);
+    CHECK(backendProcessSource.find("HasOwnedProcess") != std::string::npos);
+    CHECK(backendProcessSource.find("Kill()") != std::string::npos);
 }
 
 } // namespace

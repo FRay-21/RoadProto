@@ -12,6 +12,7 @@
 | 文字标注规格 | 接口预留 | `src/cad_adapter/annotation/TextAnnotationService.h` |
 | 块插入规格 | 接口预留 | `src/cad_adapter/block/BlockInsertService.h` |
 | Agent 工具网关 | V0.1.32 原型，支持受控 Agent 工具 JSON 解析、白名单工具执行、`%TEMP%\RoadProtoAgent\` 结果文件写回和首个自动化路基模板工具 | `docs/reuse/agent_tool_gateway.md` |
+| Agent sidecar 生命周期管理 | V0.1.32 原型，支持 WPF Agent 面板打开时自动启动本地 sidecar，关闭面板或托管插件卸载时只关闭本次由面板启动的后端进程 | `docs/reuse/agent_sidecar_lifecycle.md` |
 | ObjectARX 地形对象提取 | V0.1.6 原型，支持连续点选样例、按同图层同类型扫描模型空间、状态栏进度和按类隐藏源对象 | `src/cad_adapter/objectarx/terrain/ObjectArxTerrainTinCommand.cpp` |
 | 地形构网参数确认窗口 | V0.1.6 历史过渡实现，C++ Win32 对话框，当前原型阶段后续重做需迁移为 WPF | `src/cad_adapter/objectarx/terrain/TerrainTinCreateDialog.*` |
 | 地形 TIN 自定义实体 | V0.1.6 原型，支持 TrueColor 渐变边线高程着色、边界显示、DWG 持久化、RMesh 流转和双击编辑 handle 入口 | `src/cad_adapter/objectarx/terrain/DnTerrainTinEntity.*` |

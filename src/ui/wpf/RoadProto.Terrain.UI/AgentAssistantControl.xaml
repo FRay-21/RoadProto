@@ -76,6 +76,8 @@
                          Padding="10,8"
                          TextWrapping="Wrap"
                          AcceptsReturn="True"
+                         InputMethod.IsInputMethodEnabled="True"
+                         PreviewKeyDown="InputBox_PreviewKeyDown"
                          VerticalScrollBarVisibility="Auto"
                          Foreground="{StaticResource PrimaryTextBrush}"
                          Background="#10141A"

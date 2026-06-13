@@ -4,6 +4,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Input;
 using System.Windows.Media;
 using RoadProto.Terrain.UI.AutoCad;
 using RoadProto.Terrain.UI.Bridge;
@@ -23,7 +24,67 @@ public partial class AgentAssistantControl : UserControl
     public AgentAssistantControl()
     {
         InitializeComponent();
+        InstallInputFocusProtection();
         _ = RefreshHealthAsync();
+    }
+
+    public void RefreshHealthInBackground()
+    {
+        _ = RefreshHealthAsync();
+    }
+
+    public void ShowBackendStatus(string status)
+    {
+        normalStatusText = status;
+        StatusText.Text = status;
+    }
+
+    public void FocusInputBox()
+    {
+        InputBox.Dispatcher.BeginInvoke(new Action(() =>
+        {
+            InputBox.Focus();
+            Keyboard.Focus(InputBox);
+        }));
+    }
+
+    private void InstallInputFocusProtection()
+    {
+        InputMethod.SetIsInputMethodEnabled(InputBox, true);
+        TextCompositionManager.AddPreviewTextInputStartHandler(InputBox, OnInputTextComposition);
+        TextCompositionManager.AddPreviewTextInputUpdateHandler(InputBox, OnInputTextComposition);
+        TextCompositionManager.AddPreviewTextInputHandler(InputBox, OnInputTextComposition);
+        InputBox.GotKeyboardFocus += (_, _) => Keyboard.Focus(InputBox);
+        InputBox.PreviewMouseLeftButtonDown += (_, args) =>
+        {
+            if (InputBox.IsKeyboardFocusWithin)
+            {
+                return;
+            }
+
+            args.Handled = true;
+            InputBox.Focus();
+            Keyboard.Focus(InputBox);
+        };
+        FocusInputBox();
+    }
+
+    private void OnInputTextComposition(object sender, TextCompositionEventArgs args)
+    {
+        if (!InputBox.IsKeyboardFocusWithin)
+        {
+            InputBox.Focus();
+            Keyboard.Focus(InputBox);
+        }
+    }
+
+    private void InputBox_PreviewKeyDown(object sender, KeyEventArgs args)
+    {
+        if (!InputBox.IsKeyboardFocusWithin)
+        {
+            InputBox.Focus();
+            Keyboard.Focus(InputBox);
+        }
     }
 
     private async Task RefreshHealthAsync()

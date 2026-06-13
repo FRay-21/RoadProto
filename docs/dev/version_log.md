@@ -6,6 +6,8 @@
 - 当前为 Agent 原型开发分支记录；`build/RoadProto.Build.props` 尚未切换正式发布版本，Release ARX 文件名仍沿用 `RoadProto_v0.1.31_20260527_SectionDrawingConfig.arx`。
 - 新增 `AI_AGENT` 模块，注册 `RD_AI_EXECUTE_TOOL_FILE` 受控工具网关命令。
 - 新增托管 WPF 命令 `RD_AI_ASSISTANT_OPEN`，可打开或激活 AutoCAD 右侧 Agent 面板，并在 Ribbon 中增加 `Agent / AI 助手` 入口。
+- 修正 AutoCAD 右侧 WPF Agent 面板中文输入焦点问题：Palette 改用保持焦点的 WPF 挂载方式，并对输入框启用 IME/文本组合输入焦点保护，避免中文输入跳入 CAD 命令行。
+- 新增 WPF Agent 面板自动管理本地 sidecar 生命周期：打开 `RD_AI_ASSISTANT_OPEN` 时自动启动 `RoadProto.Agent.Host`，关闭面板或卸载托管插件时关闭本次由面板启动的后端；若已有可用后端则只复用连接，不强制结束外部进程。
 - 新增 `.NET 8` 本地 Agent sidecar，提供 `/health`、`/api/chat` 和 `/admin` 本地管理控制台；`AgentPlanner` 优先识别路基模板创建意图，普通问答可转发到 OpenAI-compatible 模型 Provider。
 - 新增 OpenAI-compatible Provider 配置模板和运行期模型 Profile 管理，支持 OpenAI、DeepSeek、DashScope/阿里百炼/千问等兼容接口；API Key 使用 Windows 当前用户 DPAPI 加密保存到项目根目录 `.roadproto-agent/secrets/`。
 - 新增 `/admin` 本地管理控制台，支持模型 Profile 配置、连接测试、Windows 当前用户加密保存 API Key、Markdown skill 上传和 Markdown 知识库上传。

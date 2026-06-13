@@ -20,7 +20,7 @@ Agent 相关代码和文档的主结构契约见 `docs/architecture/agent_code_s
 - `src/modules/agent`：模块注册、命令元数据和 Ribbon 模型挂接。
 - `src/application/agent`：工具请求解析、顶层字段白名单、请求大小限制、schema 校验和路基模板参数转换。
 - `src/cad_adapter/objectarx/agent`：AutoCAD 插入点点取、实体创建、结果 JSON 写回和结果路径白名单限制。
-- `src/ui/wpf/RoadProto.Terrain.UI`：右侧 Agent 面板、后端 HTTP 客户端、工具确认卡片、受控请求文件生成和 Ribbon 可见入口。
+- `src/ui/wpf/RoadProto.Terrain.UI`：右侧 Agent 面板、后端 HTTP 客户端、自动启动/关闭本地 sidecar、中文 IME 输入焦点保护、工具确认卡片、受控请求文件生成和 Ribbon 可见入口。
 - `src/agent/RoadProto.Agent.Host`：本地 Agent sidecar，提供 `/health`、`/api/chat`、`/admin`、`AgentPlanner`、prompt 上下文组装和 OpenAI-compatible Provider。
 - `src/agent/RoadProto.Agent.Host/Tools`：`AgentPlanner`、`SubgradeTemplateCreatePlanner` 和路基模板局部部件操作解析。
 - `src/agent/RoadProto.Agent.Host/Admin`：管理控制台配置、密钥、Markdown 文档存储和 `/api/admin/*` API。

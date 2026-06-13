@@ -180,6 +180,9 @@ UI   -> 只负责参数收集和展示
 - 设计软件原型 Agent：命令 `RD_AI_ASSISTANT_OPEN`
   - 可通过 AutoCAD 右侧 WPF Agent 面板进行问答、操作咨询和受控工具调用确认。
   - 本地 `.NET 8` Agent sidecar 固定监听 `http://127.0.0.1:17831`，提供 `/health`、`/api/chat` 和独立浏览器管理控制台 `/admin`。
+  - 点击 Ribbon 的 `Agent / AI 助手` 或运行 `RD_AI_ASSISTANT_OPEN` 时，WPF 面板会自动启动本地 Agent sidecar；若端口上已有可用后端则直接复用，不取得关闭所有权。
+  - 关闭 Agent 面板时会自动关闭本次由面板启动的后端进程；手动启动或其他进程已经占用端口的后端不会被 WPF 强制关闭。
+  - Agent 输入框启用 WPF Palette 保持焦点和 IME 输入保护，避免中文输入组合键落入 AutoCAD 命令行。
   - 管理控制台支持模型 Profile 配置、连接测试、Windows 当前用户加密保存 API Key、Markdown skill 上传和 Markdown 知识库上传。
   - 模型 Provider 使用 OpenAI-compatible `/chat/completions`，配置支持 OpenAI、DeepSeek 和 DashScope/阿里百炼/千问等兼容接口；`appsettings` 中的 profile 仍可作为首次启动 seed。
   - 首个自动化工具为 `cross_section.subgrade_template.create`，通过 `RD_AI_EXECUTE_TOOL_FILE` 在 C++ 白名单工具网关中创建 `DnSubgradeTemplateEntity` 路基模板实体。
@@ -232,7 +235,7 @@ dotnet build src\agent\RoadProto.Agent.Host\RoadProto.Agent.Host.csproj -c Relea
 dotnet run --project src\agent\RoadProto.Agent.Host\RoadProto.Agent.Host.csproj
 ```
 
-后端默认监听 `http://127.0.0.1:17831`。启动后端后可打开本地管理控制台：
+后端默认监听 `http://127.0.0.1:17831`。在 AutoCAD 中打开 Agent 面板会自动启动后端；如需单独配置或调试，也可以手动启动后端后打开本地管理控制台：
 
 ```text
 http://127.0.0.1:17831/admin
